@@ -26,10 +26,7 @@ OpenQASM provides a universal abstraction, enabling theoretical quantum algorith
 
 ## Example
 
-Consider the creation of a Bell state, which demonstrates entanglement between two qubits:
-$$
-\ket{\Phi^+} = \frac{1}{\sqrt{2}}\ket{00} + \frac{1}{\sqrt{2}}\ket{11}
-$$
+Consider the creation of a Bell state, which demonstrates entanglement between two qubits: $\ket{\Phi^+} = \frac{1}{\sqrt{2}}\ket{00} + \frac{1}{\sqrt{2}}\ket{11}$.
 To generate this state, apply a Hadamard gate ($H$) to `qubit 0`, followed by a controlled-NOT gate ($\text{CNOT}$) with `qubit 0` as the control and `qubit 1` as the target, performing $\text{CNOT}_{(0, 1)} (H \otimes I) \ket{00}$ on the circuit.
 A sample **qRust** program and its corresponding OpenQASM output are shown below.
 
