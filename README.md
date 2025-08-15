@@ -19,7 +19,7 @@ Rust offers safe memory management, high performance, and zero-cost abstractions
 
 OpenQASM, managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
 Quantum hardware architectures vary, necessitating the compilation of theoretical circuits into machine-specific instructions. 
-For instance, Hadamard gates $H$ are converted as $R_Z(\frac{\pi}{2}) \cdot \sqrt{X} \cdot R_Z(\frac{\pi}{2})$ in IBM Eagle r3 architecture.
+For instance, Hadamard gates $H$ are converted as $(R_Z(\frac{\pi}{2})) (\sqrt{X}) (R_Z(\frac{\pi}{2}))$ in IBM Eagle r3 architecture.
 OpenQASM provides a universal abstraction, enabling theoretical quantum algorithms to be compiled for diverse hardware.
 **qRust** leverages the strengths of both Rust and OpenQASM to facilitate efficient quantum programming.
 
@@ -66,7 +66,7 @@ c = measure q;
 We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
 Please use the [Issues](https://github.com/singlerr/qRust/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/qRust/pulls) tab.
 
-
 ## License
 
 MIT License.
+
