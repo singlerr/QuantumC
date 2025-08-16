@@ -10,7 +10,6 @@ While Python’s straightforward syntax has made it the language of choice for m
 Rust’s lightweight yet rigorous nature, combined with its supportive community, makes it an excellent candidate for circuit construction and classical post-processing.
 The **qRust** project aims to demonstrate Rust’s suitability as a quantum programming language.
 
-
 ### Rust and OpenQASM
 
 Python is widely used for application development due to its ease of learning, but its runtime performance can be dawdling, especially for iterative tesks.
@@ -51,6 +50,7 @@ cnot q[0], q[1];
 c = measure q;
 ```
 
+
 ## Quick Start
 
 *Documentation for setup and usage will be provided as the project evolves.*
@@ -58,7 +58,7 @@ c = measure q;
 
 ## Directory Structure
 
-- [`specs/`](./specs): Contains the specifications for the **qRust** language.
+* [`specs/`](./specs): Contains the specifications for the **qRust** language.
 
 
 ## Contribution
@@ -66,7 +66,7 @@ c = measure q;
 We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
 Please use the [Issues](https://github.com/singlerr/qRust/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/qRust/pulls) tab.
 
+
 ## License
 
 MIT License.
-
