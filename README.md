@@ -14,11 +14,11 @@ The **qRust** project aims to demonstrate Rust’s suitability as a quantum prog
 
 Python is widely used for application development due to its ease of learning, but its runtime performance can be dawdling, especially for iterative tesks.
 As quantum hardware advances, the volume of classical data to process will increase, making performance a critical factor.
-Rust offers safe memory management, high performance, and zero-cost abstractions, promising users to both construct quantum circuits and process results within a single language.
+[Rust](https://www.rust-lang.org) offers safe memory management, high performance, and zero-cost abstractions, promising users to both construct quantum circuits and process results within a single language.
 
-OpenQASM, managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
+[OpenQASM](https://openqasm.com), managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
 Quantum hardware architectures vary, necessitating the compilation of theoretical circuits into machine-specific instructions. 
-For instance, Hadamard gates $H$ are converted as $(R_Z(\frac{\pi}{2})) (\sqrt{X}) (R_Z(\frac{\pi}{2}))$ in IBM Eagle r3 architecture.
+For instance, Hadamard gates $H$ are converted as $(R_Z(\pi/2)) (\sqrt{X}) (R_Z(\pi/2))$ in IBM Eagle r3 architecture.
 OpenQASM provides a universal abstraction, enabling theoretical quantum algorithms to be compiled for diverse hardware.
 **qRust** leverages the strengths of both Rust and OpenQASM to facilitate efficient quantum programming.
 
