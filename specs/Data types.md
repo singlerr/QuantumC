@@ -55,6 +55,9 @@ All data types have same structure as Rust does except for the types for Quantum
 - Closures
   - A closure expression produces a closure value with a unique, anonymous type that cannot be written out. A closure type is approximately equivalent to a struct which contains the captured value
 
+TODO
+===
+
 ## Pointer types
 - References
 - Raw pointers
