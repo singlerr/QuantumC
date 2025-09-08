@@ -1,5 +1,9 @@
 CC=cc
 LDFLAGS=-lfl -lm
+CFLAGS=
+ifeq ($(debug), 1)
+CFLAGS = -g
+endif
 ifeq ($(shell uname),Darwin)
 	LDFLAGS=-ll
 endif
@@ -10,31 +14,31 @@ BISON ?= bison
 all: lexer parser-lalr
 
 lexer: lexer_main.o lexer.o tokens.o
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 lexer_main.o: lexer_main.c
-	$(CC) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 tokens.o: tokens.c
-	$(CC) -std=c99 -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
 lex.yy.c: lexer.l
 	$(FLEX) $<
 
 lexer.o: lex.yy.c tokens.h
-	$(CC) -include tokens.h -c -o $@ $<
+	$(CC) $(CFLAGS) -include tokens.h -c -o $@ $<
 
 lexer-lalr.o: lex.yy.c parser-lalr.tab.h
-	$(CC) -include parser-lalr.tab.h -c -o $@ $<
+	$(CC) $(CFLAGS) -include parser-lalr.tab.h -c -o $@ $<
 
 parser-lalr.o: parser-lalr.tab.c
-	$(CC) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 parser-lalr-main.o: parser-lalr-main.c
-	$(CC) -std=c99 -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
 parser-lalr: parser-lalr.o parser-lalr-main.o lexer-lalr.o
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 parser-lalr.tab.c parser-lalr.tab.h: parser-lalr.y
 	$(BISON) $< -d -p rs -v --report=all --warnings=error=all

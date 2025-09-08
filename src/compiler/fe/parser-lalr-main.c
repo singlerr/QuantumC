@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern FILE *yyin;
 extern int yylex();
 extern int rsparse();
 
@@ -192,14 +193,23 @@ void print_node(struct node *n, int depth)
 
 int main(int argc, char **argv)
 {
-  if (argc == 2 && strcmp(argv[1], "-v") == 0)
+  if (argc < 2)
   {
-    verbose = 1;
+    fprintf(stderr, "Usage: %s <file>\n", argv[0]);
+    return 0;
   }
-  else
+
+  FILE *src;
+
+  if ((src = fopen(argv[1], "r")) == NULL)
   {
-    verbose = 0;
+    fprintf(stderr, "Failed to open file: %s\n", argv[1]);
+    return 0;
   }
+  verbose = 1;
+
+  yyin = src;
+
   int ret = 0;
   struct node *tmp;
   memset(pushback, '\0', PUSHBACK_LEN);
