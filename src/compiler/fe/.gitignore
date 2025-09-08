@@ -1,0 +1,14 @@
+*~
+*.o
+lexer
+parser
+rlex
+lex.yy.c
+ll/parser-ll.c
+ll/parser-ll.h
+parser-lalr
+parser-lalr.output
+parser-lalr.tab.c
+parser-lalr.tab.h
+rparse
+
