@@ -10,11 +10,13 @@ extern int rsparse();
 
 static char pushback[PUSHBACK_LEN];
 static int verbose;
-
-void print(const char* format, ...) {
+extern char *strdup(const char *);
+void print(const char *format, ...)
+{
   va_list args;
   va_start(args, format);
-  if (verbose) {
+  if (verbose)
+  {
     vprintf(format, args);
   }
   va_end(args);
@@ -23,10 +25,14 @@ void print(const char* format, ...) {
 // If there is a non-null char at the head of the pushback queue,
 // dequeue it and shift the rest of the queue forwards. Otherwise,
 // return the token from calling yylex.
-int rslex() {
-  if (pushback[0] == '\0') {
+int rslex()
+{
+  if (pushback[0] == '\0')
+  {
     return yylex();
-  } else {
+  }
+  else
+  {
     char c = pushback[0];
     memmove(pushback, pushback + 1, PUSHBACK_LEN - 1);
     pushback[PUSHBACK_LEN - 1] = '\0';
@@ -35,9 +41,12 @@ int rslex() {
 }
 
 // note: this does nothing if the pushback queue is full
-void push_back(char c) {
-  for (int i = 0; i < PUSHBACK_LEN; ++i) {
-    if (pushback[i] == '\0') {
+void push_back(char c)
+{
+  for (int i = 0; i < PUSHBACK_LEN; ++i)
+  {
+    if (pushback[i] == '\0')
+    {
       pushback[i] = c;
       break;
     }
@@ -46,7 +55,8 @@ void push_back(char c) {
 
 extern int rsdebug;
 
-struct node {
+struct node
+{
   struct node *next;
   struct node *prev;
   int own_string;
@@ -58,7 +68,8 @@ struct node {
 struct node *nodes = NULL;
 int n_nodes;
 
-struct node *mk_node(char const *name, int n, ...) {
+struct node *mk_node(char const *name, int n, ...)
+{
   va_list ap;
   int i = 0;
   unsigned sz = sizeof(struct node) + (n * sizeof(struct node *));
@@ -69,7 +80,8 @@ struct node *mk_node(char const *name, int n, ...) {
   nd->own_string = 0;
   nd->prev = NULL;
   nd->next = nodes;
-  if (nodes) {
+  if (nodes)
+  {
     nodes->prev = nd;
   }
   nodes = nd;
@@ -78,7 +90,8 @@ struct node *mk_node(char const *name, int n, ...) {
   nd->n_elems = n;
 
   va_start(ap, n);
-  while (i < n) {
+  while (i < n)
+  {
     nn = va_arg(ap, struct node *);
     print("#   arg[%d]: %p\n", i, nn);
     print("#            (%s ...)\n", nn->name);
@@ -89,17 +102,20 @@ struct node *mk_node(char const *name, int n, ...) {
   return nd;
 }
 
-struct node *mk_atom(char *name) {
+struct node *mk_atom(char *name)
+{
   struct node *nd = mk_node((char const *)strdup(name), 0);
   nd->own_string = 1;
   return nd;
 }
 
-struct node *mk_none() {
+struct node *mk_none()
+{
   return mk_atom("<none>");
 }
 
-struct node *ext_node(struct node *nd, int n, ...) {
+struct node *ext_node(struct node *nd, int n, ...)
+{
   va_list ap;
   int i = 0, c = nd->n_elems + n;
   unsigned sz = sizeof(struct node) + (c * sizeof(struct node *));
@@ -108,10 +124,12 @@ struct node *ext_node(struct node *nd, int n, ...) {
   print("# Extending %d-ary node by %d nodes: %s = %p",
         nd->n_elems, c, nd->name, nd);
 
-  if (nd->next) {
+  if (nd->next)
+  {
     nd->next->prev = nd->prev;
   }
-  if (nd->prev) {
+  if (nd->prev)
+  {
     nd->prev->next = nd->next;
   }
   nd = realloc(nd, sz);
@@ -123,7 +141,8 @@ struct node *ext_node(struct node *nd, int n, ...) {
   print(" ==> %p\n", nd);
 
   va_start(ap, n);
-  while (i < n) {
+  while (i < n)
+  {
     nn = va_arg(ap, struct node *);
     print("#   arg[%d]: %p\n", i, nn);
     print("#            (%s ...)\n", nn->name);
@@ -136,24 +155,34 @@ struct node *ext_node(struct node *nd, int n, ...) {
 
 int const indent_step = 4;
 
-void print_indent(int depth) {
-  while (depth) {
-    if (depth-- % indent_step == 0) {
+void print_indent(int depth)
+{
+  while (depth)
+  {
+    if (depth-- % indent_step == 0)
+    {
       print("|");
-    } else {
+    }
+    else
+    {
       print(" ");
     }
   }
 }
 
-void print_node(struct node *n, int depth) {
+void print_node(struct node *n, int depth)
+{
   int i = 0;
   print_indent(depth);
-  if (n->n_elems == 0) {
+  if (n->n_elems == 0)
+  {
     print("%s\n", n->name);
-  } else {
+  }
+  else
+  {
     print("(%s\n", n->name);
-    for (i = 0; i < n->n_elems; ++i) {
+    for (i = 0; i < n->n_elems; ++i)
+    {
       print_node(n->elems[i], depth + indent_step);
     }
     print_indent(depth);
@@ -161,10 +190,14 @@ void print_node(struct node *n, int depth) {
   }
 }
 
-int main(int argc, char **argv) {
-  if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+int main(int argc, char **argv)
+{
+  if (argc == 2 && strcmp(argv[1], "-v") == 0)
+  {
     verbose = 1;
-  } else {
+  }
+  else
+  {
     verbose = 0;
   }
   int ret = 0;
@@ -173,21 +206,24 @@ int main(int argc, char **argv) {
   /* rsdebug = 1; */
   ret = rsparse();
   print("--- PARSE COMPLETE: ret:%d, n_nodes:%d ---\n", ret, n_nodes);
-  if (nodes) {
+  if (nodes)
+  {
     print_node(nodes, 0);
   }
-  while (nodes) {
+  while (nodes)
+  {
     tmp = nodes;
     nodes = tmp->next;
-    if (tmp->own_string) {
-      free((void*)tmp->name);
+    if (tmp->own_string)
+    {
+      free((void *)tmp->name);
     }
     free(tmp);
   }
   return ret;
 }
 
-void rserror(char const *s) {
-  fprintf (stderr, "%s\n", s);
+void rserror(char const *s)
+{
+  fprintf(stderr, "%s\n", s);
 }
-
