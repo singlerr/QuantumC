@@ -1,8 +1,8 @@
-# qRust
+# QuantumC
 
 ## Project Description
 
-**qRust** is a Rust-inspired programming language designed for quantum computing, accompanied by a compiler that translates qRust code to OpenQASM.
+**QuantumC** is a C99 compatible programming language designed for quantum computing, accompanied by a compiler that translates C code to OpenQASM.
 As the [International Year of Quantum Science and Technology](https://quantum2025.org) unfolds, quantum computing and quantum information have seen remarkable breakthroughs.
 Quantum computers are now more accessible than ever, enabling individuals with programming experience to execute quantum circuits on real quantum hardware and obtain results.
 
