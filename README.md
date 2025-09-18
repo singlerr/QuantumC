@@ -8,19 +8,18 @@ Quantum computers are now more accessible than ever, enabling individuals with p
 
 While Python’s straightforward syntax has made it the language of choice for many quantum computing tools (e.g., [Qiskit](https://www.ibm.com/quantum/qiskit) and [Cirq](https://quantumai.google/cirq)), optimal quantum speedup requires efficient post-processing of quantum data.
 Rust’s lightweight yet rigorous nature, combined with its supportive community, makes it an excellent candidate for circuit construction and classical post-processing.
-The **qRust** project aims to demonstrate Rust’s suitability as a quantum programming language.
+The **QuantumC** project aims to demonstrate C's clarity as a quantum programming language.
 
-### Rust and OpenQASM
+### C and OpenQASM
 
 Python is widely used for application development due to its ease of learning, but its runtime performance can be dawdling, especially for iterative tesks.
 As quantum hardware advances, the volume of classical data to process will increase, making performance a critical factor.
-[Rust](https://www.rust-lang.org) offers safe memory management, high performance, and zero-cost abstractions, promising users to both construct quantum circuits and process results within a single language.
 
 [OpenQASM](https://openqasm.com), managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
 Quantum hardware architectures vary, necessitating the compilation of theoretical circuits into machine-specific instructions. 
 For instance, Hadamard gates $H$ are converted as $(R_Z(\pi/2)) (\sqrt{X}) (R_Z(\pi/2))$ in IBM Eagle r3 architecture.
 OpenQASM provides a universal abstraction, enabling theoretical quantum algorithms to be compiled for diverse hardware.
-**qRust** leverages the strengths of both Rust and OpenQASM to facilitate efficient quantum programming.
+**QuantumC** leverages the strengths of both C and OpenQASM to facilitate efficient quantum programming.
 
 
 ## Example
