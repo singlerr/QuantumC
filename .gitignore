@@ -3,6 +3,11 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,linux,c,rust
 
 *.bad
+lex_lexer.c
+lex_lexer.h
+parser.tab.c
+yacc_parser.h
+yacc_parser.c
 
 ### C ###
 # Prerequisites

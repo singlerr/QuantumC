@@ -1,26 +1,9 @@
 %{
-
 #include "ast.h"
-
-struct ast_node* new_ast_node(int code, ...){
-	struct ast_node *temp;
-	int i;
-	int n = 0;
-	va_list vl;
-	va_start(vl, code);
-	while(1){
-		temp = va_arg(vl, struct ast_node*);
-		if(temp)
-			n++;
-		else
-			break;
-	}
-
-	va_end(vl);
-	struct ast_node *g = (struct ast_node*) 
-}
-
 %}
+
+
+%define parse.trace
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
@@ -33,9 +16,84 @@ struct ast_node* new_ast_node(int code, ...){
 %token STRUCT UNION ENUM ELLIPSIS
 
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%start program
 
-%start translation_unit
+%parse-param { struct ast_node** root }
+%define api.value.type union
+
+%type <struct ast_node *> program
+%type <struct ast_node *> primary_expression
+%type <struct ast_node *> postfix_expression
+%type <struct ast_node *> argument_expression_list
+%type <struct ast_node *> unary_expression
+%type <struct ast_node *> unary_operator
+%type <struct ast_node *> cast_expression
+%type <struct ast_node *> multiplicative_expression
+%type <struct ast_node *> additive_expression
+%type <struct ast_node *> shift_expression
+%type <struct ast_node *> relational_expression
+%type <struct ast_node *> equality_expression
+%type <struct ast_node *> and_expression
+%type <struct ast_node *> exclusive_or_expression
+%type <struct ast_node *> inclusive_or_expression
+%type <struct ast_node *> logical_and_expression
+%type <struct ast_node *> logical_or_expression
+%type <struct ast_node *> conditional_expression
+%type <struct ast_node *> assignment_expression
+%type <struct ast_node *> assignment_operator
+%type <struct ast_node *> expression
+%type <struct ast_node *> constant_expression
+%type <struct ast_node *> declaration
+%type <struct ast_node *> declaration_specifiers
+%type <struct ast_node *> init_declarator_list
+%type <struct ast_node *> init_declarator
+%type <struct ast_node *> storage_class_specifier
+%type <struct ast_node *> type_specifier
+%type <struct ast_node *> struct_or_union_specifier
+%type <struct ast_node *> struct_or_union
+%type <struct ast_node *> struct_declaration_list
+%type <struct ast_node *> struct_declaration
+%type <struct ast_node *> specifier_qualifier_list
+%type <struct ast_node *> struct_declarator_list
+%type <struct ast_node *> struct_declarator
+%type <struct ast_node *> enum_specifier
+%type <struct ast_node *> enumerator_list
+%type <struct ast_node *> enumerator
+%type <struct ast_node *> type_qualifier
+%type <struct ast_node *> function_specifier
+%type <struct ast_node *> declarator
+%type <struct ast_node *> direct_declarator
+%type <struct ast_node *> pointer
+%type <struct ast_node *> type_qualifier_list
+%type <struct ast_node *> parameter_type_list
+%type <struct ast_node *> parameter_list
+%type <struct ast_node *> parameter_declaration
+%type <struct ast_node *> identifier_list
+%type <struct ast_node *> type_name
+%type <struct ast_node *> abstract_declarator
+%type <struct ast_node *> direct_abstract_declarator
+%type <struct ast_node *> initializer
+%type <struct ast_node *> initializer_list
+%type <struct ast_node *> designation
+%type <struct ast_node *> designator_list
+%type <struct ast_node *> designator
+%type <struct ast_node *> statement
+%type <struct ast_node *> labeled_statement
+%type <struct ast_node *> compound_statement
+%type <struct ast_node *> block_item_list
+%type <struct ast_node *> block_item
+%type <struct ast_node *> expression_statement
+%type <struct ast_node *> selection_statement
+%type <struct ast_node *> iteration_statement
+%type <struct ast_node *> jump_statement
+%type <struct ast_node *> translation_unit
+%type <struct ast_node *> external_declaration
+%type <struct ast_node *> function_definition
+%type <struct ast_node *> declaration_list
+
 %%
+
+program: translation_unit { *root = $1; };
 
 primary_expression
 	: IDENTIFIER
@@ -177,55 +235,55 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	: declaration_specifiers ';' { $$ = new_ast_node(DECLARATION_SPECIFIERS, $1, 0); }
+	| declaration_specifiers init_declarator_list ';' { $$ = new_ast_node(DECLARATION_SPECIFIERS, $1, $2, 0); }
 	;
 
 declaration_specifiers
-	: storage_class_specifier
-	| storage_class_specifier declaration_specifiers
-	| type_specifier
-	| type_specifier declaration_specifiers
-	| type_qualifier
-	| type_qualifier declaration_specifiers
-	| function_specifier
-	| function_specifier declaration_specifiers
+	: storage_class_specifier { $$ = new_ast_node(STORAGE_CLASS_SPECIFIER, $1, 0); }
+	| storage_class_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
+	| type_specifier { $$ = new_ast_node(TYPE_SPECIFIER, $1, 0); }
+	| type_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
+	| type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1), 0; }
+	| type_qualifier declaration_specifiers { append_child($1, $2); $$ = $2; }
+	| function_specifier { $$ = new_ast_node(FUNCTION_SPECIFIER, $1, 0); }
+	| function_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
 	;
 
 init_declarator_list
-	: init_declarator
-	| init_declarator_list ',' init_declarator
+	: init_declarator { $$ = $1; }
+	| init_declarator_list ',' init_declarator { append_child($3, $1); $$ = $1; }
 	;
 
 init_declarator
-	: declarator
-	| declarator '=' initializer
+	: declarator { $$ = new_ast_node(DECLARATOR, $1, 0); }
+	| declarator '=' initializer { $$ = new_ast_node(DECLARATOR, $1, $3, 0); }
 	;
 
 storage_class_specifier
-	: TYPEDEF
-	| EXTERN
-	| STATIC
-	| AUTO
-	| REGISTER
+	: TYPEDEF { $$ = new_ast_node(TYPEDEF, 0); }
+	| EXTERN { $$ = new_ast_node(EXTERN, 0); }
+	| STATIC { $$ = new_ast_node(STATIC, 0); }
+	| AUTO { $$ = new_ast_node(AUTO, 0); }
+	| REGISTER { $$ = new_ast_node(REGISTER, 0); }
 	;
 
 type_specifier
-	: VOID
-	| CHAR
-	| SHORT
-	| INT
-	| LONG
-	| FLOAT
-	| DOUBLE
-	| SIGNED
-	| UNSIGNED
-	| BOOL
-	| COMPLEX
-	| IMAGINARY
-	| struct_or_union_specifier
-	| enum_specifier
-	| TYPE_NAME
+	: VOID { $$ = new_ast_node(VOID, 0); }
+	| CHAR { $$ = new_ast_node(CHAR, 0); }
+	| SHORT { $$ = new_ast_node(SHORT, 0); }
+	| INT { $$ = new_ast_node(INT, 0); }
+	| LONG { $$ = new_ast_node(LONG, 0); }
+	| FLOAT { $$ = new_ast_node(FLOAT, 0); }
+	| DOUBLE { $$ = new_ast_node(DOUBLE, 0); }
+	| SIGNED { $$ = new_ast_node(SIGNED, 0); }
+	| UNSIGNED { $$ = new_ast_node(UNSIGNED, 0); }
+	| BOOL { $$ = new_ast_node(BOOL, 0); }
+	| COMPLEX { $$ = new_ast_node(COMPLEX, 0); }
+	| IMAGINARY { $$ = new_ast_node(IMAGINARY, 0); }
+	| struct_or_union_specifier { $$ = $1; }
+	| enum_specifier { $$ = $1; }
+	| TYPE_NAME { $$ = new_ast_node(TYPE_NAME, 0); }
 	;
 
 struct_or_union_specifier
@@ -461,23 +519,23 @@ jump_statement
 	;
 
 translation_unit
-	: external_declaration
-	| translation_unit external_declaration
+	: external_declaration { $$ = $1; }
+	| translation_unit external_declaration { append_child($1, $2); $$ = $2; }
 	;
 
 external_declaration
-	: function_definition
-	| declaration
+	: function_definition { $$ = $1; }
+	| declaration { $$ = $1; }
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
+	: declaration_specifiers declarator declaration_list compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, $4, 0); }
+	| declaration_specifiers declarator compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, 0); }
 	;
 
 declaration_list
-	: declaration
-	| declaration_list declaration
+	: declaration { $$ = $1; }
+	| declaration_list declaration { append_child($1, $2); $$ = $2; }
 	;
 
 
