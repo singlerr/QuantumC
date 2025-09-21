@@ -1,5 +1,11 @@
 %{
 #include "ast.h"
+#include <string.h>
+void setstr(struct ast_node* n, const char* str){
+	int len = strlen(str);
+	n->data.str = (const char*) malloc(sizeof(char) * (len + 1));
+	strcpy(n->data.str, str);
+}
 %}
 
 
@@ -283,107 +289,107 @@ type_specifier
 	| IMAGINARY { $$ = new_ast_node(IMAGINARY, 0); }
 	| struct_or_union_specifier { $$ = $1; }
 	| enum_specifier { $$ = $1; }
-	| TYPE_NAME { $$ = new_ast_node(TYPE_NAME, 0); }
+	| TYPE_NAME { $$ = new_ast_node(TYPE_NAME, 0); setstar($$, yytext); }
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'
-	| struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER
+	: struct_or_union IDENTIFIER '{' struct_declaration_list '}' { $$ = new_ast_node($1->code, $4, 0); setstar($$, yytext); }
+	| struct_or_union '{' struct_declaration_list '}' { $$ = new_ast_node($1->code, $3, 0); }
+	| struct_or_union IDENTIFIER { $$ = new_ast_node($1->code, 0); setstar($$, yytext); }
 	;
 
 struct_or_union
-	: STRUCT
-	| UNION
+	: STRUCT { $$ = new_ast_node(STRUCT, 0); }
+	| UNION { $$ = new_ast_node(UNION, 0); }
 	;
 
 struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
+	: struct_declaration { $$ = $1; }
+	| struct_declaration_list struct_declaration { append_child($2, $1); $$ = $1; }
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';'
+	: specifier_qualifier_list struct_declarator_list ';' { $$ = new_ast_node(STRUCT_DECLARATION, $1, $2, 0); }
 	;
 
 specifier_qualifier_list
-	: type_specifier specifier_qualifier_list
-	| type_specifier
-	| type_qualifier specifier_qualifier_list
-	| type_qualifier
+	: type_specifier specifier_qualifier_list { append_child($1, $2); $$ = $2; }
+	| type_specifier { $$ = new_ast_node(TYPE_SPECIFIER, $1, 0); }
+	| type_qualifier specifier_qualifier_list { append_child($1, $2); $$ = $2; }
+	| type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1, 0); }
 	;
 
 struct_declarator_list
-	: struct_declarator
-	| struct_declarator_list ',' struct_declarator
+	: struct_declarator { $$ = new_ast_node(STRUCT_DECLARATOR, $1, 0); }
+	| struct_declarator_list ',' struct_declarator { append_child($3, $1); $$ = $1; }
 	;
 
 struct_declarator
-	: declarator
-	| ':' constant_expression
-	| declarator ':' constant_expression
+	: declarator { $$ = $1; }
+	| ':' constant_expression { $$ = $2; }
+	| declarator ':' constant_expression { append_child($1, $3); $$ = $3; }
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER
+	: ENUM '{' enumerator_list '}' { $$ = new_ast_node(ENUM_SPECIFIER, $3, 0); }
+	| ENUM IDENTIFIER '{' enumerator_list '}' { $$ = new_ast_node(ENUM_SPECIFIER, $4, 0); setstr($$, yytext); }
+	| ENUM '{' enumerator_list ',' '}' { $$ = new_ast_node(ENUM_SPECIFIER, $3, 0); setstr($$, yytext); }
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}' { $$ = new_ast_node(ENUM_SPECIFIER, $4, 0); setstr($$, yytext); }
+	| ENUM IDENTIFIER { $$ = new_ast_node(ENUM_SPECIFIER, 0); setstr($$, yytext); }
 	;
 
 enumerator_list
-	: enumerator
-	| enumerator_list ',' enumerator
+	: enumerator { $$ = $1; }
+	| enumerator_list ',' enumerator { append_child($3, $1); $$ = $1; }
 	;
 
 enumerator
-	: IDENTIFIER
-	| IDENTIFIER '=' constant_expression
+	: IDENTIFIER { $$ = new_ast_node(ENUMERATOR, 0); setstr($$, yytext); }
+	| IDENTIFIER '=' constant_expression { $$ = new_ast_node(ENUMERATOR, $3, 0); setstr($$, yytext); }
 	;
 
 type_qualifier
-	: CONST
-	| RESTRICT
-	| VOLATILE
+	: CONST { $$ = new_ast_node(CONST, 0); }
+	| RESTRICT { $$ = new_ast_node(RESTRICT, 0); } 
+	| VOLATILE { $$ = new_ast_node(VOLATILE, 0); }
 	;
 
 function_specifier
-	: INLINE
+	: INLINE { $$ = new_ast_node(INLINE, 0); }
 	;
 
 declarator
-	: pointer direct_declarator
-	| direct_declarator
+	: pointer direct_declarator { $$ = new_ast_node(DECLARATOR, $1, $2, 0); }
+	| direct_declarator { $$ = new_ast_node(DELCARATOR, $1, 0); }
 	;
 
 
 direct_declarator
-	: IDENTIFIER
-	| '(' declarator ')'
-	| direct_declarator '[' type_qualifier_list assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list ']'
-	| direct_declarator '[' assignment_expression ']'
-	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list '*' ']'
-	| direct_declarator '[' '*' ']'
-	| direct_declarator '[' ']'
-	| direct_declarator '(' parameter_type_list ')'
-	| direct_declarator '(' identifier_list ')'
-	| direct_declarator '(' ')'
+	: IDENTIFIER { $$ = new_ast_node(DIRECT_DECLARATOR, 0); setstr($$, yytext); }
+	| '(' declarator ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
+	| direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, 0); }
+	| direct_declarator '[' type_qualifier_list ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
+	| direct_declarator '[' assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
+	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, $5, 0); }
+	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, $5, 0); }
+	| direct_declarator '[' type_qualifier_list '*' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
+	| direct_declarator '[' '*' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
+	| direct_declarator '[' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
+	| direct_declarator '(' parameter_type_list ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
+	| direct_declarator '(' identifier_list ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
+	| direct_declarator '(' ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
 	;
 
 pointer
-	: '*'
-	| '*' type_qualifier_list
-	| '*' pointer
-	| '*' type_qualifier_list pointer
+	: '*' { $$ = new_ast_node(POINTER, 0); }
+	| '*' type_qualifier_list { $$ = new_ast_node(POINTER, $2, 0); }
+	| '*' pointer { $$ = new_ast_node(POINTER, $2, 0); }
+	| '*' type_qualifier_list pointer { $$ = new_ast_node(POINTER, $2, $3, 0); }
 	;
 
 type_qualifier_list
-	: type_qualifier
-	| type_qualifier_list type_qualifier
+	: type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1, 0); }
+	| type_qualifier_list type_qualifier { append_child($2, $1); $$ = $1; }
 	;
 
 
