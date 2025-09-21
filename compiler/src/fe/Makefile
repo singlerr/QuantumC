@@ -1,4 +1,4 @@
-OBJS = ast.o parser.o lexer.o fe.o
+OBJS = c.parser.o c.lexer.o fe.o
 CC = gcc
 CFLAGS = -g -Wall
 LEX = flex
@@ -12,16 +12,18 @@ fe: $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-yacc_parser.c: parser.y
-	$(YACC) --defines=yacc_parser.h $< -o $@
+c.parser.c: parser.y
+	$(YACC) --defines=c.parser.h $< -o $@
 
-lex_lexer.c: scanner.l
-	$(LEX) --header-file=lex_lexer.h -o $@ $<
-ast.o: ast.h ast.c
-parser.o : lexer.o ast.o yacc_parser.c yacc_parser.h
-lexer.o: lex_lexer.c yacc_parser.h lex_lexer.h
+c.lexer.c: scanner.l
+	$(LEX) --header-file=c.lexer.h -o $@ $<
+
+c.parser.o : ast.h c.lexer.c c.parser.c
+c.lexer.o: c.parser.c ast.h
+
 clean:
-	@-rm -f yacc_parser.c
-	@-rm -f lex_lexer.c
-	@-rm -f parser.tab.c
+	@-rm -f c.parser.c
+	@-rm -f c.parser.h
+	@-rm -f c.lexer.c
+	@-rm -f c.lexer.h
 	@-rm -f *.o

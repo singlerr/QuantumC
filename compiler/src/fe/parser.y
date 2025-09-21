@@ -1,14 +1,106 @@
 %{
 #include "ast.h"
+#include <stdlib.h> // For free()
 #include <string.h>
-void setstr(struct ast_node* n, const char* str){
-	int len = strlen(str);
-	n->data.str = (const char*) malloc(sizeof(char) * (len + 1));
-	strcpy(n->data.str, str);
+#include <stdarg.h>
+
+struct ast_node *new_ast_node(int code, ...)
+{
+    struct ast_node *temp;
+    int i;
+    int n = 0;
+    va_list vl;
+    va_start(vl, code);
+    while (1)
+    {
+        temp = va_arg(vl, struct ast_node *);
+        if (temp)
+            n++;
+        else
+            break;
+    }
+    va_end(vl);
+
+    struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
+
+    va_start(vl, code);
+    n = 0;
+
+    while (1)
+    {
+        temp = va_arg(vl, struct ast_node *);
+        if (temp)
+        {
+            children[n++] = temp;
+        }
+    }
+
+    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
+    g->children = children;
+    g->code = code;
+    g->child_count = n;
+
+    return g;
 }
+
+struct ast_node *new_ast_node_name(int code, const char *name, ...)
+{
+
+    struct ast_node *temp;
+    int i;
+    int n = 0;
+    va_list vl;
+    va_start(vl, name);
+    while (1)
+    {
+        temp = va_arg(vl, struct ast_node *);
+        if (temp)
+            n++;
+        else
+            break;
+    }
+    va_end(vl);
+
+    struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
+
+    va_start(vl, name);
+    n = 0;
+
+    while (1)
+    {
+        temp = va_arg(vl, struct ast_node *);
+        if (temp)
+        {
+            children[n++] = temp;
+        }
+    }
+
+    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
+    g->children = children;
+    g->code = code;
+    g->child_count = n;
+
+    g->data.str = strdup(name);
+    return g;
+}
+
+void append_child(struct ast_node *node, const struct ast_node *child)
+{
+    int n = node->child_count + 1;
+    node->children = realloc(node->children, sizeof(struct ast_node *) * n);
+    node->children[node->child_count] = child;
+    node->child_count = n;
+}
+
+struct ast_node* empty_node(){
+	return new_ast_node(EMPTY, 0);
+}
+
+#include "c.parser.h"
+
 %}
 
-
+%defines
 %define parse.trace
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
@@ -24,9 +116,11 @@ void setstr(struct ast_node* n, const char* str){
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 %start program
 
-%parse-param { struct ast_node** root }
-%define api.value.type union
+%parse-param { struct ast_node** root}
+%define api.value.type { char *str}
+%lex-param { void * scanner }
 
+%locations
 %type <struct ast_node *> program
 %type <struct ast_node *> primary_expression
 %type <struct ast_node *> postfix_expression
@@ -99,460 +193,459 @@ void setstr(struct ast_node* n, const char* str){
 
 %%
 
-program: translation_unit { *root = $1; };
+program: translation_unit { *root = $1;}
 
 primary_expression
-	: IDENTIFIER
-	| CONSTANT
-	| STRING_LITERAL
-	| '(' expression ')'
+	: IDENTIFIER{ $$ = new_ast_node_name(IDENTIFIER, yylval.str, 0); }
+	| CONSTANT{ $$ = new_ast_node_name(CONSTANT, yylval.str, 0); }
+	| STRING_LITERAL{ $$ = new_ast_node_name(STRING_LITERAL, yylval.str, 0); }
+	| '(' expression ')'{ $$ = $2;}
 	;
 
 postfix_expression
-	: primary_expression
-	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
-	| postfix_expression '.' IDENTIFIER
-	| postfix_expression PTR_OP IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
-	| '(' type_name ')' '{' initializer_list '}'
-	| '(' type_name ')' '{' initializer_list ',' '}'
+	: primary_expression{ $$ = $1;}
+	| postfix_expression '[' expression ']'	{ $$ = new_ast_node(POSTFIX_ARRAY, $1, $3, 0); }
+	| postfix_expression '(' ')'{ $$ = new_ast_node(POSTFIX_CALL, $1, 0); }
+	| postfix_expression '(' argument_expression_list ')'{ $$ = new_ast_node(POSTFIX_CALL, $1, $3, 0);}
+	| postfix_expression '.' IDENTIFIER{ $$ = new_ast_node(POSTFIX_MEMBER, $1, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| postfix_expression PTR_OP IDENTIFIER{ $$ = new_ast_node(POSTFIX_PTR_MEMBER, $1, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| postfix_expression INC_OP{ $$ = new_ast_node(POSTFIX_INC, $1, 0);}
+	| postfix_expression DEC_OP{ $$ = new_ast_node(POSTFIX_DEC, $1, 0);}
+	| '(' type_name ')' '{' initializer_list '}'{ $$ = new_ast_node(COMPOUND_LITERAL, $2, $5, 0);}
+	| '(' type_name ')' '{' initializer_list ',' '}'{ $$ = new_ast_node(COMPOUND_LITERAL, $2, $5, 0);}
 	;
 
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	: assignment_expression{ $$ = new_ast_node(ARG_LIST, $1, 0);}
+	| argument_expression_list ',' assignment_expression { append_child($1, $3); $$ = $1;}
 	;
 
 unary_expression
-	: postfix_expression
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
-	| unary_operator cast_expression
-	| SIZEOF unary_expression
-	| SIZEOF '(' type_name ')'
+	: postfix_expression{ $$ = $1;}
+	| INC_OP unary_expression{ $$ = new_ast_node(PREFIX_INC, $2, 0);}
+	| DEC_OP unary_expression{ $$ = new_ast_node(PREFIX_DEC, $2, 0);}
+	| unary_operator cast_expression{ $$ = new_ast_node($1->code, $2, 0); free($1);}
+	| SIZEOF unary_expression{ $$ = new_ast_node(SIZEOF_EXPR, $2, 0);}
+	| SIZEOF '(' type_name ')'{ $$ = new_ast_node(SIZEOF_TYPE, $3, 0);}
 	;
 
 unary_operator
-	: '&'
-	| '*'
-	| '+'
-	| '-'
-	| '~'
-	| '!'
+	: '&'{ $$ = new_ast_node('&', 0);}
+	| '*'{ $$ = new_ast_node('*', 0);}
+	| '+'{ $$ = new_ast_node('+', 0);}
+	| '-'{ $$ = new_ast_node('-', 0);}
+	| '~'{ $$ = new_ast_node('~', 0);}
+	| '!'{ $$ = new_ast_node('!', 0);}
 	;
 
 cast_expression
-	: unary_expression
-	| '(' type_name ')' cast_expression
+	: unary_expression{ $$ = $1;}
+	| '(' type_name ')' cast_expression{ $$ = new_ast_node(CAST, $2, $4, 0);}
 	;
 
 multiplicative_expression
-	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	: cast_expression{ $$ = $1;}
+	| multiplicative_expression '*' cast_expression{ $$ = new_ast_node('*', $1, $3, 0);}
+	| multiplicative_expression '/' cast_expression{ $$ = new_ast_node('/', $1, $3, 0);}
+	| multiplicative_expression '%' cast_expression{ $$ = new_ast_node('%', $1, $3, 0);}
 	;
 
 additive_expression
-	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	: multiplicative_expression{ $$ = $1;}
+	| additive_expression '+' multiplicative_expression{ $$ = new_ast_node('+', $1, $3, 0);}
+	| additive_expression '-' multiplicative_expression{ $$ = new_ast_node('-', $1, $3, 0);}
 	;
 
 shift_expression
-	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+	: additive_expression{ $$ = $1;}
+	| shift_expression LEFT_OP additive_expression{ $$ = new_ast_node(LEFT_OP, $1, $3, 0);}
+	| shift_expression RIGHT_OP additive_expression{ $$ = new_ast_node(RIGHT_OP, $1, $3, 0);}
 	;
 
 relational_expression
-	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
+	: shift_expression{ $$ = $1;}
+	| relational_expression '<' shift_expression{ $$ = new_ast_node('<', $1, $3, 0);}
+	| relational_expression '>' shift_expression{ $$ = new_ast_node('>', $1, $3, 0);}
+	| relational_expression LE_OP shift_expression{ $$ = new_ast_node(LE_OP, $1, $3, 0);}
+	| relational_expression GE_OP shift_expression{ $$ = new_ast_node(GE_OP, $1, $3, 0);}
 	;
 
 equality_expression
-	: relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
+	: relational_expression{ $$ = $1;}
+	| equality_expression EQ_OP relational_expression{ $$ = new_ast_node(EQ_OP, $1, $3, 0);}
+	| equality_expression NE_OP relational_expression{ $$ = new_ast_node(NE_OP, $1, $3, 0);}
 	;
 
 and_expression
-	: equality_expression
-	| and_expression '&' equality_expression
+	: equality_expression{ $$ = $1;}
+	| and_expression '&' equality_expression{ $$ = new_ast_node(AND, $1, $3, 0);}
 	;
 
 exclusive_or_expression
-	: and_expression
-	| exclusive_or_expression '^' and_expression
+	: and_expression{ $$ = $1;}
+	| exclusive_or_expression '^' and_expression{ $$ = new_ast_node(EXCLUSIVE_OR, $1, $3, 0);}
 	;
 
 inclusive_or_expression
-	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	: exclusive_or_expression{ $$ = $1;}
+	| inclusive_or_expression '|' exclusive_or_expression{ $$ = new_ast_node(INCLUSIVE_OR, $1, $3, 0);}
 	;
 
 logical_and_expression
-	: inclusive_or_expression
-	| logical_and_expression AND_OP inclusive_or_expression
+	: inclusive_or_expression{ $$ = $1;}
+	| logical_and_expression AND_OP inclusive_or_expression{ $$ = new_ast_node(AND_OP, $1, $3, 0);}
 	;
 
 logical_or_expression
-	: logical_and_expression
-	| logical_or_expression OR_OP logical_and_expression
+	: logical_and_expression{ $$ = $1;}
+	| logical_or_expression OR_OP logical_and_expression{ $$ = new_ast_node(OR_OP, $1, $3, 0);}
 	;
 
 conditional_expression
-	: logical_or_expression
-	| logical_or_expression '?' expression ':' conditional_expression
+	: logical_or_expression{ $$ = $1;}
+	| logical_or_expression '?' expression ':' conditional_expression{ $$ = new_ast_node(CONDITIONAL, $1, $3, $5, 0);}
 	;
 
 assignment_expression
-	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
+	: conditional_expression{ $$ = $1;}
+	| unary_expression assignment_operator assignment_expression{ $$ = new_ast_node($2->code, $1, $3, 0); free($2);}
 	;
 
 assignment_operator
-	: '='
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	: '='{ $$ = new_ast_node('=', 0);}
+	| MUL_ASSIGN{ $$ = new_ast_node(MUL_ASSIGN, 0);}
+	| DIV_ASSIGN{ $$ = new_ast_node(DIV_ASSIGN, 0);}
+	| MOD_ASSIGN{ $$ = new_ast_node(MOD_ASSIGN, 0);}
+	| ADD_ASSIGN{ $$ = new_ast_node(ADD_ASSIGN, 0);}
+	| SUB_ASSIGN{ $$ = new_ast_node(SUB_ASSIGN, 0);}
+	| LEFT_ASSIGN{ $$ = new_ast_node(LEFT_ASSIGN, 0);}
+	| RIGHT_ASSIGN{ $$ = new_ast_node(RIGHT_ASSIGN, 0);}
+	| AND_ASSIGN{ $$ = new_ast_node(AND_ASSIGN, 0);}
+	| XOR_ASSIGN{ $$ = new_ast_node(XOR_ASSIGN, 0);}
+	| OR_ASSIGN{ $$ = new_ast_node(OR_ASSIGN, 0);}
 	;
 
 expression
-	: assignment_expression
-	| expression ',' assignment_expression
+	: assignment_expression{ $$ = $1;}
+	| expression ',' assignment_expression{ $$ = new_ast_node(COMMA_EXPR, $1, $3, 0);}
 	;
 
 constant_expression
-	: conditional_expression
+	: conditional_expression{ $$ = $1;}
 	;
 
 declaration
-	: declaration_specifiers ';' { $$ = new_ast_node(DECLARATION_SPECIFIERS, $1, 0); }
-	| declaration_specifiers init_declarator_list ';' { $$ = new_ast_node(DECLARATION_SPECIFIERS, $1, $2, 0); }
+	: declaration_specifiers ';'{ $$ = new_ast_node(DECLARATION, $1, 0);}
+	| declaration_specifiers init_declarator_list ';'{ $$ = new_ast_node(DECLARATION, $1, $2, 0);}
 	;
 
 declaration_specifiers
-	: storage_class_specifier { $$ = new_ast_node(STORAGE_CLASS_SPECIFIER, $1, 0); }
-	| storage_class_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
-	| type_specifier { $$ = new_ast_node(TYPE_SPECIFIER, $1, 0); }
-	| type_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
-	| type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1), 0; }
-	| type_qualifier declaration_specifiers { append_child($1, $2); $$ = $2; }
-	| function_specifier { $$ = new_ast_node(FUNCTION_SPECIFIER, $1, 0); }
-	| function_specifier declaration_specifiers { append_child($1, $2); $$ = $2; }
+	: storage_class_specifier{ $$ = new_ast_node(DECL_SPECIFIERS, $1, 0);}
+	| declaration_specifiers storage_class_specifier { append_child($1, $2); $$ = $1;}
+	| type_specifier{ $$ = new_ast_node(DECL_SPECIFIERS, $1, 0);}
+	| declaration_specifiers type_specifier { append_child($1, $2); $$ = $1;}
+	| type_qualifier{ $$ = new_ast_node(DECL_SPECIFIERS, $1, 0);}
+	| declaration_specifiers type_qualifier { append_child($1, $2); $$ = $1;}
+	| function_specifier{ $$ = new_ast_node(DECL_SPECIFIERS, $1, 0);}
+	| declaration_specifiers function_specifier { append_child($1, $2); $$ = $1;}
 	;
 
 init_declarator_list
-	: init_declarator { $$ = $1; }
-	| init_declarator_list ',' init_declarator { append_child($3, $1); $$ = $1; }
+	: init_declarator{ $$ = new_ast_node(INIT_DECL_LIST, $1, 0);}
+	| init_declarator_list ',' init_declarator { append_child($1, $3); $$ = $1;}
 	;
 
 init_declarator
-	: declarator { $$ = new_ast_node(DECLARATOR, $1, 0); }
-	| declarator '=' initializer { $$ = new_ast_node(DECLARATOR, $1, $3, 0); }
+	: declarator{ $$ = new_ast_node(INIT_DECLARATOR, $1, 0);}
+	| declarator '=' initializer{ $$ = new_ast_node(INIT_DECLARATOR, $1, $3, 0);}
 	;
 
 storage_class_specifier
-	: TYPEDEF { $$ = new_ast_node(TYPEDEF, 0); }
-	| EXTERN { $$ = new_ast_node(EXTERN, 0); }
-	| STATIC { $$ = new_ast_node(STATIC, 0); }
-	| AUTO { $$ = new_ast_node(AUTO, 0); }
-	| REGISTER { $$ = new_ast_node(REGISTER, 0); }
+	: TYPEDEF{ $$ = new_ast_node(TYPEDEF, 0);}
+	| EXTERN{ $$ = new_ast_node(EXTERN, 0);}
+	| STATIC{ $$ = new_ast_node(STATIC, 0);}
+	| AUTO{ $$ = new_ast_node(AUTO, 0);}
+	| REGISTER{ $$ = new_ast_node(REGISTER, 0);}
 	;
 
 type_specifier
-	: VOID { $$ = new_ast_node(VOID, 0); }
-	| CHAR { $$ = new_ast_node(CHAR, 0); }
-	| SHORT { $$ = new_ast_node(SHORT, 0); }
-	| INT { $$ = new_ast_node(INT, 0); }
-	| LONG { $$ = new_ast_node(LONG, 0); }
-	| FLOAT { $$ = new_ast_node(FLOAT, 0); }
-	| DOUBLE { $$ = new_ast_node(DOUBLE, 0); }
-	| SIGNED { $$ = new_ast_node(SIGNED, 0); }
-	| UNSIGNED { $$ = new_ast_node(UNSIGNED, 0); }
-	| BOOL { $$ = new_ast_node(BOOL, 0); }
-	| COMPLEX { $$ = new_ast_node(COMPLEX, 0); }
-	| IMAGINARY { $$ = new_ast_node(IMAGINARY, 0); }
-	| struct_or_union_specifier { $$ = $1; }
-	| enum_specifier { $$ = $1; }
-	| TYPE_NAME { $$ = new_ast_node(TYPE_NAME, 0); setstar($$, yytext); }
+	: VOID{ $$ = new_ast_node(VOID, 0);}
+	| CHAR{ $$ = new_ast_node(CHAR, 0);}
+	| SHORT{ $$ = new_ast_node(SHORT, 0);}
+	| INT{ $$ = new_ast_node(INT, 0);}
+	| LONG{ $$ = new_ast_node(LONG, 0);}
+	| FLOAT{ $$ = new_ast_node(FLOAT, 0);}
+	| DOUBLE{ $$ = new_ast_node(DOUBLE, 0);}
+	| SIGNED{ $$ = new_ast_node(SIGNED, 0);}
+	| UNSIGNED{ $$ = new_ast_node(UNSIGNED, 0);}
+	| BOOL{ $$ = new_ast_node(BOOL, 0);}
+	| COMPLEX{ $$ = new_ast_node(COMPLEX, 0);}
+	| IMAGINARY{ $$ = new_ast_node(IMAGINARY, 0);}
+	| struct_or_union_specifier{ $$ = $1;}
+	| enum_specifier{ $$ = $1;}
+	| TYPE_NAME{ $$ = new_ast_node_name(TYPE_NAME, yylval.str, 0); }
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER '{' struct_declaration_list '}' { $$ = new_ast_node($1->code, $4, 0); setstar($$, yytext); }
-	| struct_or_union '{' struct_declaration_list '}' { $$ = new_ast_node($1->code, $3, 0); }
-	| struct_or_union IDENTIFIER { $$ = new_ast_node($1->code, 0); setstar($$, yytext); }
+	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'{ $$ = new_ast_node($1->code, $4, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| struct_or_union '{' struct_declaration_list '}'{ $$ = new_ast_node($1->code, $3, 0); free($1);}
+	| struct_or_union IDENTIFIER{ $$ = new_ast_node($1->code, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
 	;
 
 struct_or_union
-	: STRUCT { $$ = new_ast_node(STRUCT, 0); }
-	| UNION { $$ = new_ast_node(UNION, 0); }
+	: STRUCT{ $$ = new_ast_node(STRUCT, 0);}
+	| UNION{ $$ = new_ast_node(UNION, 0);}
 	;
 
 struct_declaration_list
-	: struct_declaration { $$ = $1; }
-	| struct_declaration_list struct_declaration { append_child($2, $1); $$ = $1; }
+	: struct_declaration{ $$ = new_ast_node(STRUCT_DECL_LIST, $1, 0);}
+	| struct_declaration_list struct_declaration { append_child($1, $2); $$ = $1;}
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';' { $$ = new_ast_node(STRUCT_DECLARATION, $1, $2, 0); }
+	: specifier_qualifier_list struct_declarator_list ';'{ $$ = new_ast_node(STRUCT_DECLARATION, $1, $2, 0);}
 	;
 
 specifier_qualifier_list
-	: type_specifier specifier_qualifier_list { append_child($1, $2); $$ = $2; }
-	| type_specifier { $$ = new_ast_node(TYPE_SPECIFIER, $1, 0); }
-	| type_qualifier specifier_qualifier_list { append_child($1, $2); $$ = $2; }
-	| type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1, 0); }
+	: type_specifier{ $$ = new_ast_node(SPEC_QUAL_LIST, $1, 0);}
+	| specifier_qualifier_list type_specifier { append_child($1, $2); $$ = $1;}
+	| type_qualifier{ $$ = new_ast_node(SPEC_QUAL_LIST, $1, 0);}
+	| specifier_qualifier_list type_qualifier { append_child($1, $2); $$ = $1;}
 	;
 
 struct_declarator_list
-	: struct_declarator { $$ = new_ast_node(STRUCT_DECLARATOR, $1, 0); }
-	| struct_declarator_list ',' struct_declarator { append_child($3, $1); $$ = $1; }
+	: struct_declarator{ $$ = new_ast_node(STRUCT_DECLARATOR_LIST, $1, 0);}
+	| struct_declarator_list ',' struct_declarator { append_child($1, $3); $$ = $1;}
 	;
 
 struct_declarator
-	: declarator { $$ = $1; }
-	| ':' constant_expression { $$ = $2; }
-	| declarator ':' constant_expression { append_child($1, $3); $$ = $3; }
+	: declarator{ $$ = $1;}
+	| ':' constant_expression{ $$ = new_ast_node(BITFIELD, $2, 0);}
+	| declarator ':' constant_expression{ $$ = new_ast_node(BITFIELD, $1, $3, 0);}
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}' { $$ = new_ast_node(ENUM_SPECIFIER, $3, 0); }
-	| ENUM IDENTIFIER '{' enumerator_list '}' { $$ = new_ast_node(ENUM_SPECIFIER, $4, 0); setstr($$, yytext); }
-	| ENUM '{' enumerator_list ',' '}' { $$ = new_ast_node(ENUM_SPECIFIER, $3, 0); setstr($$, yytext); }
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}' { $$ = new_ast_node(ENUM_SPECIFIER, $4, 0); setstr($$, yytext); }
-	| ENUM IDENTIFIER { $$ = new_ast_node(ENUM_SPECIFIER, 0); setstr($$, yytext); }
+	: ENUM '{' enumerator_list '}'{ $$ = new_ast_node(ENUM_SPECIFIER, $3, 0);}
+	| ENUM IDENTIFIER '{' enumerator_list '}'{ $$ = new_ast_node(ENUM_SPECIFIER, new_ast_node_name(IDENTIFIER, yylval.str, 0), $4, 0); }
+	| ENUM '{' enumerator_list ',' '}'{ $$ = new_ast_node(ENUM_SPECIFIER, $3, 0);}
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}'{ $$ = new_ast_node(ENUM_SPECIFIER, new_ast_node_name(IDENTIFIER, yylval.str, 0) ,$4, 0); }
+	| ENUM IDENTIFIER{ $$ = new_ast_node(ENUM_SPECIFIER, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
 	;
 
 enumerator_list
-	: enumerator { $$ = $1; }
-	| enumerator_list ',' enumerator { append_child($3, $1); $$ = $1; }
+	: enumerator{ $$ = new_ast_node(ENUMERATOR_LIST, $1, 0);}
+	| enumerator_list ',' enumerator { append_child($1, $3); $$ = $1;}
 	;
 
 enumerator
-	: IDENTIFIER { $$ = new_ast_node(ENUMERATOR, 0); setstr($$, yytext); }
-	| IDENTIFIER '=' constant_expression { $$ = new_ast_node(ENUMERATOR, $3, 0); setstr($$, yytext); }
+	: IDENTIFIER{ $$ = new_ast_node(ENUMERATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| IDENTIFIER '=' constant_expression{ $$ = new_ast_node(ENUMERATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
 	;
 
 type_qualifier
-	: CONST { $$ = new_ast_node(CONST, 0); }
-	| RESTRICT { $$ = new_ast_node(RESTRICT, 0); } 
-	| VOLATILE { $$ = new_ast_node(VOLATILE, 0); }
+	: CONST{ $$ = new_ast_node(CONST, 0);}
+	| RESTRICT{ $$ = new_ast_node(RESTRICT, 0);}
+	| VOLATILE{ $$ = new_ast_node(VOLATILE, 0);}
 	;
 
 function_specifier
-	: INLINE { $$ = new_ast_node(INLINE, 0); }
+	: INLINE{ $$ = new_ast_node(INLINE, 0);}
 	;
 
 declarator
-	: pointer direct_declarator { $$ = new_ast_node(DECLARATOR, $1, $2, 0); }
-	| direct_declarator { $$ = new_ast_node(DELCARATOR, $1, 0); }
+	: pointer direct_declarator{ $$ = new_ast_node(DECLARATOR, $1, $2, 0);}
+	| direct_declarator{ $$ = new_ast_node(DECLARATOR, $1, 0);}
 	;
 
 
 direct_declarator
-	: IDENTIFIER { $$ = new_ast_node(DIRECT_DECLARATOR, 0); setstr($$, yytext); }
-	| '(' declarator ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
-	| direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, 0); }
-	| direct_declarator '[' type_qualifier_list ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
-	| direct_declarator '[' assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
-	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, $5, 0); }
-	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, $4, $5, 0); }
-	| direct_declarator '[' type_qualifier_list '*' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
-	| direct_declarator '[' '*' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
-	| direct_declarator '[' ']' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
-	| direct_declarator '(' parameter_type_list ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
-	| direct_declarator '(' identifier_list ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, $3, 0); }
-	| direct_declarator '(' ')' { $$ = new_ast_node(DIRECT_DECLARATOR, $1, 0); }
+	: IDENTIFIER{ $$ = new_ast_node(DIRECT_DECLARATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| '(' declarator ')'{ $$ = $2;}
+	| direct_declarator '[' type_qualifier_list assignment_expression ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3, $4, 0);}
+	| direct_declarator '[' type_qualifier_list ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3, 0);}
+	| direct_declarator '[' assignment_expression ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3, 0);}
+	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, new_ast_node(STATIC, 0), $4, $5, 0);}
+	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3, new_ast_node(STATIC, 0), $5, 0);}
+	| direct_declarator '[' type_qualifier_list '*' ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3, new_ast_node('*', 0), 0);}
+	| direct_declarator '[' '*' ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, new_ast_node('*', 0), 0);}
+	| direct_declarator '[' ']'	{ $$ = new_ast_node(ARRAY_DECLARATOR, $1, 0);}
+	| direct_declarator '(' parameter_type_list ')'{ $$ = new_ast_node(FUNCTION_DECLARATOR, $1, $3, 0);}
+	| direct_declarator '(' identifier_list ')'{ $$ = new_ast_node(FUNCTION_DECLARATOR, $1, $3, 0);}
+	| direct_declarator '(' ')'{ $$ = new_ast_node(FUNCTION_DECLARATOR, $1, 0);}
 	;
 
 pointer
-	: '*' { $$ = new_ast_node(POINTER, 0); }
-	| '*' type_qualifier_list { $$ = new_ast_node(POINTER, $2, 0); }
-	| '*' pointer { $$ = new_ast_node(POINTER, $2, 0); }
-	| '*' type_qualifier_list pointer { $$ = new_ast_node(POINTER, $2, $3, 0); }
+	: '*'{ $$ = new_ast_node(POINTER, 0);}
+	| '*' type_qualifier_list{ $$ = new_ast_node(POINTER, $2, 0);}
+	| '*' pointer { append_child($2, new_ast_node(POINTER, 0)); $$ = $2;}
+	| '*' type_qualifier_list pointer { append_child($3, new_ast_node(POINTER, $2, 0)); $$ = $3;}
 	;
 
 type_qualifier_list
-	: type_qualifier { $$ = new_ast_node(TYPE_QUALIFIER, $1, 0); }
-	| type_qualifier_list type_qualifier { append_child($2, $1); $$ = $1; }
+	: type_qualifier{ $$ = new_ast_node(TYPE_QUAL_LIST, $1, 0);}
+	| type_qualifier_list type_qualifier { append_child($1, $2); $$ = $1;}
 	;
 
 
 parameter_type_list
-	: parameter_list
-	| parameter_list ',' ELLIPSIS
+	: parameter_list{ $$ = $1;}
+	| parameter_list ',' ELLIPSIS { append_child($1, new_ast_node(ELLIPSIS, 0)); $$ = $1;}
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration{ $$ = new_ast_node(PARAM_LIST, $1, 0);}
+	| parameter_list ',' parameter_declaration { append_child($1, $3); $$ = $1;}
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	: declaration_specifiers declarator{ $$ = new_ast_node(PARAM_DECLARATION, $1, $2, 0);}
+	| declaration_specifiers abstract_declarator{ $$ = new_ast_node(PARAM_DECLARATION, $1, $2, 0);}
+	| declaration_specifiers{ $$ = new_ast_node(PARAM_DECLARATION, $1, 0);}
 	;
 
 identifier_list
-	: IDENTIFIER
-	| identifier_list ',' IDENTIFIER
+	: IDENTIFIER{ $$ = new_ast_node(IDENTIFIER_LIST, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| identifier_list ',' IDENTIFIER { append_child($1, new_ast_node_name(IDENTIFIER, yylval.str, 0)); $$ = $1;}
 	;
 
 type_name
-	: specifier_qualifier_list
-	| specifier_qualifier_list abstract_declarator
+	: specifier_qualifier_list{ $$ = new_ast_node(TYPE_NAME, $1, 0);}
+	| specifier_qualifier_list abstract_declarator{ $$ = new_ast_node(TYPE_NAME, $1, $2, 0);}
 	;
 
 abstract_declarator
-	: pointer
-	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
+	: pointer{ $$ = new_ast_node(ABSTRACT_DECLARATOR, $1, 0);}
+	| direct_abstract_declarator{ $$ = new_ast_node(ABSTRACT_DECLARATOR, $1, 0);}
+	| pointer direct_abstract_declarator{ $$ = new_ast_node(ABSTRACT_DECLARATOR, $1, $2, 0);}
 	;
 
 direct_abstract_declarator
-	: '(' abstract_declarator ')'
-	| '[' ']'
-	| '[' assignment_expression ']'
-	| direct_abstract_declarator '[' ']'
-	| direct_abstract_declarator '[' assignment_expression ']'
-	| '[' '*' ']'
-	| direct_abstract_declarator '[' '*' ']'
-	| '(' ')'
-	| '(' parameter_type_list ')'
-	| direct_abstract_declarator '(' ')'
-	| direct_abstract_declarator '(' parameter_type_list ')'
+	: '(' abstract_declarator ')'{ $$ = $2;}
+	| '[' ']'{ $$ = empty_node();}
+	| '[' assignment_expression ']'{ $$ = $2;}
+	| direct_abstract_declarator '[' ']' { append_child($1, empty_node()); $$ = $1;}
+	| direct_abstract_declarator '[' assignment_expression ']' { append_child($1, $3); $$ = $1;}
+	| '[' '*' ']'{ $$ = new_ast_node('*', 0);}
+	| direct_abstract_declarator '[' '*' ']' { append_child($1, new_ast_node('*', 0)); $$ = $1;}
+	| '(' ')'{ $$ = empty_node();}
+	| '(' parameter_type_list ')'{ $$ = $2;}
+	| direct_abstract_declarator '(' ')' { append_child($1, empty_node()); $$ = $1;}
+	| direct_abstract_declarator '(' parameter_type_list ')' { append_child($1, $3); $$ = $1;}
 	;
 
 initializer
-	: assignment_expression
-	| '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	: assignment_expression{ $$ = $1;}
+	| '{' initializer_list '}'{ $$ = $2;}
+	| '{' initializer_list ',' '}'{ $$ = $2;}
 	;
 
 initializer_list
-	: initializer
-	| designation initializer
-	| initializer_list ',' initializer
-	| initializer_list ',' designation initializer
+	: initializer{ $$ = new_ast_node(INIT_LIST, $1, 0);}
+	| designation initializer{ $$ = new_ast_node(INIT_LIST, $1, $2, 0);}
+	| initializer_list ',' initializer { append_child($1, $3); $$ = $1;}
+	| initializer_list ',' designation initializer { append_child($1, new_ast_node(DESIGNATED_INIT, $3, $4, 0)); $$ = $1;}
 	;
 
 designation
-	: designator_list '='
+	: designator_list '='{ $$ = $1;}
 	;
 
 designator_list
-	: designator
-	| designator_list designator
+	: designator{ $$ = new_ast_node(DESIGNATOR_LIST, $1, 0);}
+	| designator_list designator { append_child($1, $2); $$ = $1;}
 	;
 
 designator
-	: '[' constant_expression ']'
-	| '.' IDENTIFIER
+	: '[' constant_expression ']'{ $$ = new_ast_node(ARRAY_DESIGNATOR, $2, 0);}
+	| '.' IDENTIFIER{ $$ = new_ast_node(MEMBER_DESIGNATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
 	;
 
 statement
-	: labeled_statement
-	| compound_statement
-	| expression_statement
-	| selection_statement
-	| iteration_statement
-	| jump_statement
+	: labeled_statement{ $$ = $1;}
+	| compound_statement{ $$ = $1;}
+	| expression_statement{ $$ = $1;}
+	| selection_statement{ $$ = $1;}
+	| iteration_statement{ $$ = $1;}
+	| jump_statement{ $$ = $1;}
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement
-	| CASE constant_expression ':' statement
-	| DEFAULT ':' statement
+	: IDENTIFIER ':' statement{ $$ = new_ast_node(LABELED_STMT, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
+	| CASE constant_expression ':' statement{ $$ = new_ast_node(CASE_STMT, $2, $4, 0);}
+	| DEFAULT ':' statement{ $$ = new_ast_node(DEFAULT_STMT, $3, 0);}
 	;
 
 compound_statement
-	: '{' '}'
-	| '{' block_item_list '}'
+	: '{' '}'{ $$ = new_ast_node(COMPOUND_STMT, 0);}
+	| '{' block_item_list '}'{ $$ = new_ast_node(COMPOUND_STMT, $2, 0);}
 	;
 
 block_item_list
-	: block_item
-	| block_item_list block_item
+	: block_item{ $$ = new_ast_node(BLOCK_ITEM_LIST, $1, 0);}
+	| block_item_list block_item { append_child($1, $2); $$ = $1;}
 	;
 
 block_item
-	: declaration
-	| statement
+	: declaration{ $$ = $1;}
+	| statement{ $$ = $1;}
 	;
 
 expression_statement
-	: ';'
-	| expression ';'
+	: ';'{ $$ = empty_node();}
+	| expression ';'{ $$ = $1;}
 	;
 
 selection_statement
-	: IF '(' expression ')' statement
-	| IF '(' expression ')' statement ELSE statement
-	| SWITCH '(' expression ')' statement
+	: IF '(' expression ')' statement{ $$ = new_ast_node(IF_STMT, $3, $5, 0);}
+	| IF '(' expression ')' statement ELSE statement{ $$ = new_ast_node(IF_ELSE_STMT, $3, $5, $7, 0);}
+	| SWITCH '(' expression ')' statement{ $$ = new_ast_node(SWITCH_STMT, $3, $5, 0);}
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement
-	| DO statement WHILE '(' expression ')' ';'
-	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
-	| FOR '(' declaration expression_statement ')' statement
-	| FOR '(' declaration expression_statement expression ')' statement
+	: WHILE '(' expression ')' statement{ $$ = new_ast_node(WHILE_STMT, $3, $5, 0);}
+	| DO statement WHILE '(' expression ')' ';'{ $$ = new_ast_node(DO_WHILE_STMT, $2, $5, 0);}
+	| FOR '(' expression_statement expression_statement ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, empty_node(), $6, 0);}
+	| FOR '(' expression_statement expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, $5, $7, 0);}
+	| FOR '(' declaration expression_statement ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, empty_node(), $6, 0);}
+	| FOR '(' declaration expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, $5, $7, 0);}
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'
-	| CONTINUE ';'
-	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
+	: GOTO IDENTIFIER ';'{ $$ = new_ast_node(GOTO_STMT, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| CONTINUE ';'{ $$ = new_ast_node(CONTINUE_STMT, 0);}
+	| BREAK ';'{ $$ = new_ast_node(BREAK_STMT, 0);}
+	| RETURN ';'{ $$ = new_ast_node(RETURN_STMT, 0);}
+	| RETURN expression ';'{ $$ = new_ast_node(RETURN_STMT, $2, 0);}
 	;
 
 translation_unit
-	: external_declaration { $$ = $1; }
-	| translation_unit external_declaration { append_child($1, $2); $$ = $2; }
+	: external_declaration{ $$ = new_ast_node(TRANSLATION_UNIT, $1, 0);}
+	| translation_unit external_declaration { append_child($1, $2); $$ = $1;}
 	;
 
 external_declaration
-	: function_definition { $$ = $1; }
-	| declaration { $$ = $1; }
+	: function_definition{ $$ = $1;}
+	| declaration{ $$ = $1;}
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, $4, 0); }
-	| declaration_specifiers declarator compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, 0); }
+	: declaration_specifiers declarator declaration_list compound_statement{ $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, $4, 0);}
+	| declaration_specifiers declarator compound_statement{ $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, 0);}
 	;
 
 declaration_list
-	: declaration { $$ = $1; }
-	| declaration_list declaration { append_child($1, $2); $$ = $2; }
+	: declaration{ $$ = new_ast_node(DECLARATION_LIST, $1, 0);}
+	| declaration_list declaration { append_child($1, $2); $$ = $1;}
 	;
 
 
 %%
 #include <stdio.h>
 
-extern char yytext[];
 extern int column;
 
 void yyerror(char const *s)
 {
 	fflush(stdout);
-	printf("\n%*s\n%*s\n", column, "^", column, s);
+	printf("%*s\n%*s\n", column, "^", column, s);
 }
