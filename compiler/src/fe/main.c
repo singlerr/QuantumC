@@ -23,11 +23,21 @@ void print_node(struct ast_node *node)
 {
     if (node->child_count == 0)
     {
-        printf("%d\n", node->code);
+        printf("%d", node->code);
+        if (node->data.str)
+        {
+            printf(" %s\n", node->data.str);
+        }
         return;
     }
 
     printf("%d ", node->code);
+
+    if (node->data.str)
+    {
+        printf("%s ", node->data.str);
+    }
+
     for (int i = 0; i < node->child_count; i++)
     {
         struct ast_node *n = node->children[i];
