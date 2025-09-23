@@ -6,6 +6,7 @@
 *.lexer.c
 *.lexer.h
 *.tab.c
+*.tab.h
 *.parser.h
 *.parser.c
 

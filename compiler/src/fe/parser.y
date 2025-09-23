@@ -100,7 +100,6 @@ struct ast_node* empty_node(){
 
 %}
 
-%defines
 %define parse.trace
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
@@ -117,79 +116,81 @@ struct ast_node* empty_node(){
 %start program
 
 %parse-param { struct ast_node** root}
-%define api.value.type { char *str}
-%lex-param { void * scanner }
+%union {
+	char *str;
+	struct ast_node* node;
+}
 
 %locations
-%type <struct ast_node *> program
-%type <struct ast_node *> primary_expression
-%type <struct ast_node *> postfix_expression
-%type <struct ast_node *> argument_expression_list
-%type <struct ast_node *> unary_expression
-%type <struct ast_node *> unary_operator
-%type <struct ast_node *> cast_expression
-%type <struct ast_node *> multiplicative_expression
-%type <struct ast_node *> additive_expression
-%type <struct ast_node *> shift_expression
-%type <struct ast_node *> relational_expression
-%type <struct ast_node *> equality_expression
-%type <struct ast_node *> and_expression
-%type <struct ast_node *> exclusive_or_expression
-%type <struct ast_node *> inclusive_or_expression
-%type <struct ast_node *> logical_and_expression
-%type <struct ast_node *> logical_or_expression
-%type <struct ast_node *> conditional_expression
-%type <struct ast_node *> assignment_expression
-%type <struct ast_node *> assignment_operator
-%type <struct ast_node *> expression
-%type <struct ast_node *> constant_expression
-%type <struct ast_node *> declaration
-%type <struct ast_node *> declaration_specifiers
-%type <struct ast_node *> init_declarator_list
-%type <struct ast_node *> init_declarator
-%type <struct ast_node *> storage_class_specifier
-%type <struct ast_node *> type_specifier
-%type <struct ast_node *> struct_or_union_specifier
-%type <struct ast_node *> struct_or_union
-%type <struct ast_node *> struct_declaration_list
-%type <struct ast_node *> struct_declaration
-%type <struct ast_node *> specifier_qualifier_list
-%type <struct ast_node *> struct_declarator_list
-%type <struct ast_node *> struct_declarator
-%type <struct ast_node *> enum_specifier
-%type <struct ast_node *> enumerator_list
-%type <struct ast_node *> enumerator
-%type <struct ast_node *> type_qualifier
-%type <struct ast_node *> function_specifier
-%type <struct ast_node *> declarator
-%type <struct ast_node *> direct_declarator
-%type <struct ast_node *> pointer
-%type <struct ast_node *> type_qualifier_list
-%type <struct ast_node *> parameter_type_list
-%type <struct ast_node *> parameter_list
-%type <struct ast_node *> parameter_declaration
-%type <struct ast_node *> identifier_list
-%type <struct ast_node *> type_name
-%type <struct ast_node *> abstract_declarator
-%type <struct ast_node *> direct_abstract_declarator
-%type <struct ast_node *> initializer
-%type <struct ast_node *> initializer_list
-%type <struct ast_node *> designation
-%type <struct ast_node *> designator_list
-%type <struct ast_node *> designator
-%type <struct ast_node *> statement
-%type <struct ast_node *> labeled_statement
-%type <struct ast_node *> compound_statement
-%type <struct ast_node *> block_item_list
-%type <struct ast_node *> block_item
-%type <struct ast_node *> expression_statement
-%type <struct ast_node *> selection_statement
-%type <struct ast_node *> iteration_statement
-%type <struct ast_node *> jump_statement
-%type <struct ast_node *> translation_unit
-%type <struct ast_node *> external_declaration
-%type <struct ast_node *> function_definition
-%type <struct ast_node *> declaration_list
+%type <node> program
+%type <node> primary_expression
+%type <node> postfix_expression
+%type <node> argument_expression_list
+%type <node> unary_expression
+%type <node> unary_operator
+%type <node> cast_expression
+%type <node> multiplicative_expression
+%type <node> additive_expression
+%type <node> shift_expression
+%type <node> relational_expression
+%type <node> equality_expression
+%type <node> and_expression
+%type <node> exclusive_or_expression
+%type <node> inclusive_or_expression
+%type <node> logical_and_expression
+%type <node> logical_or_expression
+%type <node> conditional_expression
+%type <node> assignment_expression
+%type <node> assignment_operator
+%type <node> expression
+%type <node> constant_expression
+%type <node> declaration
+%type <node> declaration_specifiers
+%type <node> init_declarator_list
+%type <node> init_declarator
+%type <node> storage_class_specifier
+%type <node> type_specifier
+%type <node> struct_or_union_specifier
+%type <node> struct_or_union
+%type <node> struct_declaration_list
+%type <node> struct_declaration
+%type <node> specifier_qualifier_list
+%type <node> struct_declarator_list
+%type <node> struct_declarator
+%type <node> enum_specifier
+%type <node> enumerator_list
+%type <node> enumerator
+%type <node> type_qualifier
+%type <node> function_specifier
+%type <node> declarator
+%type <node> direct_declarator
+%type <node> pointer
+%type <node> type_qualifier_list
+%type <node> parameter_type_list
+%type <node> parameter_list
+%type <node> parameter_declaration
+%type <node> identifier_list
+%type <node> type_name
+%type <node> abstract_declarator
+%type <node> direct_abstract_declarator
+%type <node> initializer
+%type <node> initializer_list
+%type <node> designation
+%type <node> designator_list
+%type <node> designator
+%type <node> statement
+%type <node> labeled_statement
+%type <node> compound_statement
+%type <node> block_item_list
+%type <node> block_item
+%type <node> expression_statement
+%type <node> selection_statement
+%type <node> iteration_statement
+%type <node> jump_statement
+%type <node> translation_unit
+%type <node> external_declaration
+%type <node> function_definition
+%type <node> declaration_list
 
 %%
 

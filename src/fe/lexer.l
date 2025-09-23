@@ -8,7 +8,8 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %{
 #include <stdio.h>
-#include ""
+#include "y.tab.h"
+
 void count(void);
 %}
 
@@ -57,20 +58,20 @@ void count(void);
 
 {L}({L}|{D})*		{ count(); return(check_type()); }
 
-0[xX]{H}+{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[0-7]*{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-[1-9]{D}*{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
+0[xX]{H}+{IS}?		{ count(); return(CONSTANT); }
+0[0-7]*{IS}?		{ count(); return(CONSTANT); }
+[1-9]{D}*{IS}?		{ count(); return(CONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); return(CONSTANT); }
 
-{D}+{E}{FS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.str = strdup(yytext); return(CONSTANT); }
+{D}+{E}{FS}?		{ count(); return(CONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(); return(CONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(); return(CONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(); return(CONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(); return(CONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(); return(CONSTANT); }
 
 
-L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
+L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
 
 "..."			{ count(); return(ELLIPSIS); }
 ">>="			{ count(); return(RIGHT_ASSIGN); }
@@ -176,6 +177,6 @@ int check_type(void)
 /*
 *	it actually will only return IDENTIFIER
 */
-	yyval.str = strdup(yytext);
+
 	return IDENTIFIER;
 }
