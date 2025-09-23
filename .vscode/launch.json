@@ -8,14 +8,15 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/compiler/fe/parser-lalr",
+            "program": "${workspaceFolder}/compiler/src/fe/fe",
             "args": [
-                "${workspaceFolder}/test/fasttiles/src/main.rs"
+                "<",
+                "${workspaceFolder}/compiler/src/fe/test.c"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
-            "preLaunchTask": "run the makefile",
+            "preLaunchTask": "make",
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [

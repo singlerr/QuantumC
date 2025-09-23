@@ -2,87 +2,9 @@
 #include "ast.h"
 #include <stdlib.h> // For free()
 #include <string.h>
-#include <stdarg.h>
 
-struct ast_node *new_ast_node(int code, ...)
-{
-    struct ast_node *temp;
-    int i;
-    int n = 0;
-    va_list vl;
-    va_start(vl, code);
-    while (1)
-    {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-            n++;
-        else
-            break;
-    }
-    va_end(vl);
 
-    struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
 
-    va_start(vl, code);
-    n = 0;
-
-    while (1)
-    {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-        {
-            children[n++] = temp;
-        }
-    }
-
-    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
-    g->children = children;
-    g->code = code;
-    g->child_count = n;
-
-    return g;
-}
-
-struct ast_node *new_ast_node_name(int code, const char *name, ...)
-{
-
-    struct ast_node *temp;
-    int i;
-    int n = 0;
-    va_list vl;
-    va_start(vl, name);
-    while (1)
-    {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-            n++;
-        else
-            break;
-    }
-    va_end(vl);
-
-    struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
-
-    va_start(vl, name);
-    n = 0;
-
-    while (1)
-    {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-        {
-            children[n++] = temp;
-        }
-    }
-
-    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
-    g->children = children;
-    g->code = code;
-    g->child_count = n;
-
-    g->data.str = strdup(name);
-    return g;
-}
 
 void append_child(struct ast_node *node, const struct ast_node *child)
 {
@@ -95,12 +17,18 @@ void append_child(struct ast_node *node, const struct ast_node *child)
 struct ast_node* empty_node(){
 	return new_ast_node(EMPTY, 0);
 }
+void yyerror(struct ast_node **root, char const *s);
+
+
+extern int yylex();
 
 #include "c.parser.h"
 
 %}
 
 %define parse.trace
+%define parse.error detailed
+
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
@@ -116,12 +44,12 @@ struct ast_node* empty_node(){
 %start program
 
 %parse-param { struct ast_node** root}
+
 %union {
 	char *str;
 	struct ast_node* node;
 }
 
-%locations
 %type <node> program
 %type <node> primary_expression
 %type <node> postfix_expression
@@ -641,11 +569,13 @@ declaration_list
 
 
 %%
+
+
 #include <stdio.h>
 
 extern int column;
 
-void yyerror(char const *s)
+void yyerror(struct ast_node **root, char const *s)
 {
 	fflush(stdout);
 	printf("%*s\n%*s\n", column, "^", column, s);

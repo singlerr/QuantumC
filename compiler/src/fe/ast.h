@@ -100,5 +100,6 @@ enum ast_node_type
 struct ast_node *new_ast_node(int code, ...);
 struct ast_node *new_ast_node_name(int code, const char *name, ...);
 void append_child(struct ast_node *node, const struct ast_node *child);
+int to_ast_string(enum ast_node_type type, char *out_str);
 
 #endif

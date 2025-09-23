@@ -8,8 +8,11 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %{
 #include <stdio.h>
-#include ""
+#include "c.parser.h"
+#include "ast.h"
 void count(void);
+void comment(void);
+int check_type(void);
 %}
 
 %%
@@ -140,7 +143,7 @@ void comment(void)
 			return;
 		prev = c;
 	}
-	error("unterminated comment");
+	perror("unterminated comment");
 }
 
 
@@ -176,6 +179,6 @@ int check_type(void)
 /*
 *	it actually will only return IDENTIFIER
 */
-	yyval.str = strdup(yytext);
+	yylval.str = strdup(yytext);
 	return IDENTIFIER;
 }

@@ -5,7 +5,7 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "run the makefile",
+            "label": "make",
             "command": "make",
             "options": {
                 "cwd": "${workspaceFolder}/compiler/src/fe"
