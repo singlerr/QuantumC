@@ -8,7 +8,7 @@
             "label": "run the makefile",
             "command": "make",
             "options": {
-                "cwd": "${workspaceFolder}/src/compiler/fe"
+                "cwd": "${workspaceFolder}/compiler/src/fe"
             },
             "args": [
                 "debug=1 all"
