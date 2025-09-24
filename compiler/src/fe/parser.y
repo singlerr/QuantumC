@@ -3,9 +3,6 @@
 #include <stdlib.h> // For free()
 #include <string.h>
 
-
-
-
 void append_child(struct ast_node *node, const struct ast_node *child)
 {
     int n = node->child_count + 1;
@@ -15,8 +12,11 @@ void append_child(struct ast_node *node, const struct ast_node *child)
 }
 
 struct ast_node* empty_node(){
-	return new_ast_node(EMPTY, 0);
+	// return new_ast_node(EMPTY, 0);
+	return 0;
 }
+
+
 void yyerror(struct ast_node **root, char const *s);
 
 
@@ -35,12 +35,39 @@ extern int yylex();
 %token SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token XOR_ASSIGN OR_ASSIGN TYPE_NAME
 
+%token POSTFIX_ARRAY POSTFIX_CALL POSTFIX_MEMBER POSTFIX_PTR_MEMBER POSTFIX_INC POSTFIX_DEC
+%token COMPOUND_LITERAL ARG_LIST PREFIX_INC PREFIX_DEC SIZEOF_EXPR SIZEOF_TYPE CAST
+%token AND EXCLUSIVE_OR INCLUSIVE_OR CONDITIONAL COMMA_EXPR DECL_SPECIFIERS INIT_DECL_LIST
+%token STRUCT_DECL_LIST SPEC_QUAL_LIST BITFIELD ARRAY_DECLARATOR FUNCTION_DECLARATOR
+%token TYPE_QUAL_LIST PARAM_LIST INIT_LIST DESIGNATED_INITITALIZER ARRAY_DESIGNATOR MEMBER_DESIGNATOR
+%token CASE_STATEMENT DEFAULT_STATEMENT IF_STATEMENT IF_ELSE_STATEMENT SWITCH_STATEMENT
+%token WHILE_STATEMENT DO_WHILE_STATEMENT FOR_STATEMENT
+
 %token TYPEDEF EXTERN STATIC AUTO REGISTER INLINE RESTRICT
 %token CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE CONST VOLATILE VOID
 %token BOOL COMPLEX IMAGINARY
-%token STRUCT UNION ENUM ELLIPSIS
+%token STRUCT UNION ENUM ELLIPSIS EMPTY
 
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%token PROGRAM PRIMARY_EXPRESSION POSTFIX_EXPRESSION ARGUMENT_EXPRESSION_LIST
+%token UNARY_EXPRESSION UNARY_OPERATOR CAST_EXPRESSION MULTIPLICATIVE_EXPRESSION
+%token ADDITIVE_EXPRESSION SHIFT_EXPRESSION RELATIONAL_EXPRESSION EQUALITY_EXPRESSION
+%token AND_EXPRESSION EXCLUSIVE_OR_EXPRESSION INCLUSIVE_OR_EXPRESSION
+%token LOGICAL_AND_EXPRESSION LOGICAL_OR_EXPRESSION CONDITIONAL_EXPRESSION
+%token ASSIGNMENT_EXPRESSION ASSIGNMENT_OPERATOR EXPRESSION CONSTANT_EXPRESSION
+%token DECLARATION DECLARATION_SPECIFIERS INIT_DECLARATOR_LIST INIT_DECLARATOR
+%token STORAGE_CLASS_SPECIFIER TYPE_SPECIFIER STRUCT_OR_UNION_SPECIFIER
+%token STRUCT_OR_UNION STRUCT_DECLARATION_LIST STRUCT_DECLARATION
+%token SPECIFIER_QUALIFIER_LIST STRUCT_DECLARATOR_LIST STRUCT_DECLARATOR
+%token ENUM_SPECIFIER ENUMERATOR_LIST ENUMERATOR TYPE_QUALIFIER FUNCTION_SPECIFIER
+%token DECLARATOR DIRECT_DECLARATOR POINTER PARAMETER_TYPE_LIST
+%token PARAMETER_LIST PARAMETER_DECLARATION IDENTIFIER_LIST
+%token ABSTRACT_DECLARATOR DIRECT_ABSTRACT_DECLARATOR INITIALIZER INITIALIZER_LIST
+%token DESIGNATION DESIGNATOR_LIST DESIGNATOR STATEMENT LABELED_STATEMENT
+%token COMPOUND_STATEMENT BLOCK_ITEM_LIST BLOCK_ITEM EXPRESSION_STATEMENT
+%token SELECTION_STATEMENT ITERATION_STATEMENT GOTO_STATEMENT CONTINUE_STATEMENT BREAK_STATEMENT RETURN_STATEMENT TRANSLATION_UNIT
+%token EXTERNAL_DECLARATION FUNCTION_DEFINITION DECLARATION_LIST PARAM_DECLARATION
+
 %start program
 
 %parse-param { struct ast_node** root}
@@ -472,7 +499,7 @@ initializer_list
 	: initializer{ $$ = new_ast_node(INIT_LIST, $1, 0);}
 	| designation initializer{ $$ = new_ast_node(INIT_LIST, $1, $2, 0);}
 	| initializer_list ',' initializer { append_child($1, $3); $$ = $1;}
-	| initializer_list ',' designation initializer { append_child($1, new_ast_node(DESIGNATED_INIT, $3, $4, 0)); $$ = $1;}
+	| initializer_list ',' designation initializer { append_child($1, new_ast_node(DESIGNATED_INITITALIZER, $3, $4, 0)); $$ = $1;}
 	;
 
 designation
@@ -499,14 +526,14 @@ statement
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement{ $$ = new_ast_node(LABELED_STMT, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
-	| CASE constant_expression ':' statement{ $$ = new_ast_node(CASE_STMT, $2, $4, 0);}
-	| DEFAULT ':' statement{ $$ = new_ast_node(DEFAULT_STMT, $3, 0);}
+	: IDENTIFIER ':' statement{ $$ = new_ast_node(LABELED_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
+	| CASE constant_expression ':' statement{ $$ = new_ast_node(CASE_STATEMENT, $2, $4, 0);}
+	| DEFAULT ':' statement{ $$ = new_ast_node(DEFAULT_STATEMENT, $3, 0);}
 	;
 
 compound_statement
-	: '{' '}'{ $$ = new_ast_node(COMPOUND_STMT, 0);}
-	| '{' block_item_list '}'{ $$ = new_ast_node(COMPOUND_STMT, $2, 0);}
+	: '{' '}'{ $$ = new_ast_node(COMPOUND_STATEMENT, 0);}
+	| '{' block_item_list '}'{ $$ = new_ast_node(COMPOUND_STATEMENT, $2, 0);}
 	;
 
 block_item_list
@@ -525,30 +552,30 @@ expression_statement
 	;
 
 selection_statement
-	: IF '(' expression ')' statement{ $$ = new_ast_node(IF_STMT, $3, $5, 0);}
-	| IF '(' expression ')' statement ELSE statement{ $$ = new_ast_node(IF_ELSE_STMT, $3, $5, $7, 0);}
-	| SWITCH '(' expression ')' statement{ $$ = new_ast_node(SWITCH_STMT, $3, $5, 0);}
+	: IF '(' expression ')' statement{ $$ = new_ast_node(IF_STATEMENT, $3, $5, 0);}
+	| IF '(' expression ')' statement ELSE statement{ $$ = new_ast_node(IF_ELSE_STATEMENT, $3, $5, $7, 0);}
+	| SWITCH '(' expression ')' statement{ $$ = new_ast_node(SWITCH_STATEMENT, $3, $5, 0);}
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement{ $$ = new_ast_node(WHILE_STMT, $3, $5, 0);}
-	| DO statement WHILE '(' expression ')' ';'{ $$ = new_ast_node(DO_WHILE_STMT, $2, $5, 0);}
-	| FOR '(' expression_statement expression_statement ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, empty_node(), $6, 0);}
-	| FOR '(' expression_statement expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, $5, $7, 0);}
-	| FOR '(' declaration expression_statement ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, empty_node(), $6, 0);}
-	| FOR '(' declaration expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STMT, $3, $4, $5, $7, 0);}
+	: WHILE '(' expression ')' statement{ $$ = new_ast_node(WHILE_STATEMENT, $3, $5, 0);}
+	| DO statement WHILE '(' expression ')' ';'{ $$ = new_ast_node(DO_WHILE_STATEMENT, $2, $5, 0);}
+	| FOR '(' expression_statement expression_statement ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0);}
+	| FOR '(' expression_statement expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0);}
+	| FOR '(' declaration expression_statement ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0);}
+	| FOR '(' declaration expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0);}
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'{ $$ = new_ast_node(GOTO_STMT, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
-	| CONTINUE ';'{ $$ = new_ast_node(CONTINUE_STMT, 0);}
-	| BREAK ';'{ $$ = new_ast_node(BREAK_STMT, 0);}
-	| RETURN ';'{ $$ = new_ast_node(RETURN_STMT, 0);}
-	| RETURN expression ';'{ $$ = new_ast_node(RETURN_STMT, $2, 0);}
+	: GOTO IDENTIFIER ';'{ $$ = new_ast_node(GOTO_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| CONTINUE ';'{ $$ = new_ast_node(CONTINUE_STATEMENT, 0);}
+	| BREAK ';'{ $$ = new_ast_node(BREAK_STATEMENT, 0);}
+	| RETURN ';'{ $$ = new_ast_node(RETURN_STATEMENT, 0);}
+	| RETURN expression ';'{ $$ = new_ast_node(RETURN_STATEMENT, $2, 0);}
 	;
 
 translation_unit
-	: external_declaration{ $$ = new_ast_node(TRANSLATION_UNIT, $1, 0);}
+	: external_declaration{ $$ = $1; }
 	| translation_unit external_declaration { append_child($1, $2); $$ = $1;}
 	;
 
@@ -579,4 +606,7 @@ void yyerror(struct ast_node **root, char const *s)
 {
 	fflush(stdout);
 	printf("%*s\n%*s\n", column, "^", column, s);
+}
+const char* to_ast_string(int code){
+	return yysymbol_name(YYTRANSLATE(code));
 }
