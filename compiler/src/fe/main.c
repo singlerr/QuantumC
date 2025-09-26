@@ -2,14 +2,27 @@
 #include <stdlib.h>
 #include "ast.h"
 
+extern FILE *yyin;
 extern int yyparse(struct ast_node **root);
 
 void print_node(struct ast_node *node);
 
-int main(void)
+int main(int argc, char *argv[])
 {
     struct ast_node *root;
+    FILE *f;
     int ret;
+    if (argc > 1)
+    {
+        if ((f = fopen(argv[1], "r")) == 0)
+        {
+            fprintf(stderr, "file open error for %s\n", argv[1]);
+            exit(1);
+        }
+
+        yyin = f;
+    }
+
     ret = yyparse(&root);
     if (!ret)
     {
