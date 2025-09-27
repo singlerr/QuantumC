@@ -8,6 +8,7 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %{
 #include <stdio.h>
+#include <stdlib.h>
 #include "c.parser.h"
 #include "ast.h"
 void count(void);
@@ -60,17 +61,17 @@ int check_type(void);
 
 {L}({L}|{D})*		{ count(); return(check_type()); }
 
-0[xX]{H}+{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[0-7]*{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-[1-9]{D}*{IS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
+0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
+0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
+[1-9]{D}*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
 L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
 
-{D}+{E}{FS}?		{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.str = strdup(yytext); return(CONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.str = strdup(yytext); return(CONSTANT); }
+{D}+{E}{FS}?		{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(); yylval.f = strtof(yytext, NULL); return(INTCONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
 
 L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }

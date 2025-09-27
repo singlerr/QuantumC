@@ -69,11 +69,14 @@ extern int yylex();
 %token EXTERNAL_DECLARATION FUNCTION_DEFINITION DECLARATION_LIST PARAM_DECLARATION
 %token ENUMERATOR_ASSIGNED POINTER_DECLARATOR
 
+%token INTCONSTANT FLOATCONSTANT
 %start program
 
 %parse-param { struct ast_node** root}
 
 %union {
+	int i;
+	float f;
 	char *str;
 	struct ast_node* node;
 }
@@ -154,7 +157,8 @@ program: translation_unit { *root = $1;}
 
 primary_expression
 	: IDENTIFIER { $$ = new_ast_node_name(IDENTIFIER, yylval.str, 0); }
-	| CONSTANT { $$ = new_ast_node_name(CONSTANT, yylval.str, 0); }
+	| INTCONSTANT { $$ = new_ast_node(INTCONSTANT, 0); $$->data.i = yylval.i; }
+	| FLOATCONSTANT { $$ = new_ast_node_name(FLOATCONSTANT, 0); $$->data.f = yylval.f; }
 	| STRING_LITERAL { $$ = new_ast_node_name(STRING_LITERAL, yylval.str, 0); }
 	| '(' expression ')'{ $$ = $2; }
 	;
