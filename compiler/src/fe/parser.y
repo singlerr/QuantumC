@@ -67,7 +67,7 @@ extern int yylex();
 %token COMPOUND_STATEMENT BLOCK_ITEM_LIST BLOCK_ITEM EXPRESSION_STATEMENT
 %token SELECTION_STATEMENT ITERATION_STATEMENT GOTO_STATEMENT CONTINUE_STATEMENT BREAK_STATEMENT RETURN_STATEMENT TRANSLATION_UNIT
 %token EXTERNAL_DECLARATION FUNCTION_DEFINITION DECLARATION_LIST PARAM_DECLARATION
-%token ENUMERATOR_ASSIGNED
+%token ENUMERATOR_ASSIGNED POINTER_DECLARATOR
 
 %start program
 
@@ -477,122 +477,122 @@ abstract_declarator
 	;
 
 direct_abstract_declarator
-	: '(' abstract_declarator ')' { $$ = $2; }
-	| '[' ']' { $$ = empty_node(); }
-	| '[' assignment_expression ']' { $$ = $2; }
-	| direct_abstract_declarator '[' ']' { append_child($1, empty_node()); $$ = $1;}
-	| direct_abstract_declarator '[' assignment_expression ']' { append_child($1, $3); $$ = $1;}
-	| '[' '*' ']'{ $$ = new_ast_node('*', 0);}
-	| direct_abstract_declarator '[' '*' ']' { append_child($1, new_ast_node('*', 0)); $$ = $1;}
-	| '(' ')'{ $$ = empty_node();}
-	| '(' parameter_type_list ')'{ $$ = $2;}
-	| direct_abstract_declarator '(' ')' { append_child($1, empty_node()); $$ = $1;}
-	| direct_abstract_declarator '(' parameter_type_list ')' { append_child($1, $3); $$ = $1;}
-	;
+    : '(' abstract_declarator ')' { $$ = new_ast_node(DECLARATOR, $2, 0); }
+    | '[' ']' { $$ = new_ast_node(ARRAY_DECLARATOR, 0); }
+    | '[' assignment_expression ']' { $$ = new_ast_node(ARRAY_DECLARATOR, $2, 0); }
+    | direct_abstract_declarator '[' ']' { $$ = new_ast_node(ARRAY_DECLARATOR, $1, 0); }
+    | direct_abstract_declarator '[' assignment_expression ']' { $$ = new_ast_node(ARRAY_DECLARATOR, $1, $3); }
+    | '[' '*' ']' { $$ = new_ast_node(POINTER_DECLARATOR, 0); }
+    | direct_abstract_declarator '[' '*' ']' { $$ = new_ast_node(POINTER_DECLARATOR, $1, 0); }
+    | '(' ')' { $$ = new_ast_node(DECLARATOR, 0); }
+    | '(' parameter_type_list ')' { $$ = new_ast_node(FUNCTION_DECLARATOR, $2, 0); }
+    | direct_abstract_declarator '(' ')' { $$ = new_ast_node(FUNCTION_DECLARATOR, $1, 0); }
+    | direct_abstract_declarator '(' parameter_type_list ')' { $$ = new_ast_node(FUNCTION_DECLARATOR, $1, $3); }
+    ;
 
 initializer
-	: assignment_expression{ $$ = $1;}
-	| '{' initializer_list '}'{ $$ = $2;}
-	| '{' initializer_list ',' '}'{ $$ = $2;}
+	: assignment_expression { $$ = $1; }
+	| '{' initializer_list '}'{ $$ = $2; }
+	| '{' initializer_list ',' '}'{ $$ = $2; }
 	;
 
 initializer_list
-	: initializer{ $$ = new_ast_node(INIT_LIST, $1, 0);}
-	| designation initializer{ $$ = new_ast_node(INIT_LIST, $1, $2, 0);}
+	: initializer { $$ = $1; }
+	| designation initializer { $$ = new_ast_node(DESIGNATED_INITITALIZER, $1, $2, 0); }
 	| initializer_list ',' initializer { append_child($1, $3); $$ = $1;}
 	| initializer_list ',' designation initializer { append_child($1, new_ast_node(DESIGNATED_INITITALIZER, $3, $4, 0)); $$ = $1;}
 	;
 
 designation
-	: designator_list '=' { $$ = $1;}
+	: designator_list '=' { $$ = $1; }
 	;
 
 designator_list
-	: designator{ $$ = new_ast_node(DESIGNATOR_LIST, $1, 0);}
-	| designator_list designator { append_child($1, $2); $$ = $1;}
+	: designator { $$ = $1; }
+	| designator_list designator { append_child($1, $2); $$ = $1; }
 	;
 
 designator
-	: '[' constant_expression ']'{ $$ = new_ast_node(ARRAY_DESIGNATOR, $2, 0);}
-	| '.' IDENTIFIER{ $$ = new_ast_node(MEMBER_DESIGNATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	: '[' constant_expression ']' { $$ = new_ast_node(ARRAY_DESIGNATOR, $2, 0); }
+	| '.' IDENTIFIER { $$ = new_ast_node(MEMBER_DESIGNATOR, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
 	;
 
 statement
-	: labeled_statement{ $$ = $1;}
-	| compound_statement{ $$ = $1;}
-	| expression_statement{ $$ = $1;}
-	| selection_statement{ $$ = $1;}
-	| iteration_statement{ $$ = $1;}
-	| jump_statement{ $$ = $1;}
+	: labeled_statement { $$ = $1; }
+	| compound_statement { $$ = $1; }
+	| expression_statement { $$ = $1; }
+	| selection_statement { $$ = $1; }
+	| iteration_statement { $$ = $1; }
+	| jump_statement { $$ = $1; }
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement{ $$ = new_ast_node(LABELED_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
-	| CASE constant_expression ':' statement{ $$ = new_ast_node(CASE_STATEMENT, $2, $4, 0);}
-	| DEFAULT ':' statement{ $$ = new_ast_node(DEFAULT_STATEMENT, $3, 0);}
+	: IDENTIFIER ':' statement { $$ = new_ast_node(LABELED_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), $3, 0); }
+	| CASE constant_expression ':' statement { $$ = new_ast_node(CASE_STATEMENT, $2, $4, 0); }
+	| DEFAULT ':' statement { $$ = new_ast_node(DEFAULT_STATEMENT, $3, 0); }
 	;
 
 compound_statement
-	: '{' '}'{ $$ = new_ast_node(COMPOUND_STATEMENT, 0);}
-	| '{' block_item_list '}'{ $$ = new_ast_node(COMPOUND_STATEMENT, $2, 0);}
+	: '{' '}' { $$ = new_ast_node(COMPOUND_STATEMENT, 0); }
+	| '{' block_item_list '}' { $$ = new_ast_node(COMPOUND_STATEMENT, $2, 0); }
 	;
 
 block_item_list
-	: block_item{ $$ = new_ast_node(BLOCK_ITEM_LIST, $1, 0);}
-	| block_item_list block_item { append_child($1, $2); $$ = $1;}
+	: block_item { $$ = $1; }
+	| block_item_list block_item { append_child($1, $2); $$ = $1; }
 	;
 
 block_item
-	: declaration{ $$ = $1;}
-	| statement{ $$ = $1;}
+	: declaration { $$ = $1; }
+	| statement { $$ = $1; }
 	;
 
 expression_statement
-	: ';'{ $$ = empty_node();}
-	| expression ';'{ $$ = $1;}
+	: ';' { $$ = empty_node(); }
+	| expression ';' { $$ = $1; }
 	;
 
 selection_statement
-	: IF '(' expression ')' statement{ $$ = new_ast_node(IF_STATEMENT, $3, $5, 0);}
-	| IF '(' expression ')' statement ELSE statement{ $$ = new_ast_node(IF_ELSE_STATEMENT, $3, $5, $7, 0);}
-	| SWITCH '(' expression ')' statement{ $$ = new_ast_node(SWITCH_STATEMENT, $3, $5, 0);}
+	: IF '(' expression ')' statement { $$ = new_ast_node(IF_STATEMENT, $3, $5, 0); }
+	| IF '(' expression ')' statement ELSE statement { $$ = new_ast_node(IF_ELSE_STATEMENT, $3, $5, $7, 0); }
+	| SWITCH '(' expression ')' statement { $$ = new_ast_node(SWITCH_STATEMENT, $3, $5, 0); }
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement{ $$ = new_ast_node(WHILE_STATEMENT, $3, $5, 0);}
-	| DO statement WHILE '(' expression ')' ';'{ $$ = new_ast_node(DO_WHILE_STATEMENT, $2, $5, 0);}
-	| FOR '(' expression_statement expression_statement ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0);}
-	| FOR '(' expression_statement expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0);}
-	| FOR '(' declaration expression_statement ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0);}
-	| FOR '(' declaration expression_statement expression ')' statement{ $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0);}
+	: WHILE '(' expression ')' statement { $$ = new_ast_node(WHILE_STATEMENT, $3, $5, 0); }
+	| DO statement WHILE '(' expression ')' ';' { $$ = new_ast_node(DO_WHILE_STATEMENT, $2, $5, 0); }
+	| FOR '(' expression_statement expression_statement ')' statement { $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0); }
+	| FOR '(' expression_statement expression_statement expression ')' statement { $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0); }
+	| FOR '(' declaration expression_statement ')' statement { $$ = new_ast_node(FOR_STATEMENT, $3, $4, empty_node(), $6, 0); }
+	| FOR '(' declaration expression_statement expression ')' statement { $$ = new_ast_node(FOR_STATEMENT, $3, $4, $5, $7, 0); }
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'{ $$ = new_ast_node(GOTO_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
-	| CONTINUE ';'{ $$ = new_ast_node(CONTINUE_STATEMENT, 0);}
-	| BREAK ';'{ $$ = new_ast_node(BREAK_STATEMENT, 0);}
-	| RETURN ';'{ $$ = new_ast_node(RETURN_STATEMENT, 0);}
+	: GOTO IDENTIFIER ';' { $$ = new_ast_node(GOTO_STATEMENT, new_ast_node_name(IDENTIFIER, yylval.str, 0), 0); }
+	| CONTINUE ';' { $$ = new_ast_node(CONTINUE_STATEMENT, 0); }
+	| BREAK ';' { $$ = new_ast_node(BREAK_STATEMENT, 0); }
+	| RETURN ';' { $$ = new_ast_node(RETURN_STATEMENT, 0); }
 	| RETURN expression ';'{ $$ = new_ast_node(RETURN_STATEMENT, $2, 0);}
 	;
 
 translation_unit
-	: external_declaration{ $$ = $1; }
-	| translation_unit external_declaration { append_child($1, $2); $$ = $1;}
+	: external_declaration { $$ = $1; }
+	| translation_unit external_declaration { append_child($1, $2); $$ = $1; }
 	;
 
 external_declaration
-	: function_definition{ $$ = $1;}
-	| declaration{ $$ = $1;}
+	: function_definition { $$ = $1; }
+	| declaration { $$ = $1; }
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement{ $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, $4, 0);}
-	| declaration_specifiers declarator compound_statement{ $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, 0);}
+	: declaration_specifiers declarator declaration_list compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, $4, 0); }
+	| declaration_specifiers declarator compound_statement { $$ = new_ast_node(FUNCTION_DEFINITION, $1, $2, $3, 0); }
 	;
 
 declaration_list
-	: declaration{ $$ = new_ast_node(DECLARATION_LIST, $1, 0);}
-	| declaration_list declaration { append_child($1, $2); $$ = $1;}
+	: declaration { $$ = new_ast_node(DECLARATION_LIST, $1, 0); }
+	| declaration_list declaration { append_child($1, $2); $$ = $1; }
 	;
 
 
