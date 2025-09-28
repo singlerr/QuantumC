@@ -37,19 +37,10 @@ void print_node(struct ast_node *node)
     if (node->child_count == 0)
     {
         printf("%s ", to_ast_string(node->code));
-        if (node->data.str)
-        {
-            printf(" %s\n", node->data.str);
-        }
         return;
     }
 
     printf("%s ", to_ast_string(node->code));
-
-    if (node->data.str)
-    {
-        printf("%s ", node->data.str);
-    }
 
     for (int i = 0; i < node->child_count; i++)
     {

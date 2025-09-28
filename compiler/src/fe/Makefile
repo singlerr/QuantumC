@@ -1,4 +1,4 @@
-OBJS = c.parser.o c.lexer.o main.o ast.o
+OBJS = c.parser.o c.lexer.o main.o ast.o symrec.o
 CC = gcc
 CFLAGS = -g -Wall
 LEX = flex

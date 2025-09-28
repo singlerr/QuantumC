@@ -7,14 +7,21 @@ FS			(f|F|l|L)
 IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %{
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "c.parser.h"
 #include "ast.h"
+#include "symrec.h"
+#define MAX_TYPEDEF 1024
 void count(void);
 void comment(void);
 int check_type(void);
+
+char *typebufptr;
 %}
+
+%x TYPEDEF
 
 %%
 "/*"			{ comment(); }
@@ -52,15 +59,18 @@ int check_type(void);
 "static"		{ count(); return(STATIC); }
 "struct"		{ count(); return(STRUCT); }
 "switch"		{ count(); return(SWITCH); }
-"typedef"		{ count(); return(TYPEDEF); }
+"typedef"		{ count(); BEGIN(TYPEDEF); return(TYPEDEF); }
 "union"			{ count(); return(UNION); }
 "unsigned"		{ count(); return(UNSIGNED); }
 "void"			{ count(); return(VOID); }
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
 
-{L}({L}|{D})*		{ count(); return(check_type()); }
 
+<TYPEDEF>{L}({L}|{D})* { count(); return(TYPE_NAME); }
+<TYPEDEF>{L}({L}|{D})*\n { BEGIN(INITIAL); typebufptr = strdup(yytext); typebufptr[yyleng - 1] = '\0'; putsym(typebufptr, TYPE_NAME); free(typebufptr); return(TYPE_NAME); }
+
+{L}({L}|{D})*		{ count(); return(check_type()); }
 0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
 0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
 [1-9]{D}*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
@@ -168,18 +178,9 @@ void count(void)
 
 int check_type(void)
 {
-/*
-* pseudo code --- this is what it should check
-*
-*	if (yytext == type_name)
-*		return TYPE_NAME;
-*
-*	return IDENTIFIER;
-*/
-
-/*
-*	it actually will only return IDENTIFIER
-*/
 	yylval.str = strdup(yytext);
-	return IDENTIFIER;
+	if(getsym(yytext) == 0){
+		return IDENTIFIER;
+	}
+	return TYPE_NAME;
 }

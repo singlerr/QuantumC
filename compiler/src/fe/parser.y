@@ -11,11 +11,7 @@ void append_child(struct ast_node *node, const struct ast_node *child)
     node->child_count = n;
 }
 
-struct ast_node* empty_node(){
-	// return new_ast_node(EMPTY, 0);
-	return 0;
-}
-
+struct ast_node* empty_node();
 
 void yyerror(struct ast_node **root, char const *s);
 
@@ -26,7 +22,6 @@ extern int yylex();
 
 %}
 
-%define parse.trace
 %define parse.error detailed
 
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
@@ -67,7 +62,7 @@ extern int yylex();
 %token COMPOUND_STATEMENT BLOCK_ITEM_LIST BLOCK_ITEM EXPRESSION_STATEMENT
 %token SELECTION_STATEMENT ITERATION_STATEMENT GOTO_STATEMENT CONTINUE_STATEMENT BREAK_STATEMENT RETURN_STATEMENT TRANSLATION_UNIT
 %token EXTERNAL_DECLARATION FUNCTION_DEFINITION DECLARATION_LIST PARAM_DECLARATION
-%token ENUMERATOR_ASSIGNED POINTER_DECLARATOR
+%token ENUMERATOR_ASSIGNED POINTER_DECLARATOR END
 
 %token INTCONSTANT FLOATCONSTANT
 %start program
@@ -607,11 +602,16 @@ declaration_list
 
 extern int column;
 
+struct ast_node* empty_node(){
+	return new_ast_node(END, 0);
+}
+
 void yyerror(struct ast_node **root, char const *s)
 {
 	fflush(stdout);
 	printf("%*s\n%*s\n", column, "^", column, s);
 }
+
 const char* to_ast_string(int code){
 	return yysymbol_name(YYTRANSLATE(code));
 }
