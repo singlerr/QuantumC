@@ -16,7 +16,7 @@ Python is widely used for application development due to its easy learning curve
 As quantum hardware advances, the volume of classical data to process will increase, making performance a critical factor.
 [OpenQASM](https://openqasm.com), managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
 Quantum hardware architectures vary, necessitating the compilation of theoretical circuits into machine-specific instructions. 
-For instance, Hadamard gates $H$ are converted as $\left(R_Z\left(\frac{\pi}{2}\right)\right) \left(\sqrt{X}\right) \left(R_Z\left(\frac{\pi}{2}\right)\right)$ in IBM Eagle r3 architecture.
+For instance, Hadamard gates $H$ are converted as $R_Z(\pi/2)\sqrt{X}R_Z(\pi/2)$ in IBM Eagle r3 architecture.
 OpenQASM provides a universal abstraction, enabling theoretical quantum algorithms to be compiled for diverse hardware.
 **QuantumC** leverages the strengths of both C and OpenQASM to facilitate efficient quantum programming.
 
