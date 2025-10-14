@@ -1,8 +1,9 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o symrec.o
 CC = gcc
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall -std=c11
 LEX = flex
 YACC = bison
+
 
 all: main
 
@@ -15,13 +16,15 @@ c.parser.c: parser.y
 c.lexer.c: scanner.l
 	$(LEX) --header-file=c.lexer.h -o $@ $<
 
-c.parser.o : ast.h c.lexer.c c.parser.c
+c.parser.o: ast.h c.lexer.c c.parser.c
+
 c.lexer.o: c.parser.c ast.h
 
 main.o: main.c ast.h
 
 main: $(OBJS)
 	gcc $(CFLAGS) $(OBJS) -o $@
+
 
 clean:
 	@-rm -f c.parser.c
