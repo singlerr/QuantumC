@@ -57,6 +57,51 @@ c = measure q;
 ## Directory Structure
 
 * [`specs/`](./specs): Contains the specifications for the **QuantumC** language.
+* [`compiler/`](./compiler): Contains the source code for the QuantumC compiler.
+
+
+## Compilation
+
+### Required Tools
+
+This project is built with GCC and Make and uses Flex and Bison to generate the lexer and parser.
+You will need a POSIX-like environment (Linux, macOS, or Windows Subsystem for Linux) with the following tools installed:
+* `gcc` (C compiler), 
+* `make` (building tool), 
+* `flex` (lexer generator), and
+* `bison` (parser generator).
+
+### Recommended Installation Commands by Platforms
+
+* Debian / Ubuntu:
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y build-essential flex bison
+```
+Note: The package `build-essential` includes `gcc`, `make` and other basic build tools.
+
+* Fedora / RHEL (DNF):
+```bash
+sudo dnf install -y gcc make flex bison
+```
+* Windows: use WSL (recommended) or an MSYS2 environment. In WSL (Ubuntu) run the Debian/Ubuntu commands above. If using native Windows toolchains, ensure `flex`/`bison` are available (MSYS2 packages or binaries).
+
+### Building Steps
+
+1. Open a terminal in the project root or the frontend directory `compiler/src/fe`.
+2. Run `make` (the default target produces the `main` executable):
+```bash
+make
+```
+3. To remove generated files and object files:
+```bash
+make clean
+```
+
+### Troubleshooting
+
+* If `make` fails with "bison: command not found" or "flex: command not found", install those packages or run the build in WSL/macOS where the tools are available.
+* If you see undefined reference errors at link time, check whether any required libraries are missing or whether object files failed to compile earlier in the output.
 
 
 ## Contribution
