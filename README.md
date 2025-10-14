@@ -12,7 +12,7 @@ The **QuantumC** project aims to demonstrate C's clarity as a quantum programmin
 
 ### C and OpenQASM
 
-Python is widely used for application development due to its ease of learning, but its runtime performance can be dawdling, especially for iterative tesks.
+Python is widely used for application development due to its easy learning curve, but its runtime performance can be dawdling, especially for iterative tasks.
 As quantum hardware advances, the volume of classical data to process will increase, making performance a critical factor.
 [OpenQASM](https://openqasm.com), managed by IBM, is an open-source quantum intermediate representation for describing quantum circuits.
 Quantum hardware architectures vary, necessitating the compilation of theoretical circuits into machine-specific instructions. 
@@ -23,26 +23,35 @@ OpenQASM provides a universal abstraction, enabling theoretical quantum algorith
 
 ## Example
 
-Consider the creation of a Bell state, which demonstrates entanglement between two qubits: $\Ket{\Phi^+} = \frac{1}{\sqrt{2}}\ket{00} + \frac{1}{\sqrt{2}}\ket{11}$.
-To generate this state, apply a Hadamard gate ($H$) to `qubit 0`, followed by a controlled-NOT gate ($\text{CNOT}$) with `qubit 0` as the control and `qubit 1` as the target, performing $\text{CNOT}_{(0, 1)} (H \otimes I) \ket{00}$ on the circuit.
-A sample **QuantumC** program and its corresponding OpenQASM output are shown below.
+Consider the creation of a Bell state in an 8-qubit system, which demonstrates entanglement of eight qubits: $\ket{\Phi^+} = \frac{1}{\sqrt{2}}\ket{0}^{\otimes 8} + \frac{1}{\sqrt{2}}\ket{1}^{\otimes 8} = \frac{1}{\sqrt{2}}\ket{00000000} + \frac{1}{\sqrt{2}}\ket{11111111}$.
+To generate this state, apply a Hadamard gate ($H$) to `qubit 0`, then apply a controlled-NOT gate ($\text{CNOT}$) with `qubit 0` as control and `qubit 1` as target.
+Repeat locating controlled-NOT gates between successive qubits (for example, `qubit 1` as a control and `qubit 2` as a target) until `qubit 7`.
+Finally, apply a measurement gate to every qubit to convert the quantum data into classical data for post-processing.
+After this process, we obtain the following quantum circuit.
+<div align="center">
+
+![Figure 1](./figures/readme-figure-1.png)
+
+</div>
 
 ### QuantumC Example
 
 ```c
-#include <stdlib.h>
+#include <inttypes.h>
 #include <quantumc.h>
 
-bit* bell_state() {
-    qubit q[2];
-    bit* c = (bit*)calloc(2, sizeof(bit));
+uint8_t eight_qubit_bell_state() {
+    qubit q[8];
 
-    apply_H(q, 0);
-    apply_CNOT(q, 0, 1);
-    
-    measure(q, c);
+    apply_H(q[0]);
+    for (int i = 0; i < 7; i++) {
+        apply_CNOT(q[i], q[i+1]);
+    }
 
-    return c;
+    uint8_t meas = measure(uint8_t, q);
+
+    // Expected to return 0b00000000 == 0 in 50% and 0b11111111 == 255 in 50%.
+    return meas;
 }
 ```
 
@@ -52,13 +61,19 @@ bit* bell_state() {
 OPENQASM 3;
 include "stdgates.inc";
 
-qubit[2] q;
-bit[2] c;
+qubit[8] q;
 
 h q[0];
 cnot q[0], q[1];
+cnot q[1], q[2];
+cnot q[2], q[3];
+cnot q[3], q[4];
+cnot q[4], q[5];
+cnot q[5], q[6];
+cnot q[6], q[7];
 
-c = measure q;
+bit[8] meas;
+meas = measure q;
 ```
 
 
@@ -69,16 +84,17 @@ c = measure q;
 
 ## Directory Structure
 
-* [`specs/`](./specs): Contains the specifications for the **QuantumC** language.
 * [`compiler/`](./compiler): Contains the source code for the QuantumC compiler.
+* [`figures/`](./figures): Contains the figures for the QuantumC documentation.
+* [`specs/`](./specs): Contains the specifications for the QuantumC language.
 
 
 ## Compilation
 
 ### Required Tools
 
-This project is built with GCC and Make and uses Flex and Bison to generate the lexer and parser.
-You will need a POSIX-like environment (Linux, macOS, or Windows Subsystem for Linux) with the following tools installed:
+This project is built with GCC and make and uses flex and bison to generate the lexer and parser.
+You will need a POSIX-like environment (Linux or Windows Subsystem for Linux) with the following tools installed:
 * `gcc` (C compiler), 
 * `make` (building tool), 
 * `flex` (lexer generator), and
@@ -120,7 +136,7 @@ make clean
 ## Contribution
 
 We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
-Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/qRQuantumCust/pulls) tab.
+Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/QuantumC/pulls) tab.
 
 
 ## License
