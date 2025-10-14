@@ -28,7 +28,7 @@ To generate this state, apply a Hadamard gate ($H$) to `qubit 0`, then apply a c
 Repeat locating controlled-NOT gates between successive qubits (for example, `qubit 1` as a control and `qubit 2` as a target) until `qubit 7`.
 Finally, apply a measurement gate to every qubit to convert the quantum data into classical data for post-processing.
 After this process, we obtain the following quantum circuit.
-<div align="center">
+<div align='center'>
 
 ![Figure 1](./figures/readme-figure-1.png)
 
@@ -75,6 +75,17 @@ cnot q[6], q[7];
 bit[8] meas;
 meas = measure q;
 ```
+
+
+## Workflow
+
+<div align='center'>
+
+![Figure 2](./figures/readme-figure-2.png)
+
+</div>
+The general workflow of QuantumC is shown in the diagram above: write a QuantumC program, compile it with the frontend to produce OpenQASM, then run that OpenQASM code to a local simulator or a cloud quantum backend. 
+The bottom path of the diagram illustrates the typical steps when targeting a provider such as IBM Cloud.
 
 
 ## Quick Start
