@@ -100,7 +100,7 @@ make clean
 
 ### Troubleshooting
 
-* If `make` fails with "bison: command not found" or "flex: command not found", install those packages or run the build in WSL/macOS where the tools are available.
+* If `make` fails with `bison: command not found` or `flex: command not found`, install those packages or run the build in WSL/macOS where the tools are available.
 * If you see undefined reference errors at link time, check whether any required libraries are missing or whether object files failed to compile earlier in the output.
 
 
