@@ -30,7 +30,20 @@ A sample **QuantumC** program and its corresponding OpenQASM output are shown be
 ### QuantumC Example
 
 ```c
-// Example QuantumC code will be provided here.
+#include <stdlib.h>
+#include <quantumc.h>
+
+bit* bell_state() {
+    qubit q[2];
+    bit* c = (bit*)calloc(2, sizeof(bit));
+
+    apply_H(q, 0);
+    apply_CNOT(q, 0, 1);
+    
+    measure(q, c);
+
+    return c;
+}
 ```
 
 ### OpenQASM Example
@@ -78,7 +91,7 @@ You will need a POSIX-like environment (Linux, macOS, or Windows Subsystem for L
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y build-essential flex bison
 ```
-Note: The package `build-essential` includes `gcc`, `make` and other basic build tools.
+Note: The package `build-essential` includes `gcc`, `make`, and other basic build tools.
 
 * Fedora / RHEL (DNF):
 ```bash
