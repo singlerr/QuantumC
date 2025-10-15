@@ -45,7 +45,7 @@ uint8_t eight_qubit_bell_state() {
 
     apply_H(q[0]);
     for (int i = 0; i < 7; i++) {
-        apply_CNOT(q[i], q[i+1]);
+        apply_CX(q[i], q[i+1]);
     }
 
     uint8_t meas = measure(uint8_t, q);
