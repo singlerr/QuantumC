@@ -66,10 +66,6 @@ char *typebufptr;
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
 
-
-<TYPEDEF>{L}({L}|{D})* { count(); return(TYPE_NAME); }
-<TYPEDEF>{L}({L}|{D})*\n { BEGIN(INITIAL); typebufptr = strdup(yytext); typebufptr[yyleng - 1] = '\0'; putsym(typebufptr, TYPE_NAME); free(typebufptr); return(TYPE_NAME); }
-
 {L}({L}|{D})*		{ count(); return(check_type()); }
 0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
 0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
@@ -179,8 +175,8 @@ void count(void)
 int check_type(void)
 {
 	yylval.str = strdup(yytext);
-	if(getsym(yytext) == 0){
-		return IDENTIFIER;
+	if(gettyp(yytext)){
+		return TYPE_NAME;
 	}
-	return TYPE_NAME;
+	return IDENTIFIER;
 }

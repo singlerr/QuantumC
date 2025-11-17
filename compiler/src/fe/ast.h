@@ -155,10 +155,6 @@ enum ast_node_type
 };
 
 struct ast_node *new_identifier(const char *identifier);
-struct ast_node *new_
-
-    struct ast_node *
-    new_ast_node(int code, ...);
 struct ast_node *new_ast_node_name(int code, const char *name, ...);
 void append_child(struct ast_node *node, const struct ast_node *child);
 const char *to_ast_string(int code);
