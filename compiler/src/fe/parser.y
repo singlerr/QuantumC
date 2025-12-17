@@ -106,7 +106,6 @@ extern int yylex();
 %type <node> enumerator_list
 %type <node> enumerator
 %type <node> type_qualifier
-%type <node> function_specifier
 %type <node> declarator
 %type <node> direct_declarator
 %type <node> pointer
@@ -306,11 +305,11 @@ init_declarator
 	;
 
 storage_class_specifier
-	: TYPEDEF { $$ = AST_SIMPLE_NODE(AST_FLG_TYPEDEF); }
-	| EXTERN { $$ = AST_SIMPLE_NODE(AST_FLG_EXTERN); }
-	| STATIC { $$ = AST_SIMPLE_NODE(AST_FLG_STATIC); }
-	| AUTO { $$ = AST_SIMPLE_NODE(AST_FLG_AUTO); }
-	| REGISTER { $$ = AST_SIMPLE_NODE(AST_FLG_REGISTER); }
+	: TYPEDEF { $$ = AST_SIMPLE_NODE(AST_STG_TYPEDEF); }
+	| EXTERN { $$ = AST_SIMPLE_NODE(AST_STG_EXTERN); }
+	| STATIC { $$ = AST_SIMPLE_NODE(AST_STG_STATIC); }
+	| AUTO { $$ = AST_SIMPLE_NODE(AST_STG_AUTO); }
+	| REGISTER { $$ = AST_SIMPLE_NODE(AST_STG_REGISTER); }
 	;
 
 type_specifier
@@ -343,7 +342,7 @@ struct_or_union
 
 struct_declaration_list
 	: struct_declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| struct_declaration_list struct_declaration { $$ = $1; append_middle_child(find_last_middle_child($1), $2); }
+	| struct_declaration_list struct_declaration { $$ = $1; append_right_child(find_last_right_child($1), $2); }
 	;
 
 struct_declaration
@@ -359,7 +358,7 @@ specifier_qualifier_list
 
 struct_declarator_list
 	: struct_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| struct_declarator_list ',' struct_declarator { $$ = $1; append_middle_child(find_last_middle_child($1), $3); }
+	| struct_declarator_list ',' struct_declarator { $$ = $1; append_rught_child(find_last_right_child($1), $3); }
 	;
 
 struct_declarator
@@ -369,43 +368,39 @@ struct_declarator
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}' { $$ = AST_GENERAL_NODE(AST_ENUM, NULL, $3, NULL); }
-	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' enumerator_list '}' { $$ = AST_IDENTIFIER_NODE }
-	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER
+	: ENUM '{'  enumerator_list '}' { $$ = AST_GENERAL_NODE(AST_ENUM, NULL, $3, NULL); }
+	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' enumerator_list '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $2, NULL, NULL, NULL); }
+	| ENUM '{' enumerator_list ',' '}' { $$ = AST_GENERAL_NODE(AST_ENUM, NULL, $3, NULL); }
+	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' enumerator_list ',' '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $2, NULL, $4, NULL); }
+	| ENUM IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUM, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
 	;
 
 enumerator_list
-	: enumerator
-	| enumerator_list ',' enumerator
+	: enumerator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| enumerator_list ',' enumerator { $$ = $1; append_right_child(find_last_right_child($1), $3); }
 	;
 
 enumerator
-	: IDENTIFIER
-	| IDENTIFIER '=' constant_expression
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUN_FIELD_DECLARATION, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
+	| IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '=' constant_expression { $$ = AST_IDENTIFIER_NODE(AST_ENUM_FIELD_DECLARATION, $1, NULL, $3, NULL); }
 	;
 
 type_qualifier
-	: CONST
-	| RESTRICT
-	| VOLATILE
-	;
-
-function_specifier
-	: INLINE
+	: CONST { $$ = AST_SIMPLE_NODE(AST_QAL_CONST); }
+	| RESTRICT { $$ = AST_SIMPLE_NODE(AST_QAL_RESTRICT); }
+	| VOLATILE { $$ = AST_SIMPLE_NODE(AST_QAL_VOLATILE); }
 	;
 
 declarator
-	: pointer direct_declarator
-	| direct_declarator
+	: pointer direct_declarator { $$ = $1; append_middle_child(find_last_middle_child($1), $2); }
+	| direct_declarator { $$ = $1; }
 	;
 
 
 direct_declarator
-	: IDENTIFIER
-	| '(' declarator ')'
-	| direct_declarator '[' type_qualifier_list assignment_expression ']'
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
+	| '(' declarator ')' { $$ = $1; }
+	| direct_declarator '[' type_qualifier_list assignment_expression ']' {  }
 	| direct_declarator '[' type_qualifier_list ']'
 	| direct_declarator '[' assignment_expression ']'
 	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
@@ -419,48 +414,48 @@ direct_declarator
 	;
 
 pointer
-	: '*'
-	| '*' type_qualifier_list
-	| '*' pointer
-	| '*' type_qualifier_list pointer
+	: '*' { $$ = AST_SIMPLE_NODE(AST_TYPE_POINTER); }
+	| '*' type_qualifier_list { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, $2, NULL, NULL); }
+	| '*' pointer { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, NULL, NULL, $2);}
+	| '*' type_qualifier_list pointer { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, $2, NULL, $3); }
 	;
 
 type_qualifier_list
-	: type_qualifier
-	| type_qualifier_list type_qualifier
+	: type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| type_qualifier_list type_qualifier { $$ = $1; append_right_child(find_last_right_child($1), $2); }
 	;
 
 
 parameter_type_list
-	: parameter_list
-	| parameter_list ',' ELLIPSIS
+	: parameter_list { $$ = $1; }
+	| parameter_list ',' ELLIPSIS { perror("Sorry! Currently variadic parameters are not allowed."); }
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| parameter_list ',' parameter_declaration { $$ = $1; append_right_child(find_last_right_child($1), $3); }
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	: declaration_specifiers declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $2, NULL, NULL); }
+	| declaration_specifiers abstract_declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, $2, NULL); }
+	| declaration_specifiers{ $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, NULL, NULL); }
 	;
 
 identifier_list
-	: IDENTIFIER
-	| identifier_list ',' IDENTIFIER
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(yytext, NULL), NULL, NULL, NULL); }
+	| identifier_list ',' IDENTIFIER { $$ = $1; append_right_child(find_last_right_child($1), AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(yytext, NULL), NULL, NULL, NULL)); }
 	;
 
 type_name
-	: specifier_qualifier_list
-	| specifier_qualifier_list abstract_declarator
+	: specifier_qualifier_list { $$ = AST_GENERAL_NODE(AST_NAME_TYPE, $1, NULL, NULL); }
+	| specifier_qualifier_list abstract_declarator { $$ = $1; append_right_child(find_last_right_child($1), $2); }
 	;
 
 abstract_declarator
-	: pointer
-	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
+	: pointer { $$ = $1; }
+	| direct_abstract_declarator { $$ = $1; }
+	| pointer direct_abstract_declarator { $$ = $1; append_right_child(find_last_right_child($1), $2); }
 	;
 
 direct_abstract_declarator

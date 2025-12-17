@@ -36,10 +36,12 @@ typedef enum _ast_node_type
     AST_STRUCT_FIELD_DECLARATOR,
     AST_STRUCT_FIELD_DECLARATION,
     AST_ENUM_DECLARATION,
+    AST_ENUM_FIELD_DECLARATION,
     AST_STRUCT,
     AST_UNION,
     AST_STRUCT_UNION,
     AST_ENUM,
+    AST_NAME_TYPE,
 
     AST_NODE_LIST,
 
@@ -84,11 +86,15 @@ typedef enum _ast_node_type
 
     AST_IDENTIFIER,
 
-    AST_FLG_TYPEDEF,
-    AST_FLG_EXTERN,
-    AST_FLG_STATIC,
-    AST_FLG_AUTO,
-    AST_FLG_REGISTER
+    AST_STG_TYPEDEF,
+    AST_STG_EXTERN,
+    AST_STG_STATIC,
+    AST_STG_AUTO,
+    AST_STG_REGISTER,
+
+    AST_QAL_CONST,
+    AST_QAL_RESTRICT,
+    AST_QAL_VOLATILE
 } ast_node_type;
 
 typedef struct _ast_identifier
