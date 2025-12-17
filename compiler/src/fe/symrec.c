@@ -7,6 +7,7 @@ typerec_t *type_table;
 symrec_t *putsym(const char *name)
 {
     symrec_t *res = (symrec_t *)malloc(sizeof(symrec_t));
+    symrec_t *res = (symrec_t *)malloc(sizeof(symrec_t));
     res->name = strdup(name);
     res->next = sym_table;
     sym_table = res;
@@ -49,7 +50,9 @@ typerec_t *gettype(const char *name)
 {
     for (typerec_t *p = type_table; p; p = p->next)
     {
-        if (strcmp(p->name, name) == 0)
+        if (p->level < level)
+            break;
+        if (strcmp(p->name, name) == 0 && p->level == level)
             return p;
     }
 
