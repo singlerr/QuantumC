@@ -1,135 +1,66 @@
 #ifndef _AST_H_
 #define _AST_H_
 
-struct ast_node
-{
-    enum ast_node_type type;
+#include "symrec.h"
+#include "type.h"
 
-    struct ast_node *left;
-    struct ast_node *right;
-};
+#ifndef AST_SIMPLE_NODE
+#define AST_SIMPLE_NODE(node_type) new_ast_node(node_type, NULL, NULL, NULL, NULL, NULL)
+#endif
 
-struct ast_function_decl
-{
-    enum ast_node_type type;
-};
+#ifndef AST_GENERAL_NODE
+#define AST_GENERAL_NODE(node_type, left, middle, right) new_ast_node(node_type, NULL, NULL, left, middle, right)
+#endif
 
-struct ast_param_decl
-{
-    enum ast_node_type type;
-    struct ast_node *params;
-};
+#ifndef AST_IDENTIFIER_NODE
+#define AST_IDENTIFIER_NODE(node_type, id, left, middle, right) new_ast_node(node_type, id, NULL, left, middle, right)
+#endif
 
-struct ast_struct_decl
-{
-    enum ast_node_type type;
-};
+#ifndef AST_TYPE_NODE
+#define AST_TYPE_NODE(node_type, type, left, middle, right) new_ast_node(node_type, NULL, type, left, middle, right)
+#endif
 
-struct ast_enum_decl
-{
-    enum ast_node_type type;
-};
+#ifndef AST_ID_CURSCOPE
+#define AST_ID_CURSCOPE(symbol, type) new_identifier_node(symbol, type, get_scope_level())
+#endif
 
-struct ast_data
-{
-    enum ast_node_type type;
-    union
-    {
-        int i;
-        char c;
-        char *s;
-        float f;
-        void *p;
-    } data;
-};
-
-struct ast_stmt_compound
-{
-    enum ast_node_type type;
-    int count;
-    struct ast_node *statements;
-};
-
-struct ast_stmt_if
-{
-    enum ast_node_type type;
-
-    struct ast_node *true_part;
-    struct ast_node *false_part;
-};
-
-struct ast_stmt_while
-{
-    enum ast_node_type type;
-
-    struct ast_node *cond;
-    struct ast_node *body;
-};
-
-struct ast_stmt_do_while
-{
-    enum ast_node_type type;
-    struct ast_node *cond;
-    struct ast_node *body;
-};
-
-struct ast_expr_binary
-{
-    enum ast_node_type type;
-
-    int op;
-    struct ast_node *left;
-    struct ast_node *right;
-};
-
-struct ast_expr_unary
-{
-    enum ast_node_type type;
-    int op;
-    struct ast_node *target;
-};
-
-struct ast_expr_assignment
-{
-    enum ast_node_type type;
-    struct ast_node *left;
-    struct ast_node *right;
-};
-
-struct ast_expr_arr_access
-{
-    enum ast_node_type type;
-    struct ast_node *array;
-    struct ast_node *index;
-};
-
-struct ast_expr_member_access
-{
-    enum ast_node_type type;
-    struct ast_node *owner;
-    struct ast_node *member;
-};
-
-struct ast_identifier
-{
-    enum ast_node_type type;
-    char *name;
-};
-
-enum ast_node_type
+typedef enum _ast_node_type
 {
     AST_PROGRAM,
     AST_TRANSLATION_UNIT,
+    AST_VARIABLE_DECLARATOR,
+    AST_VARIABLE_DECLARATION,
     AST_FUNCTION_DECLARATION,
     AST_PARAMETER_DECLARATION,
     AST_STRUCT_DECLARATION,
+    AST_STRUCT_FIELD_DECLARATOR,
+    AST_STRUCT_FIELD_DECLARATION,
     AST_ENUM_DECLARATION,
+    AST_STRUCT,
+    AST_UNION,
+    AST_STRUCT_UNION,
+    AST_ENUM,
+
+    AST_NODE_LIST,
 
     AST_TYPE_INT,
+    AST_TYPE_VOID,
     AST_TYPE_CHAR,
+    AST_TYPE_SHORT,
+    AST_TYPE_FLOAT,
+    AST_TYPE_DOUBLE,
+    AST_TYPE_SIGNED,
+    AST_TYPE_UNSIGNED,
+    AST_TYPE_LONG,
+    AST_TYPE_BOOL,
+    AST_TYPE_COMPLEX,
+    AST_TYPE_IMAGINARY,
     AST_TYPE_POINTER,
     AST_TYPE_ARRAY,
     AST_TYPE_STRUCT,
+    AST_TYPE_UNION,
+    AST_TYPE_STRUCT_UNION,
+    AST_TYPE_USER,
 
     AST_STMT_COMPOUND,
     AST_STMT_IF,
@@ -151,16 +82,42 @@ enum ast_node_type
     AST_LITERAL_CHAR,
     AST_LITERAL_FLOAT,
 
-    AST_IDENTIFIER
-};
+    AST_IDENTIFIER,
 
-struct ast_node *new_identifier(const char *identifier);
-struct ast_node *new_
+    AST_FLG_TYPEDEF,
+    AST_FLG_EXTERN,
+    AST_FLG_STATIC,
+    AST_FLG_AUTO,
+    AST_FLG_REGISTER
+} ast_node_type;
 
-    struct ast_node *
-    new_ast_node(int code, ...);
-struct ast_node *new_ast_node_name(int code, const char *name, ...);
-void append_child(struct ast_node *node, const struct ast_node *child);
-const char *to_ast_string(int code);
+typedef struct _ast_identifier
+{
+    symrec_t *sym;
+    type_t *type;
+    int scope_level;
+} ast_identifier_node;
 
+typedef struct _ast_node
+{
+    ast_node_type node_type;
+    ast_identifier_node *identifier;
+    type_t *type;
+    struct _ast_node *left;
+    struct _ast_node *right;
+    struct _ast_node *middle;
+} ast_node;
+
+int get_scope_level();
+void inc_scope_level();
+void dec_scope_level();
+
+ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level);
+ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const type_t *type, const ast_node *left, const ast_node *middle, const ast_node *right);
+void append_left_child(ast_node *parent, const ast_node *child);
+void append_right_child(ast_node *parent, const ast_node *child);
+void append_middle_child(ast_node *parent, const ast_node *child);
+ast_node *find_last_left_child(ast_node *parent);
+ast_node *find_last_right_child(ast_node *parent);
+ast_node *find_last_middle_child(ast_node *parent);
 #endif

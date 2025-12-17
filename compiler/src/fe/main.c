@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast.h"
-
+#include "symrec.h"
 extern FILE *yyin;
 extern int yyparse(struct ast_node **root);
 
@@ -9,9 +9,11 @@ void print_node(struct ast_node *node);
 
 int main(int argc, char *argv[])
 {
+
     struct ast_node *root;
     FILE *f;
     int ret;
+
     if (argc > 1)
     {
         if ((f = fopen(argv[1], "r")) == 0)
@@ -22,6 +24,8 @@ int main(int argc, char *argv[])
 
         yyin = f;
     }
+
+    init_lexsym();
 
     ret = yyparse(&root);
     if (!ret)
@@ -34,17 +38,4 @@ int main(int argc, char *argv[])
 
 void print_node(struct ast_node *node)
 {
-    if (node->child_count == 0)
-    {
-        printf("%s ", to_ast_string(node->code));
-        return;
-    }
-
-    printf("%s ", to_ast_string(node->code));
-
-    for (int i = 0; i < node->child_count; i++)
-    {
-        struct ast_node *n = node->children[i];
-        print_node(n);
-    }
 }

@@ -3,95 +3,82 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct ast_node *new_ast_node(int code, ...)
+int scope_level = 0;
+
+ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const type_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
 {
-    struct ast_node *temp;
-    int i;
-    int n = 0;
-    va_list vl;
-    va_start(vl, code);
-    while (1)
-    {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-            n++;
-        else
-            break;
-    }
-    va_end(vl);
-
-    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
-    g->children = 0;
-
-    if (n > 0)
-    {
-        struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
-
-        va_start(vl, code);
-        i = 0;
-
-        while (i < n)
-        {
-            temp = va_arg(vl, struct ast_node *);
-            if (temp)
-            {
-                children[i++] = temp;
-            }
-        }
-
-        g->children = children;
-    }
-
-    g->code = code;
-    g->child_count = n;
-
-    return g;
+    ast_node *node = (ast_node *)malloc(sizeof(ast_node));
+    node->node_type = node_type;
+    node->identifier = id_node;
+    node->left = left;
+    node->right = right;
+    node->middle = middle;
+    node->type = type;
+    return node;
 }
 
-struct ast_node *new_ast_node_name(int code, const char *name, ...)
+void append_left_child(ast_node *parent, const ast_node *child)
 {
+    parent->left = child;
+}
+void append_right_child(ast_node *parent, const ast_node *child)
+{
+    parent->right = child;
+}
+void append_middle_child(ast_node *parent, const ast_node *child)
+{
+    parent->middle = child;
+}
 
-    struct ast_node *temp;
-    int i;
-    int n = 0;
-    va_list vl;
-    va_start(vl, name);
-    while (1)
+ast_node *find_last_left_child(ast_node *parent)
+{
+    ast_node *node = parent;
+    while (node->left)
     {
-        temp = va_arg(vl, struct ast_node *);
-        if (temp)
-            n++;
-        else
-            break;
-    }
-    va_end(vl);
-
-    struct ast_node *g = (struct ast_node *)malloc(sizeof(struct ast_node));
-
-    g->children = 0;
-
-    if (n > 0)
-    {
-        struct ast_node **children = (struct ast_node **)malloc(sizeof(struct ast_node *) * n);
-
-        va_start(vl, name);
-        i = 0;
-
-        while (i < n)
-        {
-            temp = va_arg(vl, struct ast_node *);
-            if (temp)
-            {
-                children[i++] = temp;
-            }
-        }
-
-        g->children = children;
-        g->code = code;
+        node = node->left;
     }
 
-    g->child_count = n;
+    return node;
+}
+ast_node *find_last_right_child(ast_node *parent)
+{
+    ast_node *node = parent;
+    while (node->right)
+    {
+        node = node->right;
+    }
 
-    g->data.str = strdup(name);
-    return g;
+    return node;
+}
+ast_node *find_last_middle_child(ast_node *parent)
+{
+    ast_node *node = parent;
+    while (node->middle)
+    {
+        node = node->middle;
+    }
+
+    return node;
+}
+
+ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level)
+{
+    ast_identifier_node *node = (ast_identifier_node *)malloc(sizeof(ast_identifier_node));
+    node->scope_level = scope_level;
+    node->sym = symbol;
+    node->type = type;
+    return node;
+}
+
+int get_scope_level()
+{
+    return scope_level;
+}
+void inc_scope_level()
+{
+    scope_level++;
+}
+void dec_scope_level()
+{
+    scope_level--;
 }

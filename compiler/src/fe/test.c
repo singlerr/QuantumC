@@ -1,3 +1,4 @@
+typedef struct a a;
 int main(void)
 {
 

@@ -1,17 +1,28 @@
 #ifndef _SYMREC_H_
 #define _SYMREC_H_
 
+#include "type.h"
+
 typedef struct _symrec
 {
     char *name;
-    int type;
-
     struct _symrec *next;
-} symrec;
+} symrec_t;
 
-extern symrec *sym_table;
+typedef struct _typerec
+{
+    char *name;
+    struct _typerec *next;
+} typerec_t;
 
-symrec *putsym(const char *name, int type);
-symrec *getsym(const char *name);
+extern symrec_t *sym_table;
+extern typerec_t *type_table;
+
+symrec_t *putsym(const char *name);
+symrec_t *getsym(const char *name);
+symrec_t *getorcreatesym(const char *name);
+
+typerec_t *puttype(const char *name, const type_t *type);
+typerec_t *gettype(const char *name);
 
 #endif

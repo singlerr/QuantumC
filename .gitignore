@@ -9,6 +9,7 @@
 *.tab.h
 *.parser.h
 *.parser.c
+*.yy.c
 main
 
 ### C ###

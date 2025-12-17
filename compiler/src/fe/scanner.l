@@ -18,10 +18,7 @@ void count(void);
 void comment(void);
 int check_type(void);
 
-char *typebufptr;
 %}
-
-%x TYPEDEF
 
 %%
 "/*"			{ comment(); }
@@ -65,10 +62,6 @@ char *typebufptr;
 "void"			{ count(); return(VOID); }
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
-
-
-<TYPEDEF>{L}({L}|{D})* { count(); return(TYPE_NAME); }
-<TYPEDEF>{L}({L}|{D})*\n { BEGIN(INITIAL); typebufptr = strdup(yytext); typebufptr[yyleng - 1] = '\0'; putsym(typebufptr, TYPE_NAME); free(typebufptr); return(TYPE_NAME); }
 
 {L}({L}|{D})*		{ count(); return(check_type()); }
 0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
@@ -175,12 +168,13 @@ void count(void)
 	ECHO;
 }
 
-
 int check_type(void)
 {
 	yylval.str = strdup(yytext);
-	if(getsym(yytext) == 0){
-		return IDENTIFIER;
+	
+	if(gettype(yytext)){
+		return TYPE_NAME;
 	}
-	return TYPE_NAME;
+
+	return IDENTIFIER;
 }
