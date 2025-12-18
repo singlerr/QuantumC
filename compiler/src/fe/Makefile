@@ -1,6 +1,6 @@
-OBJS = c.parser.o c.lexer.o main.o ast.o symrec.o type.o
+OBJS = c.parser.o c.lexer.o main.o ast.o symrec.o type.o stringlib.o
 CC = gcc
-CFLAGS = -g -Wall -std=c99
+CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
 LEX = flex
 YACC = bison
 
@@ -11,7 +11,7 @@ all: main
 	$(CC) $(CFLAGS) -c $< -o $@
 
 c.parser.c: parser.y
-	$(YACC) --defines=c.parser.h $< -o $@
+	$(YACC) --debug --defines=c.parser.h $< -o $@
 
 c.lexer.c: scanner.l
 	$(LEX) --header-file=c.lexer.h -o $@ $<

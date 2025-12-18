@@ -12,6 +12,7 @@ typedef struct _symrec
 typedef struct _typerec
 {
     char *name;
+    type_t *handle;
     struct _typerec *next;
 } typerec_t;
 
@@ -24,5 +25,7 @@ symrec_t *getorcreatesym(const char *name);
 
 typerec_t *puttype(const char *name, const type_t *type);
 typerec_t *gettype(const char *name);
+
+void init_type();
 
 #endif

@@ -7,7 +7,6 @@ typerec_t *type_table;
 symrec_t *putsym(const char *name)
 {
     symrec_t *res = (symrec_t *)malloc(sizeof(symrec_t));
-    symrec_t *res = (symrec_t *)malloc(sizeof(symrec_t));
     res->name = strdup(name);
     res->next = sym_table;
     sym_table = res;
@@ -42,17 +41,16 @@ typerec_t *puttype(const char *name, const type_t *type)
     typerec_t *rec = (typerec_t *)malloc(sizeof(typerec_t));
     rec->name = strdup(name);
     rec->next = type_table;
-    type_table = type;
-    return type;
+    rec->handle = type;
+    type_table = rec;
+    return rec;
 }
 
 typerec_t *gettype(const char *name)
 {
     for (typerec_t *p = type_table; p; p = p->next)
     {
-        if (p->level < level)
-            break;
-        if (strcmp(p->name, name) == 0 && p->level == level)
+        if (strcmp(p->name, name) == 0)
             return p;
     }
 

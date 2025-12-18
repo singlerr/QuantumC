@@ -3,14 +3,14 @@
 #include "ast.h"
 #include "symrec.h"
 extern FILE *yyin;
-extern int yyparse(struct ast_node **root);
+extern int yyparse(ast_node **root);
 
-void print_node(struct ast_node *node);
+void print_node(ast_node *node);
 
 int main(int argc, char *argv[])
 {
 
-    struct ast_node *root;
+    ast_node *root;
     FILE *f;
     int ret;
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
         yyin = f;
     }
 
-    init_lexsym();
+    init_type();
 
     ret = yyparse(&root);
     if (!ret)
@@ -36,6 +36,6 @@ int main(int argc, char *argv[])
     exit(0);
 }
 
-void print_node(struct ast_node *node)
+void print_node(ast_node *node)
 {
 }

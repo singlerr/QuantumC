@@ -10,8 +10,10 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "c.parser.h"
+#include <string.h>
+#include "stringlib.h"
 #include "ast.h"
+#include "c.parser.h"
 #include "symrec.h"
 #define MAX_TYPEDEF 1024
 void count(void);

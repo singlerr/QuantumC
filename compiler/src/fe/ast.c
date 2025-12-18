@@ -2,10 +2,11 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include "stringlib.h"
 
 int scope_level = 0;
 
-ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const type_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
+ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
 {
     ast_node *node = (ast_node *)malloc(sizeof(ast_node));
     node->node_type = node_type;
@@ -14,6 +15,7 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
     node->right = right;
     node->middle = middle;
     node->type = type;
+    node->constant = const_node;
     return node;
 }
 
@@ -30,7 +32,7 @@ void append_middle_child(ast_node *parent, const ast_node *child)
     parent->middle = child;
 }
 
-ast_node *find_last_left_child(ast_node *parent)
+const ast_node *find_last_left_child(const ast_node *parent)
 {
     ast_node *node = parent;
     while (node->left)
@@ -40,7 +42,7 @@ ast_node *find_last_left_child(ast_node *parent)
 
     return node;
 }
-ast_node *find_last_right_child(ast_node *parent)
+const ast_node *find_last_right_child(const ast_node *parent)
 {
     ast_node *node = parent;
     while (node->right)
@@ -50,7 +52,7 @@ ast_node *find_last_right_child(ast_node *parent)
 
     return node;
 }
-ast_node *find_last_middle_child(ast_node *parent)
+const ast_node *find_last_middle_child(const ast_node *parent)
 {
     ast_node *node = parent;
     while (node->middle)
@@ -59,6 +61,25 @@ ast_node *find_last_middle_child(ast_node *parent)
     }
 
     return node;
+}
+
+ast_const_node *new_ast_int_const(int i)
+{
+    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    n->data.i = i;
+    return n;
+}
+ast_const_node *new_ast_float_const(float f)
+{
+    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    n->data.f = f;
+    return n;
+}
+ast_const_node *new_ast_str_const(const char *s)
+{
+    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    n->data.s = s;
+    return n;
 }
 
 ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level)
