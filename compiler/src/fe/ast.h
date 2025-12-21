@@ -1,6 +1,7 @@
 #ifndef _AST_H_
 #define _AST_H_
 
+#include "ast_types.h"
 #include "symrec.h"
 #include "type.h"
 
@@ -31,144 +32,6 @@
 #ifndef AST_ID_NONSCOPE
 #define AST_ID_NONSCOPE(symbol, type) new_identifier_node(symbol, type, -1)
 #endif
-
-typedef enum _ast_node_type
-{
-    AST_PROGRAM,
-    AST_TRANSLATION_UNIT,
-    AST_VARIABLE_DECLARATOR,
-    AST_VARIABLE_DECLARATION,
-    AST_FUNCTION_DECLARATION,
-    AST_FUNCTION_BODY,
-    AST_PARAMETER_DECLARATION,
-    AST_STRUCT_DECLARATION,
-    AST_STRUCT_FIELD_DECLARATOR,
-    AST_STRUCT_FIELD_DECLARATION,
-    AST_ENUM_DECLARATION,
-    AST_ENUM_FIELD_DECLARATION,
-    AST_STRUCT,
-    AST_UNION,
-    AST_STRUCT_UNION,
-    AST_ENUM,
-    AST_NAME_TYPE,
-    AST_ARRAY_ACCESS,
-    AST_MEMBER_ACCESS,
-
-    AST_NODE_LIST,
-
-    AST_TYPE_INT,
-    AST_TYPE_VOID,
-    AST_TYPE_CHAR,
-    AST_TYPE_SHORT,
-    AST_TYPE_FLOAT,
-    AST_TYPE_DOUBLE,
-    AST_TYPE_SIGNED,
-    AST_TYPE_UNSIGNED,
-    AST_TYPE_LONG,
-    AST_TYPE_BOOL,
-    AST_TYPE_COMPLEX,
-    AST_TYPE_IMAGINARY,
-    AST_TYPE_POINTER,
-    AST_TYPE_ARRAY,
-    AST_TYPE_STRUCT,
-    AST_TYPE_UNION,
-    AST_TYPE_STRUCT_UNION,
-    AST_TYPE_USER,
-    AST_TYPE_FUNCTION,
-    AST_TYPE_ENUM,
-
-    AST_STMT_COMPOUND,
-    AST_STMT_IF,
-    AST_STMT_IF_ELSE,
-    AST_STMT_SWITCH,
-    AST_STMT_WHILE,
-    AST_STMT_DO_WHILE,
-    AST_STMT_FOR,
-    AST_STMT_FOR_EXPR,
-    AST_STMT_RETURN,
-    AST_STMT_BREAK,
-    AST_STMT_CONTINUE,
-    AST_STMT_LABEL,
-    AST_STMT_CASE,
-    AST_STMT_DEFAULT,
-    AST_STMT_GOTO,
-
-    AST_EXPR_BINARY,
-    AST_EXPR_UNARY,
-    AST_EXPR_ASSIGNMENT,
-    AST_EXPR_ARRAY_ACCESS,
-    AST_EXPR_POINTER_MEMBER_ACCESS,
-    AST_EXPR_MEMBER_ACCESS,
-    AST_EXPR_FUNCTION_CALL,
-    AST_EXPR_POST_INC,
-    AST_EXPR_POST_DEC,
-    AST_EXPR_PRE_INC,
-    AST_EXPR_PRE_DEC,
-    AST_EXPR_TYPE_CAST,
-    AST_EXPR_SIZEOF,
-
-    AST_EXPR_MUL,
-    AST_EXPR_ADD,
-    AST_EXPR_SUB,
-    AST_EXPR_DIV,
-    AST_EXPR_MOD,
-
-    AST_EXPR_LSHIFT,
-    AST_EXPR_RSHIFT,
-
-    AST_EXPR_LT,
-    AST_EXPR_GT,
-    AST_EXPR_GEQ,
-    AST_EXPR_LEQ,
-
-    AST_EXPR_EQ,
-    AST_EXPR_NEQ,
-
-    AST_EXPR_AND,
-    AST_EXPR_OR,
-    AST_EXPR_XOR,
-
-    AST_EXPR_LAND,
-    AST_EXPR_LOR,
-
-    AST_EXPR_COND,
-
-    AST_EXPR_ASSIGN,
-    AST_EXPR_MUL_ASSIGN,
-    AST_EXPR_DIV_ASSIGN,
-    AST_EXPR_MOD_ASSIGN,
-    AST_EXPR_ADD_ASSIGN,
-    AST_EXPR_SUB_ASSIGN,
-    AST_EXPR_LEFT_ASSIGN,
-    AST_EXPR_RIGHT_ASSIGN,
-    AST_EXPR_AND_ASSIGN,
-    AST_EXPR_XOR_ASSIGN,
-    AST_EXPR_OR_ASSIGN,
-
-    AST_UNARY_AMP,
-    AST_UNARY_STAR,
-    AST_UNARY_PLUS,
-    AST_UNARY_MINUS,
-    AST_UNARY_TILDE,
-    AST_UNARY_EXCL,
-
-    AST_LITERAL_INTEGER,
-    AST_LITERAL_STRING,
-    AST_LITERAL_CHAR,
-    AST_LITERAL_FLOAT,
-
-    AST_IDENTIFIER,
-
-    AST_STG_TYPEDEF,
-    AST_STG_EXTERN,
-    AST_STG_STATIC,
-    AST_STG_AUTO,
-    AST_STG_REGISTER,
-
-    AST_QAL_CONST,
-    AST_QAL_RESTRICT,
-    AST_QAL_VOLATILE
-} ast_node_type;
 
 typedef struct _ast_identifier
 {
@@ -209,6 +72,7 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
 ast_const_node *new_ast_int_const(int i);
 ast_const_node *new_ast_float_const(float f);
 ast_const_node *new_ast_str_const(const char *s);
+void register_type_if_required(ast_node *decl, ast_node *identifier);
 
 void append_left_child(ast_node *parent, const ast_node *child);
 void append_right_child(ast_node *parent, const ast_node *child);

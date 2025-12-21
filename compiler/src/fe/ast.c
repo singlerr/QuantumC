@@ -2,8 +2,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "stringlib.h"
-
+#include "common.h"
 int scope_level = 0;
 
 ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
@@ -17,6 +18,68 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
     node->type = type;
     node->constant = const_node;
     return node;
+}
+
+void register_type_if_required(ast_node *decl, ast_node *identifier)
+{
+    ast_node *node = decl;
+    BOOL has_typedef = FALSE;
+    while (node->left)
+    {
+        if (node->node_type == AST_STG_TYPEDEF)
+        {
+            has_typedef = TRUE;
+            break;
+        }
+        node = node->left;
+    }
+
+    if (!has_typedef)
+    {
+        return;
+    }
+
+    identifier = identifier->middle;
+
+    if (!identifier || identifier->node_type != AST_VARIABLE_DECLARATOR)
+    {
+        perror("typedef requires its type name");
+    }
+
+    node = decl;
+    while (node->right)
+    {
+        if (node->node_type == AST_TYPE_SPECIFIER)
+            break;
+        node = node->right;
+    }
+
+    int size = 0;
+    typerec_t *t = NULL;
+    while (node->node_type == AST_TYPE_SPECIFIER)
+    {
+        ast_node *type_node = node->left;
+        if (!type_node->type)
+        {
+            perror("unknown type");
+        }
+
+        typerec_t *sub = clone_type_rec(type_node->type);
+        if (!t)
+        {
+            t = sub;
+        }
+        else
+        {
+            t->next = sub;
+        }
+
+        size = sub->handle->meta->size;
+
+        node = type_node->left;
+    }
+
+    PUT_TYPE(identifier->identifier->sym->name, AST_TYPE_USER, size);
 }
 
 void append_left_child(ast_node *parent, const ast_node *child)

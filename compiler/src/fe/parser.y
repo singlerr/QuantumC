@@ -11,6 +11,7 @@ extern int yylex();
 #include "c.parser.h"
 
 extern char* yytext;
+
 %}
 
 
@@ -141,7 +142,7 @@ extern char* yytext;
 
 %%
 
-program: translation_unit
+program: translation_unit { *root = AST_GENERAL_NODE(AST_PROGRAM, NULL, $1, NULL); }
 
 primary_expression
 	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
@@ -160,8 +161,8 @@ postfix_expression
 	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression INC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_INC, $1, NULL, NULL); }
 	| postfix_expression DEC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_DEC, $1, NULL, NULL); }
-	| '(' type_name ')' '{' initializer_list '}' { $$ = AST_GENERAL_NODE(AST_EXPR_TYPE_CAST, $2, $5, NULL); }
-	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = AST_GENERAL_NODE(AST_EXPR_TYPE_CAST, $2, $5, NULL); }
+	| '(' type_name ')' '{' initializer_list '}' { $$ = AST_GENERAL_NODE(AST_STRUCT_INIT, $2, $5, NULL); }
+	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = AST_GENERAL_NODE(AST_STRUCT_INIT, $2, $5, NULL); }
 	;
 
 argument_expression_list
@@ -285,15 +286,15 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';' { $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, NULL, NULL); }
-	| declaration_specifiers init_declarator_list ';' { $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL); }
+	| declaration_specifiers init_declarator_list ';' { register_type_if_required($1, $2); $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL); }
 	;
 
 declaration_specifiers
 	: storage_class_specifier { $$ = $1; }
 	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
 	| type_specifier { $$ = $1; }
-	| declaration_specifiers type_specifier { $$ = $1; append_middle_child(find_last_middle_child($1), $2); } 
-	| type_qualifier { $$ = $1; }
+	| declaration_specifiers type_specifier { $$ = $1; append_middle_child(find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $2, NULL, NULL)); } 
+	| type_qualifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $1, NULL, NULL); }
 	| declaration_specifiers type_qualifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
 	;
 
@@ -316,17 +317,17 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID { $$ = AST_SIMPLE_NODE(AST_TYPE_VOID); }
-	| CHAR { $$ = AST_SIMPLE_NODE(AST_TYPE_CHAR); }
-	| SHORT { $$ = AST_SIMPLE_NODE(AST_TYPE_SHORT); }
-	| INT { $$ = AST_SIMPLE_NODE(AST_TYPE_INT); }
-	| LONG { $$ = AST_SIMPLE_NODE(AST_TYPE_LONG); }
-	| FLOAT { $$ = AST_SIMPLE_NODE(AST_TYPE_FLOAT); } 
-	| DOUBLE { $$ = AST_SIMPLE_NODE(AST_TYPE_DOUBLE); }
-	| SIGNED { $$ = AST_SIMPLE_NODE(AST_TYPE_SIGNED); }
-	| UNSIGNED { $$ = AST_SIMPLE_NODE(AST_TYPE_UNSIGNED); }
-	| COMPLEX { $$ = AST_SIMPLE_NODE(AST_TYPE_COMPLEX); }
-	| IMAGINARY { $$ = AST_SIMPLE_NODE(AST_TYPE_IMAGINARY); }
+	: VOID { $$ = AST_TYPE_NODE(AST_TYPE_VOID, PRIM_VOID, NULL, NULL, NULL); }
+	| CHAR { $$ = AST_TYPE_NODE(AST_TYPE_CHAR, PRIM_CHAR, NULL, NULL, NULL); }
+	| SHORT { $$ = AST_TYPE_NODE(AST_TYPE_SHORT, PRIM_SHORT, NULL, NULL, NULL); }
+	| INT { $$ = AST_TYPE_NODE(AST_TYPE_INT, PRIM_INT, NULL, NULL, NULL); }
+	| LONG { $$ = AST_TYPE_NODE(AST_TYPE_LONG, PRIM_LONG, NULL, NULL, NULL); }
+	| FLOAT { $$ = AST_TYPE_NODE(AST_TYPE_FLOAT, PRIM_FLOAT, NULL, NULL, NULL); } 
+	| DOUBLE { $$ = AST_TYPE_NODE(AST_TYPE_DOUBLE, PRIM_DOUBLE, NULL, NULL, NULL); }
+	| SIGNED { $$ = AST_TYPE_NODE(AST_TYPE_SIGNED, PRIM_SIGNED, NULL, NULL, NULL); }
+	| UNSIGNED { $$ = AST_TYPE_NODE(AST_TYPE_UNSIGNED, PRIM_UNSIGNED, NULL, NULL, NULL); }
+	| COMPLEX { $$ = AST_TYPE_NODE(AST_TYPE_COMPLEX, PRIM_COMPLEX, NULL, NULL, NULL); }
+	| IMAGINARY { $$ = AST_TYPE_NODE(AST_TYPE_IMAGINARY, PRIM_IMAGINARY, NULL, NULL, NULL); }
 	| struct_or_union_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_STRUCT_UNION, NULL, $1, NULL); }
 	| enum_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_ENUM, NULL, $1, NULL); }
 	| TYPE_NAME { $$ = AST_TYPE_NODE(AST_TYPE_USER, gettype(yytext) ,NULL, NULL , NULL); }

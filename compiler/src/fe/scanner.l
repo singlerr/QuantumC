@@ -15,7 +15,6 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 #include "ast.h"
 #include "c.parser.h"
 #include "symrec.h"
-#define MAX_TYPEDEF 1024
 void count(void);
 void comment(void);
 int check_type(void);
@@ -45,7 +44,7 @@ int check_type(void);
 "for"			{ count(); return(FOR); }
 "goto"			{ count(); return(GOTO); }
 "if"			{ count(); return(IF); }
-"_Imaginary"		{ count(); return(IMAGINARY); }
+"_Imaginary"	{ count(); return(IMAGINARY); }
 "inline"		{ count(); return(INLINE); }
 "int"			{ count(); return(INT); }
 "long"			{ count(); return(LONG); }
@@ -58,7 +57,7 @@ int check_type(void);
 "static"		{ count(); return(STATIC); }
 "struct"		{ count(); return(STRUCT); }
 "switch"		{ count(); return(SWITCH); }
-"typedef"		{ count(); BEGIN(TYPEDEF); return(TYPEDEF); }
+"typedef"		{ count(); return(TYPEDEF); }
 "union"			{ count(); return(UNION); }
 "unsigned"		{ count(); return(UNSIGNED); }
 "void"			{ count(); return(VOID); }

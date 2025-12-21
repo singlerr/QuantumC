@@ -1,9 +1,24 @@
 #include "symrec.h"
+#include "ast.h"
+#include "stringlib.h"
 #include <string.h>
 #include <stdlib.h>
 
 symrec_t *sym_table;
 typerec_t *type_table;
+
+typerec_t *PRIM_VOID;
+typerec_t *PRIM_CHAR;
+typerec_t *PRIM_SHORT;
+typerec_t *PRIM_INT;
+typerec_t *PRIM_LONG;
+typerec_t *PRIM_FLOAT;
+typerec_t *PRIM_DOUBLE;
+typerec_t *PRIM_SIGNED;
+typerec_t *PRIM_UNSIGNED;
+typerec_t *PRIM_COMPLEX;
+typerec_t *PRIM_IMAGINARY;
+
 symrec_t *putsym(const char *name)
 {
     symrec_t *res = (symrec_t *)malloc(sizeof(symrec_t));
@@ -36,12 +51,13 @@ symrec_t *getorcreatesym(const char *name)
     return sym;
 }
 
-typerec_t *puttype(const char *name, const type_t *type)
+typerec_t *puttype(const char *name, ast_node_type type_type, const type_t *type)
 {
     typerec_t *rec = (typerec_t *)malloc(sizeof(typerec_t));
     rec->name = strdup(name);
     rec->next = type_table;
     rec->handle = type;
+    rec->type_type = type_type;
     type_table = rec;
     return rec;
 }
@@ -57,11 +73,32 @@ typerec_t *gettype(const char *name)
     return 0;
 }
 
+typerec_t *clone_type_rec(const typerec_t *o)
+{
+    typerec_t *t = (typerec_t *)malloc(sizeof(typerec_t));
+    t->name = strdup(o->name);
+    t->type_type = o->type_type;
+    t->next = o->next;
+
+    type_t *h = clone_type(o->handle);
+    t->handle = h;
+
+    return t;
+}
+
 void init_primitives()
 {
-    puttype("int", mk_type("int", mk_type_meta(4), 0));
-    puttype("char", mk_type("char", mk_type_meta(1), 0));
-    puttype("float", mk_type("float", mk_type_meta(4), 0));
+    PRIM_VOID = PUT_TYPE("void", AST_TYPE_VOID, 0);
+    PRIM_CHAR = PUT_TYPE("char", AST_TYPE_CHAR, 1);
+    PRIM_SHORT = PUT_TYPE("short", AST_TYPE_SHORT, 2);
+    PRIM_INT = PUT_TYPE("int", AST_TYPE_INT, 4);
+    PRIM_LONG = PUT_TYPE("long", AST_TYPE_INT, 8);
+    PRIM_FLOAT = PUT_TYPE("float", AST_TYPE_FLOAT, 4);
+    PRIM_DOUBLE = PUT_TYPE("double", AST_TYPE_DOUBLE, 4);
+    PRIM_SIGNED = PUT_TYPE("signed", AST_TYPE_SIGNED, 4);
+    PRIM_UNSIGNED = PUT_TYPE("unsigned", AST_TYPE_UNSIGNED, 4);
+    PRIM_COMPLEX = PUT_TYPE("complex", AST_TYPE_COMPLEX, 4);
+    PRIM_IMAGINARY = PUT_TYPE("imaginary", AST_TYPE_IMAGINARY, 4);
 }
 
 void init_type()
