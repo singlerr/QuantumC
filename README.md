@@ -20,7 +20,6 @@ For instance, Hadamard gates $H$ are converted as $R_Z(\pi/2)\sqrt{X}R_Z(\pi/2)$
 OpenQASM provides a universal abstraction, enabling theoretical quantum algorithms to be compiled for diverse hardware.
 **QuantumC** leverages the strengths of both C and OpenQASM to facilitate efficient quantum programming.
 
-
 ## Example
 
 Consider the creation of a Bell state in an 8-qubit system, which demonstrates entanglement of eight qubits: $\ket{\Phi^+} = \frac{1}{\sqrt{2}}\ket{0}^{\otimes 8} + \frac{1}{\sqrt{2}}\ket{1}^{\otimes 8} = \frac{1}{\sqrt{2}}\ket{00000000} + \frac{1}{\sqrt{2}}\ket{11111111}$.
@@ -76,7 +75,6 @@ bit[8] meas;
 meas = measure q;
 ```
 
-
 ## Workflow
 
 <div align='center'>
@@ -87,18 +85,15 @@ meas = measure q;
 The general workflow of QuantumC is shown in the diagram above: write a QuantumC program, compile it with the frontend to produce OpenQASM, then run that OpenQASM code to a local simulator or a cloud quantum backend. 
 The bottom path of the diagram illustrates the typical steps when targeting a provider such as IBM Cloud.
 
-
 ## Quick Start
 
 *Documentation for setup and usage will be provided as the project evolves.*
-
 
 ## Directory Structure
 
 * [`compiler/`](./compiler): Contains the source code for the QuantumC compiler.
 * [`figures/`](./figures): Contains the figures for the QuantumC documentation.
 * [`specs/`](./specs): Contains the specifications for the QuantumC language.
-
 
 ## Compilation
 
@@ -143,12 +138,10 @@ make clean
 * If `make` fails with `bison: command not found` or `flex: command not found`, install those packages or run the build in WSL/macOS where the tools are available.
 * If you see undefined reference errors at link time, check whether any required libraries are missing or whether object files failed to compile earlier in the output.
 
-
 ## Contribution
 
 We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
 Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/QuantumC/pulls) tab.
-
 
 ## License
 
