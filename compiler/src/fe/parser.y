@@ -412,7 +412,7 @@ direct_declarator
 	/* | direct_declarator '[' type_qualifier_list '*' ']' { $$ = $1; append_right_child(find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, AST_GENERAL_NODE(AST_TYPE_POINTER, NULL, NULL, $3), NULL, NULL)); }
 	| direct_declarator '[' '*' ']' */
 	| direct_declarator '[' ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| direct_declarator '(' parameter_type_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '(' { inc_scope_level(); }  parameter_type_list ')' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $4, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
 	| direct_declarator '(' identifier_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
 	| direct_declarator '(' ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, NULL, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
 	;
