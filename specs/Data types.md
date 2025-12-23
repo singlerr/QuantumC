@@ -21,7 +21,6 @@ uint8_t measured = 0b11110000;
 float probability = 0.5;
 ```
 
-
 ## Quantum Data Types
 
 **QuantumC** introduces first-class quantum data types that represent qubits and collections of qubits.
