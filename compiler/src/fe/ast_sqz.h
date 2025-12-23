@@ -6,18 +6,32 @@
 #include "common.h"
 #include "symrec.h"
 
+typedef struct _sqz_decl
+{
+    ast_node_type decl_type;
+    union
+    {
+        struct _sqz_var_decl *var;
+        struct _sqz_func_decl *func;
+    } decl;
+
+    struct _sqz_decl *next;
+} sqz_decl;
+
 typedef struct _sqz_var_decl
 {
     typerec_t *type;
     symrec_t *symbol;
     struct _sqz_expr *init;
+
+    struct _sqz_var_decl *next;
 } sqz_var_decl;
 
 typedef struct _sqz_func_decl
 {
     typerec_t *return_type;
     symrec_t *params;
-
+    struct _expr_compound_stmt *body;
 } sqz_func_decl;
 
 typedef struct _sqz_primary_expr
@@ -55,7 +69,8 @@ typedef struct _sqz_expr
 
 typedef struct _sqz_args
 {
-    // TODO
+    struct _sqz_assign_expr *arg;
+    struct _sqz_args *next;
 } sqz_args;
 
 typedef struct _sqz_expr_src_struct_init
@@ -181,7 +196,7 @@ typedef struct _sqz_assign_expr
     struct _sqz_assign_expr *right;
 } sqz_assign_expr;
 
-struct sqz_label
+struct sqz_labeled
 {
     symrec_t *label;
     struct _sqz_stmt *stmt;
@@ -210,7 +225,7 @@ struct _sqz_block_item
     struct _sqz_block_item *next;
 };
 
-struct _sqz_compound_stmt
+struct sqz_compound_stmt
 {
     struct _sqz_block_item *block_list;
 };
@@ -314,7 +329,22 @@ struct sqz_selection
 
 typedef struct _sqz_stmt
 {
+    ast_node_type stmt_type;
+    union
+    {
+        struct sqz_compound_stmt *compound;
+        struct sqz_expr_stmt *expr;
+        struct sqz_labeld *labeled;
+        struct sqz_iter *iter;
+        struct sqz_jump *jump;
+        struct sqz_selection *selection;
+    } stmt;
 
 } sqz_stmt;
+
+typedef struct _sqz_program
+{
+    sqz_decl *decl;
+} sqz_program;
 
 #endif
