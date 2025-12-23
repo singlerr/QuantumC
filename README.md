@@ -94,6 +94,7 @@ The bottom path of the diagram illustrates the typical steps when targeting a pr
 * [`compiler/`](./compiler): Contains the source code for the QuantumC compiler.
 * [`figures/`](./figures): Contains the figures for the QuantumC documentation.
 * [`specs/`](./specs): Contains the specifications for the QuantumC language.
+* [`test/](./test): Contains the testing cases for the QuantumC compiler.
 
 ## Compilation
 
