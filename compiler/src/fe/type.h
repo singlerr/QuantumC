@@ -4,6 +4,7 @@
 typedef struct _typemeta
 {
     int size;
+
 } typemeta_t;
 
 typedef struct _type

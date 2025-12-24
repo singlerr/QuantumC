@@ -6,6 +6,28 @@
 #include "common.h"
 #include "symrec.h"
 
+#define STG_EXTERN (1)
+#define STG_STATIC (1 << 1)
+#define STG_AUTO (1 << 2)
+#define STG_REGISTER (1 << 3)
+
+#define QAL_CONST (1)
+#define QAL_RESTRICT (1 << 1)
+#define QAL_VOLATILE (1 << 2)
+
+typedef struct _sqz_type
+{
+    type_t *type;
+    struct _sqz_assign_expr *index;
+    struct _sqz_args *args;
+} sqz_type;
+
+typedef struct _sqz_decl_spec
+{
+    unsigned int storage_class;
+    unsigned int qualifier;
+} sqz_decl_spec;
+
 typedef struct _sqz_decl
 {
     ast_node_type decl_type;
@@ -20,7 +42,8 @@ typedef struct _sqz_decl
 
 typedef struct _sqz_var_decl
 {
-    typerec_t *type;
+    sqz_decl_spec *spec;
+    type_t *type;
     symrec_t *symbol;
     struct _sqz_expr *init;
 
@@ -29,7 +52,8 @@ typedef struct _sqz_var_decl
 
 typedef struct _sqz_func_decl
 {
-    typerec_t *return_type;
+    sqz_decl_spec *spec;
+    type_t *return_type;
     symrec_t *params;
     struct _expr_compound_stmt *body;
 } sqz_func_decl;
@@ -51,8 +75,9 @@ typedef struct _sqz_primary_expr
 typedef struct _sqz_id
 {
     ast_node_type id_type;
+    sqz_decl_spec *spec;
     symrec_t *name;
-    typerec_t *type;
+    type_t *type;
 } sqz_id;
 
 struct _sqz_post
@@ -75,9 +100,9 @@ typedef struct _sqz_args
 
 typedef struct _sqz_expr_src_struct_init
 {
-    typerec_t *struct_type;
+    type_t *struct_type;
 
-    // TODO initializer list
+    // TODO initializer list : will be implemented in the future
 } sqz_expr_src_struct_init;
 
 typedef struct _sqz_expr_src_arr_access

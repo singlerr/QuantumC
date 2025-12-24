@@ -286,15 +286,15 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';' { $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, NULL, NULL); }
-	| declaration_specifiers init_declarator_list ';' { register_type_if_required($1, $2); $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL); }
+	| declaration_specifiers init_declarator_list ';' { if(! register_type_if_required($1, $2)) $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL);  else $$ = NULL; }
 	;
 
 declaration_specifiers
 	: storage_class_specifier { $$ = $1; }
 	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
-	| type_specifier { $$ = $1; }
+	| type_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $1, NULL, NULL);  }
 	| declaration_specifiers type_specifier { $$ = $1; append_middle_child(find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $2, NULL, NULL)); } 
-	| type_qualifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $1, NULL, NULL); }
+	| type_qualifier { $$ = $1; }
 	| declaration_specifiers type_qualifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
 	;
 
@@ -404,8 +404,8 @@ declarator
 direct_declarator
 	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
 	| '(' declarator ')' { $$ = $2; }
-	| direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, $4, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| direct_declarator '[' type_qualifier_list ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	/* | direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, $4, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
+	/* | direct_declarator '[' type_qualifier_list ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
 	| direct_declarator '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $3, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
 	/* | direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' { $$ = $1; append_right_child(find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $3, $4, NULL)); }
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' */

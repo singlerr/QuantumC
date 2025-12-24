@@ -20,7 +20,7 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
     return node;
 }
 
-void register_type_if_required(ast_node *decl, ast_node *identifier)
+int register_type_if_required(ast_node *decl, ast_node *identifier)
 {
     ast_node *node = decl;
     BOOL has_typedef = FALSE;
@@ -36,7 +36,7 @@ void register_type_if_required(ast_node *decl, ast_node *identifier)
 
     if (!has_typedef)
     {
-        return;
+        return 0;
     }
 
     identifier = identifier->middle;
@@ -80,6 +80,7 @@ void register_type_if_required(ast_node *decl, ast_node *identifier)
     }
 
     PUT_TYPE(identifier->identifier->sym->name, AST_TYPE_USER, size);
+    return 1;
 }
 
 void append_left_child(ast_node *parent, const ast_node *child)
