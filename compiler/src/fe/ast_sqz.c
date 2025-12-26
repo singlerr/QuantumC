@@ -441,12 +441,27 @@ int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
         }
 
         sqz_unary *expr = ALLOC(sqz_unary);
+        expr->expr_type = unary_expr->node_type;
+        expr->expr.cast = cast_expr;
         result = expr;
         break;
     default:
         // handle postfix
+        sqz_expr_src *postfix;
+        if (FAILED(squeeze_expr_src(unary_expr, &postfix)))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_unary *expr = ALLOC(sqz_unary);
+        expr->expr.postfix = postfix;
+        expr->expr_type = unary_expr->node_type;
+        result = expr;
         break;
     }
+
+    *out = result;
+    return VAL_OK;
 }
 int squeeze_cast_expr(ast_node *cast_expr, sqz_cast_expr **out)
 {
@@ -464,6 +479,7 @@ int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
 int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
 {
     sqz_binary_expr *result;
+    sqz_binary_expr *left, *right;
     int ret;
     switch (binary_expr->node_type)
     {
@@ -480,11 +496,71 @@ int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
         expr->cast_expr = cast_expr;
         result = expr;
         break;
+    case AST_EXPR_LOR:
+    case AST_EXPR_LAND:
+    case AST_EXPR_OR:
+    case AST_EXPR_XOR:
+    case AST_EXPR_AND:
+    case AST_EXPR_EQ:
+    case AST_EXPR_NEQ:
+    case AST_EXPR_LT:
+    case AST_EXPR_GT:
+    case AST_EXPR_LEQ:
+    case AST_EXPR_GEQ:
+    case AST_EXPR_LSHIFT:
+    case AST_EXPR_RSHIFT:
+    case AST_EXPR_ADD:
+    case AST_EXPR_SUB:
+        if (!binary_expr->left || !binary_expr->middle)
+        {
+            return VAL_FAILED;
+        }
 
+        if (FAILED(squeeze_binary_expr(binary_expr->left, &left)) || FAILED(squeeze_binary_expr(binary_expr->middle, &right)))
+        {
+            return VAL_FAILED;
+        }
+        sqz_binary_expr *expr = ALLOC(sqz_binary_expr);
+        expr->expr_type = binary_expr->node_type;
+        expr->left = left;
+        expr->right.binary = right;
+        result = expr;
+        break;
+    case AST_EXPR_MUL:
+    case AST_EXPR_DIV:
+    case AST_EXPR_MOD:
+        sqz_cast_expr *cast_expr;
+        if (!binary_expr->left || !binary_expr->middle)
+        {
+            return VAL_FAILED;
+        }
+
+        if (FAILED(squeeze_binary_expr(binary_expr->left, &left)) || FAILED(squeeze_cast_expr(binary_expr->middle, &cast_expr)))
+        {
+            return VAL_FAILED;
+        }
+        sqz_binary_expr *expr = ALLOC(sqz_binary_expr);
+        expr->expr_type = binary_expr->node_type;
+        expr->left = left;
+        expr->right.cast = cast_expr;
+        result = expr;
+        break;
     default:
-        // handle postfix
+        // handle cast
+        sqz_cast_expr *cast;
+        if (FAILED(squeeze_cast_expr(binary_expr, &cast)))
+        {
+            return VAL_FAILED;
+        }
+        sqz_binary_expr *expr = ALLOC(sqz_binary_expr);
+        expr->cast_expr = cast;
+        expr->expr_type = binary_expr->node_type;
+        result = expr;
         break;
     }
+
+    *out = result;
+    return VAL_OK;
 }
 
 int squeeze_type_name(ast_node *type_name, sqz_type **out)

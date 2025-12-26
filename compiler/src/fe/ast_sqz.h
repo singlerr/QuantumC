@@ -204,7 +204,7 @@ typedef struct _sqz_binary_expr
     struct _sqz_binary_expr *left;
     union
     {
-        sqz_unary *unary;
+        sqz_cast_expr *cast;
         struct _sqz_binary_expr *binary;
     } right;
 } sqz_binary_expr;
