@@ -20,7 +20,7 @@ typedef struct _sqz_type
     type_t *type;
     struct _sqz_assign_expr *index;
     struct _sqz_args *args;
-
+    struct _sqz_id *id;
     struct _sqz_type *next;
 } sqz_type;
 
@@ -56,7 +56,7 @@ typedef struct _sqz_func_decl
 {
     sqz_decl_spec *spec;
     type_t *return_type;
-    symrec_t *params;
+    sqz_args *params;
     struct _expr_compound_stmt *body;
 } sqz_func_decl;
 

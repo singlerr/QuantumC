@@ -1,6 +1,7 @@
 #include "ast_sqz.h"
 #include "ast.h"
 #include "common.h"
+#include "stringlib.h"
 #include <stdlib.h>
 
 #define MK_TYPE(name, size) mk_type(name, mk_type_meta(size), 0)
@@ -21,6 +22,7 @@ int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out);
 int squeeze_pre(ast_node *pre, struct _sqz_pre **out);
 int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out);
 int squeeze_type_name(ast_node *type_name, sqz_type **out);
+int squeeze_parameter_list(ast_node *args, sqz_args **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -208,16 +210,85 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
             t = s_type;
             break;
         case AST_TYPE_ARRAY:
+            sqz_assign_expr *index;
             ast_node *index_node = decl->middle;
-            sqz_type *s_type = ALLOC(sqz_type);
-            s_type->index = ;
+            sqz_type *s_type;
+            if (!index_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->index = NULL;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                if (FAILED(squeeze_assign_expr(index_node, &index)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->index = index;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            t = s_type;
             break;
         case AST_TYPE_FUNCTION:
+            sqz_type *s_type;
+            sqz_args *args;
+            ast_node *args_node = decl->left;
+
+            if (!args_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->args = NULL;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                // handle both parameter_type_list and identifier_list
+                if (FAILED(squeeze_parameter_list(args_node, &args)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->args = args;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+
+            t = s_type;
             break;
         case AST_IDENTIFIER:
+            ast_identifier_node *id_node = decl->identifier;
+            sqz_id *id;
+            if (!id_node)
+            {
+                return VAL_FAILED;
+            }
+            s_type = ALLOC(sqz_type);
+            s_type->args = NULL;
+            s_type->index = NULL;
+
+            id = ALLOC(sqz_id);
+            id->name = strdup(id_node->sym->name);
+            id->spec = NULL;
+            id->type = id_node->type;
+
+            s_type->id = id;
+            t = s_type;
             break;
         default:
-            break;
+            sqz_type *tt = root;
+            sqz_type *tt2;
+            while (tt)
+            {
+                tt2 = tt->next;
+                free(tt);
+                tt = tt2;
+            }
+            return VAL_FAILED;
         }
 
         if (!root)
@@ -232,6 +303,8 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
         type = t;
         decl = decl->right;
     }
+
+    return VAL_OK;
 }
 
 int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
@@ -564,5 +637,9 @@ int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
 }
 
 int squeeze_type_name(ast_node *type_name, sqz_type **out)
+{
+}
+
+int squeeze_parameter_list(ast_node *args, sqz_args **out)
 {
 }
