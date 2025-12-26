@@ -37,17 +37,23 @@ int main(int argc, char *argv[])
     exit(0);
 }
 
-void print_node(ast_node *node) {
-    if (node == NULL) {
+void print_node(ast_node *node) 
+{
+    if (node == NULL) 
+    {
         fprintf(stdout, "The given AST is empty.\n");
-    } else {
+    } 
+    else 
+    {
         print_node_recursion(node, 0);
     }
 
     return;
 }
-void print_node_recursion(ast_node *node, int depth) {
-    for (int i = 0; i < depth; i++) {
+void print_node_recursion(ast_node *node, int depth) 
+{
+    for (int i = 0; i < depth; i++) 
+    {
         fprintf(stdout, "  ");
     }
 
