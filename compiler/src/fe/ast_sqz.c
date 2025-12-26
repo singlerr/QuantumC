@@ -11,6 +11,16 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out);
 int squeeze_var_init(ast_node *init, sqz_var_decl **out);
 int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_out);
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out);
+int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out);
+int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out);
+int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out);
+int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out);
+int squeeze_expr(ast_node *expr, sqz_expr **out);
+int squeeze_cast_expr(ast_node *cast_expr, sqz_cast_expr **out);
+int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out);
+int squeeze_pre(ast_node *pre, struct _sqz_pre **out);
+int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out);
+int squeeze_type_name(ast_node *type_name, sqz_type **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -79,7 +89,7 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
     ast_node *t = decl_spec->middle;
     typerec_t *type, *root_type = NULL;
 
-    sqz_decl_spec *spec = (sqz_decl_spec *)malloc(sizeof(sqz_decl_spec));
+    sqz_decl_spec *spec = ALLOC(sqz_decl_spec);
 
     spec->qualifier = 0;
     spec->storage_class = 0;
@@ -183,18 +193,24 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
     ast_node *initializer = decl_node->left;
 
     ast_node *decl = declarator;
-    type_t *root = NULL, *type;
+    sqz_type *root = NULL, *type;
     while (decl)
     {
-        type_t *t;
+        sqz_type *t;
         switch (decl->node_type)
         {
         case AST_TYPE_POINTER:
             type_t *ptr_type = MK_TYPE("pointer", 4);
-            t = ptr_type;
+            sqz_type *s_type = ALLOC(sqz_type);
+            s_type->type = ptr_type;
+            s_type->index = NULL;
+            s_type->args = NULL;
+            t = s_type;
             break;
         case AST_TYPE_ARRAY:
             ast_node *index_node = decl->middle;
+            sqz_type *s_type = ALLOC(sqz_type);
+            s_type->index = ;
             break;
         case AST_TYPE_FUNCTION:
             break;
@@ -210,7 +226,7 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
         }
         else
         {
-            type->link = t;
+            type->next = t;
         }
 
         type = t;
@@ -277,5 +293,200 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
     return VAL_OK;
 }
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
+{
+}
+
+int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out)
+{
+    int ret;
+    sqz_assign_expr *result;
+    switch (assign_expr->node_type)
+    {
+    case AST_EXPR_ASSIGN:
+        sqz_unary *left;
+        sqz_assign_expr *right;
+        if (!assign_expr->left || !assign_expr->middle || assign_expr->right)
+        {
+            return VAL_FAILED;
+        }
+
+        ret = squeeze_unary_expr(assign_expr->left, &left);
+
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        ret = squeeze_assign_expr(assign_expr->right, &right);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        result = ALLOC(sqz_assign_expr);
+        result->assign_type = assign_expr->middle->node_type;
+        result->left = left;
+        result->right = right;
+        break;
+    default:
+        sqz_ternary_expr *ternary;
+        ret = squeeze_ternary_expr(assign_expr, &ternary);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        result = ALLOC(sqz_assign_expr);
+        result->left = NULL;
+        result->right = NULL;
+        result->ternary_expr = ternary;
+        break;
+    }
+
+    *out = result;
+
+    return VAL_OK;
+}
+
+int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
+{
+    int ret;
+    sqz_ternary_expr *result;
+    switch (ternary_expr->node_type)
+    {
+    case AST_EXPR_COND:
+        sqz_binary_expr *cond;
+        sqz_expr *_true;
+        sqz_ternary_expr *_false;
+        if (!ternary_expr->left || !ternary_expr->middle || !ternary_expr->right)
+        {
+            return VAL_FAILED;
+        }
+
+        ret = squeeze_binary_expr(ternary_expr->left, &cond);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        ret = squeeze_expr(ternary_expr->middle, &_true);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        ret = squeeze_ternary_expr(ternary_expr->right, &_false);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        result = ALLOC(sqz_ternary_expr);
+        result->condition = cond;
+        result->true_expr = _true;
+        result->false_expr = _false;
+        break;
+    default:
+        sqz_binary_expr *binary_expr;
+        ret = squeeze_binary_expr(ternary_expr, &binary_expr);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        result = ALLOC(sqz_ternary_expr);
+        result->condition = NULL;
+        result->true_expr = NULL;
+        result->false_expr = NULL;
+        result->binary_expr = binary_expr;
+        break;
+    }
+
+    *out = result;
+
+    return VAL_FAILED;
+}
+
+int squeeze_expr(ast_node *expr, sqz_expr **out)
+{
+}
+
+int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
+{
+    sqz_unary *result;
+    switch (unary_expr->node_type)
+    {
+    case AST_EXPR_PRE_INC:
+    case AST_EXPR_PRE_DEC:
+    case AST_EXPR_SIZEOF:
+        sqz_unary *unary;
+        if (FAILED(squeeze_unary_expr(unary_expr, &unary)))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_unary *expr = ALLOC(sqz_unary);
+        expr->expr_type = unary_expr->node_type;
+        break;
+    case AST_UNARY_AMP:
+    case AST_UNARY_STAR:
+    case AST_UNARY_PLUS:
+    case AST_UNARY_MINUS:
+    case AST_UNARY_TILDE:
+    case AST_UNARY_EXCL:
+        sqz_cast_expr *cast_expr;
+        if (FAILED(squeeze_cast_expr(unary_expr, &cast_expr)))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_unary *expr = ALLOC(sqz_unary);
+        result = expr;
+        break;
+    default:
+        // handle postfix
+        break;
+    }
+}
+int squeeze_cast_expr(ast_node *cast_expr, sqz_cast_expr **out)
+{
+}
+int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
+{
+}
+int squeeze_pre(ast_node *pre, struct _sqz_pre **out)
+{
+}
+int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
+{
+}
+
+int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
+{
+    sqz_binary_expr *result;
+    int ret;
+    switch (binary_expr->node_type)
+    {
+    case AST_EXPR_TYPE_CAST:
+        sqz_cast_expr *cast_expr;
+        ret = squeeze_cast_expr(binary_expr, &cast_expr);
+        if (FAILED(ret))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_binary_expr *expr = ALLOC(sqz_binary_expr);
+        expr->expr_type = AST_EXPR_TYPE_CAST;
+        expr->cast_expr = cast_expr;
+        result = expr;
+        break;
+
+    default:
+        // handle postfix
+        break;
+    }
+}
+
+int squeeze_type_name(ast_node *type_name, sqz_type **out)
 {
 }

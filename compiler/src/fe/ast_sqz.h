@@ -20,6 +20,8 @@ typedef struct _sqz_type
     type_t *type;
     struct _sqz_assign_expr *index;
     struct _sqz_args *args;
+
+    struct _sqz_type *next;
 } sqz_type;
 
 typedef struct _sqz_decl_spec
@@ -167,6 +169,7 @@ typedef union _sqz_unary
         struct _sqz_sizeof *sizeof_expr;
         struct _sqz_pre *pre_inc_dec;
         struct _sqz_pre_unary *pre_unary_op;
+        sqz_type *type_name;
     } expr;
 
 } sqz_unary;
@@ -197,8 +200,8 @@ struct _sqz_sizeof
 typedef struct _sqz_binary_expr
 {
     ast_node_type expr_type;
+    sqz_cast_expr *cast_expr;
     struct _sqz_binary_expr *left;
-
     union
     {
         sqz_unary *unary;
@@ -211,14 +214,16 @@ typedef struct _sqz_ternary_expr
     sqz_binary_expr *condition;
     sqz_expr *true_expr;
     struct _sqz_ternary_expr *false_expr;
+
+    sqz_binary_expr *binary_expr;
 } sqz_ternary_expr;
 
 typedef struct _sqz_assign_expr
 {
     ast_node_type assign_type;
-
     sqz_unary *left;
     struct _sqz_assign_expr *right;
+    sqz_ternary_expr *ternary_expr;
 } sqz_assign_expr;
 
 struct sqz_labeled
