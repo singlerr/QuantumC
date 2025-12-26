@@ -6,6 +6,7 @@ extern FILE *yyin;
 extern int yyparse(ast_node **root);
 
 void print_node(ast_node *node);
+void print_node_recursion(ast_node *node, int depth) 
 
 int main(int argc, char *argv[])
 {
@@ -36,6 +37,28 @@ int main(int argc, char *argv[])
     exit(0);
 }
 
-void print_node(ast_node *node)
-{
+void print_node(ast_node *node) {
+    if (node == NULL) {
+        fprintf(stdout, "The given AST is empty.\n");
+    } else {
+        print_node_recursion(node, 0);
+    }
+
+    return;
+}
+void print_node_recursion(ast_node *node, int depth) {
+    for (int i = 0; i < depth; i++) {
+        fprintf(stdout, "  ");
+    }
+
+    char *node_identifier_str = node->identifier != NULL ? node->identifier->type->name : "N/A";
+    char *node_type_str = node->type->name;
+
+    fprintf(stdout, "ID: %s (TYPE: %s)\n", node_identifier_str, node_type_str);
+
+    if (node->left != NULL) print_node_recursion(node->left, depth+1);
+    if (node->middle != NULL) print_node_recursion(node->middle, depth+1);
+    if (node->right != NULL) print_node_recursion(node->right, depth+1);
+
+    return;
 }
