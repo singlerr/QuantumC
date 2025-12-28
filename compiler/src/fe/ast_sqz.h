@@ -15,6 +15,17 @@
 #define QAL_RESTRICT (1 << 1)
 #define QAL_VOLATILE (1 << 2)
 
+typedef struct _sqz_designator
+{
+    union
+    {
+        struct _sqz_id *id;
+        struct _sqz_ternary_expr *expr;
+    } val;
+    ast_node_type designator_type;
+    struct _sqz_designator *next;
+} sqz_designator;
+
 typedef struct _sqz_type
 {
     type_t *type;
@@ -42,12 +53,19 @@ typedef struct _sqz_decl
     struct _sqz_decl *next;
 } sqz_decl;
 
+typedef struct _sqz_initializer
+{
+    struct _sqz_assign_expr *expr;
+    sqz_designator *designator;
+    struct _sqz_initializer *next;
+} sqz_initializer;
+
 typedef struct _sqz_var_decl
 {
     sqz_decl_spec *spec;
     type_t *type;
     symrec_t *symbol;
-    struct _sqz_expr *init;
+    sqz_initializer *init;
 
     struct _sqz_var_decl *next;
 } sqz_var_decl;
@@ -77,6 +95,7 @@ typedef struct _sqz_primary_expr
 typedef struct _sqz_id
 {
     ast_node_type id_type;
+    int scope_level;
     sqz_decl_spec *spec;
     symrec_t *name;
     type_t *type;
