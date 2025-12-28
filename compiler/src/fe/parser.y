@@ -354,10 +354,10 @@ struct_declaration
 	;
 
 specifier_qualifier_list
-	: type_specifier { $$ = $1; }
-	| specifier_qualifier_list type_specifier { $$ = $1; append_left_child(find_last_left_child($1), $2);  }
-	| type_qualifier { $$ = $1; }
-	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child(find_last_middle_child($1), $2); }
+	: type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| specifier_qualifier_list type_specifier { $$ = $1; append_left_child(find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL));  }
+	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child(find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL)); }
 	;
 
 struct_declarator_list
