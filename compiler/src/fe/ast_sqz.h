@@ -55,6 +55,7 @@ typedef struct _sqz_decl
 
 typedef struct _sqz_initializer
 {
+    int level;
     struct _sqz_assign_expr *expr;
     sqz_designator *designator;
     struct _sqz_initializer *next;

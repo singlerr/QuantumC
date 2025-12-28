@@ -24,7 +24,7 @@ int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out);
 int squeeze_type_name(ast_node *type_name, sqz_type **out);
 int squeeze_parameter_list(ast_node *args, sqz_args **out);
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out);
-int squeeze_initializer(ast_node *initializer, sqz_initializer **out);
+int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out);
 int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
@@ -755,9 +755,10 @@ int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out)
     return VAL_OK;
 }
 
-int squeeze_initializer(ast_node *initializer, sqz_initializer **out)
+int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out)
 {
     sqz_initializer *init;
+    sqz_initializer *i = ALLOC(sqz_initializer);
     // initializer
     switch (initializer->node_type)
     {
@@ -770,7 +771,7 @@ int squeeze_initializer(ast_node *initializer, sqz_initializer **out)
         sqz_designator *designator = NULL;
         if (node->node_type != AST_NODE_LIST)
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
         designator_node = node->left;
@@ -778,37 +779,72 @@ int squeeze_initializer(ast_node *initializer, sqz_initializer **out)
 
         if (!initializer_node)
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        if (FAILED(squeeze_initializer(initializer_node, &init)))
+        if (parent)
         {
-            return VAL_FAILED;
+            i->level = parent->level + 1;
+        }
+        else
+        {
+            i->level = 0;
+        }
+
+        if (FAILED(squeeze_initializer(initializer_node, i, &init)))
+        {
+            goto fail;
         }
 
         if (designator_node)
         {
             if (FAILED(squeeze_designator_list(designator_node, &designator)))
             {
-                return VAL_FAILED;
+                goto fail;
             }
         }
 
-        *out = init;
+        i->next = init;
         break;
 
     default:
         sqz_assign_expr *assign_expr;
+        sqz_initializer *init;
+
+        if (initializer->right)
+        {
+            if (FAILED(squeeze_initializer(initializer->right, i, &init)))
+            {
+                goto fail;
+            }
+
+            i->next = init;
+        }
 
         if (FAILED(squeeze_assign_expr(initializer, &assign_expr)))
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        init = ALLOC(sqz_initializer);
+        if (parent)
+        {
+            i->level = parent->level + 1;
+        }
+        else
+        {
+            i->level = 0;
+        }
 
+        i->expr = assign_expr;
         break;
     }
 
+    *out = i;
     return VAL_OK;
+fail:
+    if (i)
+    {
+        free(i);
+    }
+    return VAL_FAILED;
 }
