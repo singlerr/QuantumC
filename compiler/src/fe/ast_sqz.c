@@ -647,6 +647,8 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
 {
     ast_node *specifier_qualifier_list;
     ast_node *abstract_declarator;
+    struct _sqz_spec_qal *qualifier;
+
     if (type_name->node_type != AST_NAME_TYPE)
     {
         return VAL_FAILED;
@@ -654,6 +656,11 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
 
     specifier_qualifier_list = type_name->left;
     abstract_declarator = type_name->right;
+
+    if (FAILED(squeeze_spec_qual(specifier_qualifier_list, &qualifier)))
+    {
+        return VAL_FAILED;
+    }
 }
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
@@ -861,6 +868,88 @@ fail:
 
 int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
 {
+    struct _sqz_spec_qual *root = NULL, *curr, *temp;
 
+    type_t *t;
+    ast_node *cur_node = node;
+    ast_node *type_node, *qual_node;
+    while (cur_node)
+    {
+        if (cur_node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+        // type_specifier
+        if (cur_node->left)
+        {
+            type_node = cur_node->left;
+            if (!type_node->type)
+            {
+                goto fail;
+            }
+
+            t = type_node->type;
+            temp = ALLOC(struct _sqz_spec_qual);
+            temp->type = t;
+            temp->qualifier = NULL;
+        }
+        // type_qualifier
+        else if (cur_node->middle)
+        {
+            temp = ALLOC(struct _sqz_spec_qual);
+            temp->type = NULL;
+            temp->qualifier = 0;
+            switch (cur_node->middle->node_type)
+            {
+            case AST_QAL_CONST:
+                temp->qualifier |= QAL_CONST;
+                break;
+            case AST_QAL_RESTRICT:
+                temp->qualifier |= QAL_RESTRICT;
+                break;
+            case AST_QAL_VOLATILE:
+                temp->qualifier |= QAL_VOLATILE;
+                break;
+            default:
+                goto fail;
+            }
+        }
+        else
+        {
+            goto fail;
+        }
+
+        if (root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        cur_node = cur_node->right;
+    }
     return VAL_OK;
+fail:
+
+    if (temp)
+    {
+        free(temp);
+    }
+    if (root)
+    {
+        struct _sqz_spec_qual *q;
+        temp = root;
+        while (temp)
+        {
+            q = temp->next;
+            free(temp);
+            temp = q;
+        }
+    }
+
+    return VAL_FAILED;
 }
