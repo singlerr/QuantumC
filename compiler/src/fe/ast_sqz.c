@@ -26,6 +26,7 @@ int squeeze_parameter_list(ast_node *args, sqz_args **out);
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out);
 int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out);
 int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out);
+int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -644,6 +645,15 @@ int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
 
 int squeeze_type_name(ast_node *type_name, sqz_type **out)
 {
+    ast_node *specifier_qualifier_list;
+    ast_node *abstract_declarator;
+    if (type_name->node_type != AST_NAME_TYPE)
+    {
+        return VAL_FAILED;
+    }
+
+    specifier_qualifier_list = type_name->left;
+    abstract_declarator = type_name->right;
 }
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
@@ -847,4 +857,10 @@ fail:
         free(i);
     }
     return VAL_FAILED;
+}
+
+int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
+{
+
+    return VAL_OK;
 }

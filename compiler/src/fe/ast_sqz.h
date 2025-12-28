@@ -15,6 +15,13 @@
 #define QAL_RESTRICT (1 << 1)
 #define QAL_VOLATILE (1 << 2)
 
+struct _sqz_spec_qual
+{
+    unsigned int qualifier;
+    type_t *type;
+    struct _sqz_spec_qual *next;
+};
+
 typedef struct _sqz_designator
 {
     union
