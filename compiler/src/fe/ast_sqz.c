@@ -280,15 +280,7 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
             t = s_type;
             break;
         default:
-            sqz_type *tt = root;
-            sqz_type *tt2;
-            while (tt)
-            {
-                tt2 = tt->next;
-                free(tt);
-                tt = tt2;
-            }
-            return VAL_FAILED;
+            goto fail;
         }
 
         if (!root)
@@ -303,6 +295,36 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
         type = t;
         decl = decl->right;
     }
+
+    // initializer
+    switch (initializer->node_type)
+    {
+        // initializer_list
+    case AST_NODE_LIST:
+
+        break;
+
+    default:
+        sqz_assign_expr *assign_expr;
+        if (FAILED(squeeze_assign_expr(initializer, &assign_expr)))
+        {
+            goto fail;
+        }
+
+                break;
+    }
+
+fail:
+    sqz_type *tt = root;
+    sqz_type *tt2;
+    while (tt)
+    {
+        tt2 = tt->next;
+        free(tt);
+        tt = tt2;
+    }
+
+    return VAL_FAILED;
 
     return VAL_OK;
 }
