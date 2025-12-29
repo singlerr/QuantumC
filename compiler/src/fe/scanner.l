@@ -20,7 +20,7 @@ void comment(void);
 int check_type(void);
 
 %}
-
+%option nounput
 %%
 "/*"			{ comment(); }
 "//"[^\n]*              { /* consume //-comment */ }

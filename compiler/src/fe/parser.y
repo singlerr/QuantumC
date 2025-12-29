@@ -154,11 +154,11 @@ primary_expression
 
 postfix_expression
 	: primary_expression { $$ = $1; }
-	| postfix_expression '[' expression ']' { $$ = AST_GENERAL_NODE(AST_EXPR_ARRAY_ACCESS, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '(' ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, NULL, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '(' argument_expression_list ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '[' expression ']' { $$ = AST_GENERAL_NODE(AST_EXPR_ARRAY_ACCESS, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '(' ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '(' argument_expression_list ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression INC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_INC, $1, NULL, NULL); }
 	| postfix_expression DEC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_DEC, $1, NULL, NULL); }
 	| '(' type_name ')' '{' initializer_list '}' { $$ = AST_GENERAL_NODE(AST_STRUCT_INIT, $2, $5, NULL); }
@@ -167,7 +167,7 @@ postfix_expression
 
 argument_expression_list
 	: assignment_expression { $$ = $1; }
-	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child(find_last_right_child($1), $3); } 
+	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); } 
 	;
 
 unary_expression
@@ -276,8 +276,8 @@ assignment_operator
 	;
 
 expression
-	: assignment_expression { $$ = $1; }
-	| expression ',' assignment_expression { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	: assignment_expression { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| expression ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $3, NULL, NULL)); }
 	;
 
 constant_expression
@@ -291,16 +291,16 @@ declaration
 
 declaration_specifiers
 	: storage_class_specifier { $$ = $1; }
-	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
+	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
 	| type_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $1, NULL, NULL);  }
-	| declaration_specifiers type_specifier { $$ = $1; append_middle_child(find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $2, NULL, NULL)); } 
+	| declaration_specifiers type_specifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $2, NULL, NULL)); } 
 	| type_qualifier { $$ = $1; }
-	| declaration_specifiers type_qualifier { $$ = $1; append_left_child(find_last_left_child($1), $2); } 
+	| declaration_specifiers type_qualifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
 	;
 
 init_declarator_list
 	: init_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
 	;
 
 init_declarator
@@ -346,7 +346,7 @@ struct_or_union
 
 struct_declaration_list
 	: struct_declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| struct_declaration_list struct_declaration { $$ = $1; append_right_child(find_last_right_child($1), $2); }
+	| struct_declaration_list struct_declaration { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 struct_declaration
@@ -355,14 +355,14 @@ struct_declaration
 
 specifier_qualifier_list
 	: type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| specifier_qualifier_list type_specifier { $$ = $1; append_left_child(find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL));  }
+	| specifier_qualifier_list type_specifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL));  }
 	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child(find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL)); }
+	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL)); }
 	;
 
 struct_declarator_list
 	: struct_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| struct_declarator_list ',' struct_declarator { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	| struct_declarator_list ',' struct_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
 	;
 
 struct_declarator
@@ -381,7 +381,7 @@ enum_specifier
 
 enumerator_list
 	: enumerator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| enumerator_list ',' enumerator { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	| enumerator_list ',' enumerator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
 	;
 
 enumerator
@@ -396,7 +396,7 @@ type_qualifier
 	;
 
 declarator
-	: pointer direct_declarator { $$ = $1; append_middle_child(find_last_middle_child($1), $2); }
+	: pointer direct_declarator { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), $2); }
 	| direct_declarator { $$ = $1; }
 	;
 
@@ -406,15 +406,15 @@ direct_declarator
 	| '(' declarator ')' { $$ = $2; }
 	/* | direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, $4, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
 	/* | direct_declarator '[' type_qualifier_list ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
-	| direct_declarator '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $3, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $3, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	/* | direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' { $$ = $1; append_right_child(find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $3, $4, NULL)); }
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' */
 	/* | direct_declarator '[' type_qualifier_list '*' ']' { $$ = $1; append_right_child(find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, AST_GENERAL_NODE(AST_TYPE_POINTER, NULL, NULL, $3), NULL, NULL)); }
 	| direct_declarator '[' '*' ']' */
-	| direct_declarator '[' ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| direct_declarator '(' { inc_scope_level(); }  parameter_type_list ')' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $4, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| direct_declarator '(' identifier_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| direct_declarator '(' ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, NULL, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '[' ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '(' { inc_scope_level(); }  parameter_type_list ')' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $4, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '(' identifier_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| direct_declarator '(' ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 pointer
@@ -426,7 +426,7 @@ pointer
 
 type_qualifier_list
 	: type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| type_qualifier_list type_qualifier { $$ = $1; append_right_child(find_last_right_child($1), $2); }
+	| type_qualifier_list type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 
@@ -437,43 +437,43 @@ parameter_type_list
 
 parameter_list
 	: parameter_declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| parameter_list ',' parameter_declaration { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	| parameter_list ',' parameter_declaration { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $2, NULL, NULL); }
-	| declaration_specifiers abstract_declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, $2, NULL); }
-	| declaration_specifiers { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, NULL, NULL); }
+	: declaration_specifiers declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, $2, NULL); }
+	| declaration_specifiers abstract_declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, NULL, $2); }
+	| declaration_specifiers { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, NULL, NULL); }
 	;
 
 identifier_list
 	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
-	| identifier_list ',' IDENTIFIER { $$ = $1; append_right_child(find_last_right_child($1), AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL)); }
+	| identifier_list ',' IDENTIFIER { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL)); }
 	;
 
 type_name
 	: specifier_qualifier_list { $$ = AST_GENERAL_NODE(AST_NAME_TYPE, $1, NULL, NULL); }
-	| specifier_qualifier_list abstract_declarator { $$ = $1; append_right_child(find_last_right_child($1), $2); }
+	| specifier_qualifier_list abstract_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 abstract_declarator
 	: pointer { $$ = $1; }
 	| direct_abstract_declarator { $$ = $1; }
-	| pointer direct_abstract_declarator { $$ = $1; append_right_child(find_last_right_child($1), $2); }
+	| pointer direct_abstract_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 direct_abstract_declarator
     : '(' abstract_declarator ')' { $$ = $2; }
     | '[' ']' { $$ = AST_SIMPLE_NODE(AST_TYPE_ARRAY); }
     | '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $2, NULL); }
-    | direct_abstract_declarator '[' ']' { $$ = AST_SIMPLE_NODE(AST_TYPE_ARRAY); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-    | direct_abstract_declarator '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $3, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+    | direct_abstract_declarator '[' ']' { $$ = AST_SIMPLE_NODE(AST_TYPE_ARRAY); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+    | direct_abstract_declarator '[' assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, NULL, $3, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = (ast_node*) $1; }
     /* | '[' '*' ']' { }
     | direct_abstract_declarator '[' '*' ']' */
     | '(' ')' { $$ = AST_SIMPLE_NODE(AST_TYPE_FUNCTION); }
     | '(' parameter_type_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $2, NULL, NULL); }
-    | direct_abstract_declarator '(' ')' { $$ = AST_SIMPLE_NODE(AST_TYPE_FUNCTION); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-    | direct_abstract_declarator '(' parameter_type_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $1, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+    | direct_abstract_declarator '(' ')' { $$ = AST_SIMPLE_NODE(AST_TYPE_FUNCTION); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+    | direct_abstract_declarator '(' parameter_type_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $1, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
     ;
 
 initializer
@@ -485,8 +485,8 @@ initializer
 initializer_list
 	: initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
 	| designation initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, $2, NULL); }
-	| initializer_list ',' initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
-	| initializer_list ',' designation initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $3, $4, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| initializer_list ',' initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| initializer_list ',' designation initializer { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $3, $4, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 designation
@@ -495,7 +495,7 @@ designation
 
 designator_list
 	: designator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| designator_list designator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| designator_list designator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 designator
@@ -525,7 +525,7 @@ compound_statement
 
 block_item_list
 	: block_item { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| block_item_list block_item { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| block_item_list block_item { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 block_item
@@ -563,7 +563,7 @@ jump_statement
 
 translation_unit
 	: external_declaration { $$ = AST_GENERAL_NODE(AST_TRANSLATION_UNIT, $1, NULL, NULL); }
-	| translation_unit external_declaration { $$ = AST_GENERAL_NODE(AST_TRANSLATION_UNIT, $2, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| translation_unit external_declaration { $$ = AST_GENERAL_NODE(AST_TRANSLATION_UNIT, $2, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 external_declaration
@@ -578,7 +578,7 @@ function_definition
 
 declaration_list
 	: declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| declaration_list declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; }
+	| declaration_list declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
 

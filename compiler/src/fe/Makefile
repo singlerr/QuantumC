@@ -1,6 +1,6 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o
 CC = gcc
-CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
+CFLAGS = -g -std=c99 -Werror -Wall -D_XOPEN_SOURCE=700
 LEX = flex
 YACC = bison
 

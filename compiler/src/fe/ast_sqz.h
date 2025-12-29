@@ -22,6 +22,12 @@ struct _sqz_spec_qual
     struct _sqz_spec_qual *next;
 };
 
+typedef struct _sqz_param_decl
+{
+    struct _sqz_decl_spec *spec;
+    struct _sqz_type *decl;
+} sqz_param_decl;
+
 typedef struct _sqz_designator
 {
     union
@@ -39,6 +45,7 @@ typedef struct _sqz_type
     struct _sqz_assign_expr *index;
     struct _sqz_args *args;
     struct _sqz_id *id;
+    struct _sqz_spec_qual *qual;
     struct _sqz_type *next;
 } sqz_type;
 
@@ -80,9 +87,9 @@ typedef struct _sqz_var_decl
 
 typedef struct _sqz_func_decl
 {
-    sqz_decl_spec *spec;
+    struct _sqz_decl_spec *spec;
     type_t *return_type;
-    sqz_args *params;
+    struct _sqz_args *params;
     struct _expr_compound_stmt *body;
 } sqz_func_decl;
 
@@ -123,7 +130,7 @@ typedef struct _sqz_expr
 
 typedef struct _sqz_args
 {
-    struct _sqz_assign_expr *arg;
+    sqz_param_decl *arg;
     struct _sqz_args *next;
 } sqz_args;
 
@@ -179,12 +186,12 @@ typedef struct _sqz_cast_expr
     union
     {
         struct _sqz_cast_expr *cast;
-        union _sqz_unary *unary;
+        struct _sqz_unary *unary;
     };
 
 } sqz_cast_expr;
 
-typedef union _sqz_unary
+typedef struct _sqz_unary
 {
 
     ast_node_type expr_type;
