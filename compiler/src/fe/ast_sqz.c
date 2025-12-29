@@ -27,6 +27,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out);
 int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out);
 int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out);
 int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out);
+int squeeze_abstract_decl(ast_node *abs_decl, sqz_abs_decl **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -661,6 +662,8 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
     {
         return VAL_FAILED;
     }
+
+    return VAL_OK;
 }
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
@@ -952,4 +955,126 @@ fail:
     }
 
     return VAL_FAILED;
+}
+
+int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
+{
+    sqz_type *root, *curr, *t;
+    ast_node *node = abs_decl;
+
+    while (node)
+    {
+        sqz_type *t;
+        switch (node->node_type)
+        {
+        case AST_TYPE_POINTER:
+            type_t *ptr_type = MK_TYPE("pointer", 4);
+            sqz_type *s_type = ALLOC(sqz_type);
+            s_type->type = ptr_type;
+            s_type->index = NULL;
+            s_type->args = NULL;
+            t = s_type;
+            break;
+        case AST_TYPE_ARRAY:
+            sqz_assign_expr *index;
+            ast_node *index_node = node->middle;
+            sqz_type *s_type;
+            if (!index_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->index = NULL;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                if (FAILED(squeeze_assign_expr(index_node, &index)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->index = index;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            t = s_type;
+            break;
+        case AST_TYPE_FUNCTION:
+            sqz_type *s_type;
+            sqz_args *args;
+            ast_node *args_node = node->left;
+
+            if (!args_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->args = NULL;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                // handle both parameter_type_list and identifier_list
+                if (FAILED(squeeze_parameter_list(args_node, &args)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->args = args;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+
+            t = s_type;
+            break;
+        case AST_IDENTIFIER:
+            ast_identifier_node *id_node = node->identifier;
+            sqz_id *id;
+            if (!id_node)
+            {
+                return VAL_FAILED;
+            }
+            s_type = ALLOC(sqz_type);
+            s_type->args = NULL;
+            s_type->index = NULL;
+
+            id = ALLOC(sqz_id);
+            id->name = strdup(id_node->sym->name);
+            id->spec = NULL;
+            id->type = id_node->type;
+
+            s_type->id = id;
+            t = s_type;
+            break;
+        default:
+            goto fail;
+        }
+
+        if (!root)
+        {
+            root = t;
+            curr = t;
+        }
+        else
+        {
+            curr->next = t;
+            curr = t;
+        }
+
+        node = node->right;
+    }
+
+    return VAL_OK;
+fail:
+
+    if (root)
+    {
+        sqz_type *temp;
+        t = root;
+        while (t)
+        {
+            temp = t->next;
+            free(t);
+            t = temp;
+        }
+    }
 }
