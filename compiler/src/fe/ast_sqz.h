@@ -22,6 +22,12 @@ struct _sqz_spec_qual
     struct _sqz_spec_qual *next;
 };
 
+typedef struct _sqz_param_decl
+{
+    sqz_decl_spec *spec;
+    sqz_type *decl;
+} sqz_param_decl;
+
 typedef struct _sqz_designator
 {
     union
@@ -123,7 +129,7 @@ typedef struct _sqz_expr
 
 typedef struct _sqz_args
 {
-    struct _sqz_assign_expr *arg;
+    sqz_param_decl *arg;
     struct _sqz_args *next;
 } sqz_args;
 

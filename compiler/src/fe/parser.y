@@ -441,9 +441,9 @@ parameter_list
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $2, NULL, NULL); }
-	| declaration_specifiers abstract_declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, $2, NULL); }
-	| declaration_specifiers { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, NULL, NULL, NULL); }
+	: declaration_specifiers declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, $2, NULL); }
+	| declaration_specifiers abstract_declarator { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, NULL, $2); }
+	| declaration_specifiers { $$ = AST_GENERAL_NODE(AST_PARAMETER_DECLARATION, $1, NULL, NULL); }
 	;
 
 identifier_list
