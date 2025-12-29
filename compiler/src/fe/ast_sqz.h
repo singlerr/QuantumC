@@ -45,6 +45,7 @@ typedef struct _sqz_type
     struct _sqz_assign_expr *index;
     struct _sqz_args *args;
     struct _sqz_id *id;
+    struct _sqz_spec_qual *qual;
     struct _sqz_type *next;
 } sqz_type;
 
@@ -185,12 +186,12 @@ typedef struct _sqz_cast_expr
     union
     {
         struct _sqz_cast_expr *cast;
-        union _sqz_unary *unary;
+        struct _sqz_unary *unary;
     };
 
 } sqz_cast_expr;
 
-typedef union _sqz_unary
+typedef struct _sqz_unary
 {
 
     ast_node_type expr_type;

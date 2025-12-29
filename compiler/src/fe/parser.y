@@ -276,8 +276,8 @@ assignment_operator
 	;
 
 expression
-	: assignment_expression { $$ = $1; }
-	| expression ',' assignment_expression { $$ = $1; append_right_child(find_last_right_child($1), $3); }
+	: assignment_expression { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| expression ',' assignment_expression { $$ = $1; append_right_child(find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $3, NULL, NULL)); }
 	;
 
 constant_expression

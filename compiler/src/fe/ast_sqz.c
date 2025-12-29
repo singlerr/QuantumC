@@ -28,6 +28,7 @@ int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_init
 int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out);
 int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out);
 int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out);
+int squeeze_decl(ast_node *abs_decl, sqz_type **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -204,7 +205,7 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
 
     ast_node *decl = declarator;
     sqz_type *root = NULL, *type;
-
+    sqz_var_decl *result;
     while (decl)
     {
         sqz_type *t;
@@ -305,8 +306,21 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
         decl = decl->right;
     }
 
-    // TODO
+    result = ALLOC(sqz_var_decl);
+    result->init = NULL;
+    if (initializer)
+    {
+        sqz_initializer *s_init;
+        if (FAILED(squeeze_initializer(initializer, NULL, &s_init)))
+        {
+            goto fail;
+        }
 
+        result->init = s_init;
+    }
+
+    result->type = type;
+    *out = result;
     return VAL_OK;
 fail:
     sqz_type *tt = root;
@@ -316,6 +330,11 @@ fail:
         tt2 = tt->next;
         free(tt);
         tt = tt2;
+    }
+
+    if (result)
+    {
+        free(result);
     }
     return VAL_FAILED;
 }
@@ -380,6 +399,7 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
 }
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
 {
+
 }
 
 int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out)
@@ -495,6 +515,53 @@ int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
 
 int squeeze_expr(ast_node *expr, sqz_expr **out)
 {
+    ast_node *node = expr;
+    sqz_expr *root = NULL, *curr, *temp;
+    while (node)
+    {
+        sqz_assign_expr *assign_expr;
+        if (node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_assign_expr(node, &assign_expr)))
+        {
+            goto fail;
+        }
+
+        if (!root)
+        {
+            root = assign_expr;
+            curr = assign_expr;
+        }
+        else
+        {
+            curr->next = assign_expr;
+            curr = assign_expr;
+        }
+
+        node = node->right;
+    }
+
+    *out = root;
+
+    return VAL_OK;
+
+fail:
+    if (root)
+    {
+        sqz_expr *e = root;
+
+        while (e)
+        {
+            temp = e->next;
+            free(e);
+            e = temp;
+        }
+    }
+
+    return VAL_FAILED;
 }
 
 int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
@@ -551,6 +618,53 @@ int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
 }
 int squeeze_cast_expr(ast_node *cast_expr, sqz_cast_expr **out)
 {
+    sqz_cast_expr *result;
+    switch (cast_expr->node_type)
+    {
+    case AST_EXPR_TYPE_CAST:
+        sqz_type *type_name;
+        sqz_cast_expr *expr;
+
+        if (!cast_expr->left || !cast_expr->middle)
+        {
+            return VAL_FAILED;
+        }
+
+        if (FAILED(squeeze_type_name(cast_expr->left, &type_name)))
+        {
+            return VAL_FAILED;
+        }
+
+        if (FAILED(squeeze_cast_expr(cast_expr->middle, &expr)))
+        {
+            free(type_name);
+            return VAL_FAILED;
+        }
+
+        sqz_cast_expr *c = ALLOC(sqz_cast_expr);
+        c->type = type_name;
+        c->cast = expr;
+
+        result = c;
+        break;
+    default:
+        sqz_unary *unary_expr;
+        if (FAILED(squeeze_unary_expr(cast_expr, &unary_expr)))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_cast_expr *expr = ALLOC(sqz_cast_expr);
+        expr->cast = NULL;
+        expr->type = NULL;
+        expr->unary = unary_expr;
+
+        result = expr;
+        break;
+    }
+
+    *out = result;
+    return VAL_OK;
 }
 int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
 {
@@ -653,8 +767,8 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
 {
     ast_node *specifier_qualifier_list;
     ast_node *abstract_declarator;
-    struct _sqz_spec_qal *qualifier;
-
+    struct _sqz_spec_qual *qualifier;
+    sqz_type *abs_decl;
     if (type_name->node_type != AST_NAME_TYPE)
     {
         return VAL_FAILED;
@@ -668,57 +782,92 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
         return VAL_FAILED;
     }
 
+    if (FAILED(squeeze_abstract_decl(abstract_declarator, &abs_decl)))
+    {
+        free(qualifier);
+        return VAL_FAILED;
+    }
+
     return VAL_OK;
 }
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
 {
-    sqz_args *root, *curr, *temp;
+    sqz_args *root = NULL, *curr, *temp;
     ast_node *node = args;
 
     while (node)
     {
-        ast_node *param_decl;
-        ast_node *decl_spec, *decl, *abs_decl;
+        ast_node *param_decl_node;
+        ast_node *decl_spec_node, *decl_node, *abs_decl_node;
         sqz_decl_spec *spec;
+        sqz_type *decl = NULL, *abs_decl = NULL;
         if (node->node_type != AST_NODE_LIST)
         {
             goto fail;
         }
-        param_decl = node->middle;
+        param_decl_node = node->middle;
 
-        if (!param_decl)
+        if (!param_decl_node)
         {
             goto fail;
         }
 
-        decl_spec = param_decl->left;
-        decl = param_decl->middle;
-        abs_decl = param_decl->right;
+        decl_spec_node = param_decl_node->left;
+        decl_node = param_decl_node->middle;
+        abs_decl_node = param_decl_node->right;
 
-        if (!decl_spec)
+        if (!decl_spec_node)
         {
             goto fail;
         }
 
-        if (FAILED(squeeze_decl_spec(decl_spec, &spec)))
+        if (FAILED(squeeze_decl_spec(decl_spec_node, &spec, NULL)))
         {
             goto fail;
         }
 
-        if (decl && !abs_decl)
+        if (decl_node && !abs_decl_node)
         {
+            if (FAILED(squeeze_decl(decl_node, &decl)))
+            {
+                goto fail;
+            }
         }
-        else if (!decl && abs_decl)
+        else if (!decl_node && abs_decl_node)
         {
+            if (FAILED(squeeze_abstract_decl(abs_decl_node, &abs_decl)))
+            {
+                goto fail;
+            }
         }
         else
         {
             goto fail;
         }
 
+        sqz_args *result = ALLOC(sqz_args);
+        sqz_param_decl *param_decl = ALLOC(sqz_param_decl);
+        param_decl->decl = decl ? decl : abs_decl;
+        param_decl->spec = spec;
+
+        result->arg = param_decl;
+
+        if (!root)
+        {
+            root = result;
+            curr = result;
+        }
+        else
+        {
+            curr->next = result;
+            curr = result;
+        }
+
         node = node->right;
     }
+
+    *out = root;
 
     return VAL_OK;
 fail:
@@ -738,7 +887,7 @@ fail:
 
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 {
-    sqz_designator *root, *curr, *d, *temp;
+    sqz_designator *root = NULL, *curr, *d, *temp;
     ast_node *node;
     if (designator_list->node_type != AST_NODE_LIST)
     {
@@ -811,6 +960,10 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 
         node = node->right;
     }
+
+    *out = root;
+
+    return VAL_OK;
 fail:
     if (root)
     {
@@ -888,6 +1041,8 @@ int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_init
             {
                 goto fail;
             }
+
+            i->designator = designator;
         }
 
         i->next = init;
@@ -988,7 +1143,7 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             goto fail;
         }
 
-        if (root)
+        if (!root)
         {
             root = temp;
             curr = temp;
@@ -1025,7 +1180,112 @@ fail:
 
 int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
 {
-    sqz_type *root, *curr, *t;
+    sqz_type *root = NULL, *curr, *t;
+    ast_node *node = abs_decl;
+
+    while (node)
+    {
+        sqz_type *t;
+        switch (node->node_type)
+        {
+        case AST_TYPE_POINTER:
+            type_t *ptr_type = MK_TYPE("pointer", 4);
+            sqz_type *s_type = ALLOC(sqz_type);
+            s_type->type = ptr_type;
+            s_type->index = NULL;
+            s_type->args = NULL;
+            t = s_type;
+            break;
+        case AST_TYPE_ARRAY:
+            sqz_assign_expr *index;
+            ast_node *index_node = node->middle;
+            sqz_type *s_type;
+            if (!index_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->index = NULL;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                if (FAILED(squeeze_assign_expr(index_node, &index)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->index = index;
+                s_type->args = NULL;
+                s_type->type = NULL;
+            }
+            t = s_type;
+            break;
+        case AST_TYPE_FUNCTION:
+            sqz_type *s_type;
+            sqz_args *args;
+            ast_node *args_node = node->left;
+
+            if (!args_node)
+            {
+                s_type = ALLOC(sqz_type);
+                s_type->args = NULL;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+            else
+            {
+                // handle both parameter_type_list and identifier_list
+                if (FAILED(squeeze_parameter_list(args_node, &args)))
+                {
+                    return VAL_FAILED;
+                }
+                s_type = ALLOC(sqz_type);
+                s_type->args = args;
+                s_type->index = NULL;
+                s_type->type = NULL;
+            }
+
+            t = s_type;
+            break;
+        default:
+            goto fail;
+        }
+
+        if (!root)
+        {
+            root = t;
+            curr = t;
+        }
+        else
+        {
+            curr->next = t;
+            curr = t;
+        }
+
+        node = node->right;
+    }
+
+    return VAL_OK;
+fail:
+
+    if (root)
+    {
+        sqz_type *temp;
+        t = root;
+        while (t)
+        {
+            temp = t->next;
+            free(t);
+            t = temp;
+        }
+    }
+
+    return VAL_FAILED;
+}
+
+int squeeze_decl(ast_node *abs_decl, sqz_type **out)
+{
+    sqz_type *root = NULL, *curr, *t;
     ast_node *node = abs_decl;
 
     while (node)
@@ -1143,4 +1403,6 @@ fail:
             t = temp;
         }
     }
+
+    return VAL_FAILED;
 }
