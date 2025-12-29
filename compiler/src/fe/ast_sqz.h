@@ -24,8 +24,8 @@ struct _sqz_spec_qual
 
 typedef struct _sqz_param_decl
 {
-    sqz_decl_spec *spec;
-    sqz_type *decl;
+    struct _sqz_decl_spec *spec;
+    struct _sqz_type *decl;
 } sqz_param_decl;
 
 typedef struct _sqz_designator
@@ -87,9 +87,9 @@ typedef struct _sqz_var_decl
 
 typedef struct _sqz_func_decl
 {
-    sqz_decl_spec *spec;
+    struct _sqz_decl_spec *spec;
     type_t *return_type;
-    sqz_args *params;
+    struct _sqz_args *params;
     struct _expr_compound_stmt *body;
 } sqz_func_decl;
 

@@ -11,12 +11,12 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
 {
     ast_node *node = (ast_node *)malloc(sizeof(ast_node));
     node->node_type = node_type;
-    node->identifier = id_node;
-    node->left = left;
-    node->right = right;
-    node->middle = middle;
-    node->type = type;
-    node->constant = const_node;
+    node->identifier = (ast_identifier_node *)id_node;
+    node->left = (ast_node *)left;
+    node->right = (ast_node *)right;
+    node->middle = (ast_node *)middle;
+    node->type = (typerec_t *)type;
+    node->constant = (ast_const_node *)const_node;
     return node;
 }
 
@@ -85,20 +85,20 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
 
 void append_left_child(ast_node *parent, const ast_node *child)
 {
-    parent->left = child;
+    parent->left = (ast_node *)child;
 }
 void append_right_child(ast_node *parent, const ast_node *child)
 {
-    parent->right = child;
+    parent->right = (ast_node *)child;
 }
 void append_middle_child(ast_node *parent, const ast_node *child)
 {
-    parent->middle = child;
+    parent->middle = (ast_node *)child;
 }
 
 const ast_node *find_last_left_child(const ast_node *parent)
 {
-    ast_node *node = parent;
+    ast_node *node = (ast_node *)parent;
     while (node->left)
     {
         node = node->left;
@@ -108,7 +108,7 @@ const ast_node *find_last_left_child(const ast_node *parent)
 }
 const ast_node *find_last_right_child(const ast_node *parent)
 {
-    ast_node *node = parent;
+    ast_node *node = (ast_node *)parent;
     while (node->right)
     {
         node = node->right;
@@ -118,7 +118,7 @@ const ast_node *find_last_right_child(const ast_node *parent)
 }
 const ast_node *find_last_middle_child(const ast_node *parent)
 {
-    ast_node *node = parent;
+    ast_node *node = (ast_node *)parent;
     while (node->middle)
     {
         node = node->middle;
@@ -142,7 +142,7 @@ ast_const_node *new_ast_float_const(float f)
 ast_const_node *new_ast_str_const(const char *s)
 {
     ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
-    n->data.s = s;
+    n->data.s = (char *)s;
     return n;
 }
 
