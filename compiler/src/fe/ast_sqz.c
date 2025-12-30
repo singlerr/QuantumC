@@ -1765,7 +1765,9 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
     struct sqz_iter *iter = NULL;
     sqz_expr *expr = NULL;
     sqz_stmt *body = NULL;
-    struct sqz_expr_stmt *expr_stmt_1 = NULL, *expr_stmt_2 = NULL, *expr_stmt_3 = NULL;
+    sqz_var_decl *for_init = NULL;
+    struct sqz_expr_stmt *for_cond = NULL;
+    sqz_expr *for_eval = NULL;
 
     iter = ALLOC(struct sqz_iter);
     switch (stmt->node_type)
@@ -1811,20 +1813,71 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
     }
     break;
     case AST_STMT_FOR:
-        ast_node *expr_1 = ;
-    default:
-        break;
+    {
+        ast_node *for_sect = stmt->left;
+        if (!for_sect)
+        {
+            goto fail;
+        }
+        ast_node *body_stmt = stmt->middle;
+        ast_node *expr_1 = for_sect->left, *expr_2 = for_sect->middle, *expr_3 = for_sect->right;
+
+        // second expression and body are mandatory
+        if (!expr_2 || !body_stmt)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr_stmt(expr_2, &for_cond)))
+        {
+            goto fail;
+        }
+
+        if (expr_1)
+        {
+            if (FAILED(squeeze_var_declaration(expr_1, &for_init)))
+            {
+                goto fail;
+            }
+        }
+
+        if (expr_3)
+        {
+            if (FAILED(squeeze_expr(expr_3, &for_eval)))
+            {
+                goto fail;
+            }
+        }
+
+        if (FAILED(squeeze_stmt(body_stmt, &body)))
+        {
+            goto fail;
+        }
+
+        struct sqz_for *f = ALLOC(struct sqz_for);
+        f->body = body;
+        f->decl = for_init;
+        f->cond = for_cond;
+        f->eval = for_eval;
+
+        iter->iter_type = AST_STMT_FOR;
+        iter->iter.for_iter = f;
     }
 
+    default:
+        goto fail;
+    }
+
+    *out = iter;
     return VAL_OK;
 
 fail:
     SAFE_FREE(iter);
     SAFE_FREE(expr);
     SAFE_FREE(body);
-    SAFE_FREE(expr_stmt_1);
-    SAFE_FREE(expr_stmt_2);
-    SAFE_FREE(expr_stmt_3);
+    SAFE_FREE(for_init);
+    SAFE_FREE(for_eval);
+    SAFE_FREE(for_cond);
 
     return VAL_FAILED;
 }
