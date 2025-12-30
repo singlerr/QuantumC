@@ -5,6 +5,29 @@
 #include <stdlib.h>
 
 #define MK_TYPE(name, size) mk_type(name, mk_type_meta(size), 0)
+#define FREE_LIST(type, root)   \
+    do                          \
+    {                           \
+        type *r = root;         \
+        type *temp;             \
+        type *t;                \
+        if (r)                  \
+        {                       \
+            t = r;              \
+            while (t)           \
+            {                   \
+                temp = t->next; \
+                free(t);        \
+                t = temp;       \
+            }                   \
+        }                       \
+    } while (0)
+#define SAFE_FREE(ptr) \
+    do                 \
+    {                  \
+        if (ptr)       \
+            free(ptr); \
+    } while (0)
 
 int squeeze_program(ast_node *program, sqz_program *out);
 int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out);
@@ -721,9 +744,9 @@ int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
         /*DOING SOMETHING*/
 
         result = expr;
-        
+
         break;
-    default;
+        default;
         break;
     }
 
