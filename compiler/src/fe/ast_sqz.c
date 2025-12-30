@@ -669,7 +669,7 @@ int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
 
         sqz_unary *expr = ALLOC(sqz_unary);
         expr->expr_type = unary_expr->node_type;
-        // TODO: Shouldn't there be something like `resut = expr;` here?
+        result = expr;
         break;
     case AST_UNARY_AMP:
     case AST_UNARY_STAR:
@@ -1863,7 +1863,7 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
         iter->iter_type = AST_STMT_FOR;
         iter->iter.for_iter = f;
     }
-
+    break;
     default:
         goto fail;
     }
@@ -1881,4 +1881,57 @@ fail:
 
     return VAL_FAILED;
 }
-int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out) {}
+int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out)
+{
+    sqz_expr *expr = NULL;
+    struct sqz_jump *result = ALLOC(struct sqz_jump);
+    switch (stmt->node_type)
+    {
+    case AST_STMT_GOTO:
+        if (!stmt->identifier)
+        {
+            goto fail;
+        }
+
+        struct sqz_goto *g = ALLOC(struct sqz_goto);
+        g->label = stmt->identifier;
+
+        result->jump_type = AST_STMT_GOTO;
+        result->jump.goto_stmt = g;
+        break;
+    case AST_STMT_CONTINUE:
+        struct sqz_continue *c = ALLOC(struct sqz_continue);
+        result->jump_type = AST_STMT_CONTINUE;
+        result->jump.continue_stmt = c;
+        break;
+    case AST_STMT_BREAK:
+        struct sqz_break *b = ALLOC(struct sqz_break);
+        result->jump_type = AST_STMT_BREAK;
+        result->jump.break_stmt = b;
+        break;
+    case AST_STMT_RETURN:
+        sqz_expr *ret = NULL;
+        if (stmt->left)
+        {
+            if (FAILED(squeeze_expr(stmt->left, &ret)))
+            {
+                goto fail;
+            }
+        }
+        struct sqz_return *r = ALLOC(struct sqz_return);
+        r->expr = ret;
+
+        result->jump_type = AST_STMT_RETURN;
+        result->jump.return_stmt = r;
+        break;
+    default:
+        goto fail;
+    }
+
+    *out = result;
+    return VAL_FAILED;
+fail:
+    SAFE_FREE(result);
+    SAFE_FREE(expr);
+    return VAL_FAILED;
+}
