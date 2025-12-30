@@ -507,6 +507,7 @@ int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
 
         sqz_unary *expr = ALLOC(sqz_unary);
         expr->expr_type = unary_expr->node_type;
+        // TODO: Shouldn't there be something like `resut = expr;` here?
         break;
     case AST_UNARY_AMP:
     case AST_UNARY_STAR:
@@ -554,6 +555,42 @@ int squeeze_pre(ast_node *pre, struct _sqz_pre **out)
 }
 int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
 {
+    sqz_unary *result;
+    switch (pre_unary->node_type)
+    {
+    case AST_EXPR_PRE_INC:
+        sqz_unary *unary;
+        if (FAILED(/*SOME FUNCTION*/))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_unary *expr = ALLOC(sqz_unary);
+        /*DOING SOMETHING*/
+
+        result = expr;
+
+        break;
+    case AST_EXPR_PRE_DEC:
+        sqz_unary *unary;
+        if (FAILED(/*SOME FUNCTION*/))
+        {
+            return VAL_FAILED;
+        }
+
+        sqz_unary *expr = ALLOC(sqz_unary);
+        /*DOING SOMETHING*/
+
+        result = expr;
+        
+        break;
+    default;
+        break;
+    }
+
+    *out = result;
+
+    return VAL_OK;
 }
 
 int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
