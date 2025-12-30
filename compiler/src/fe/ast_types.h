@@ -62,6 +62,7 @@ typedef enum _ast_node_type
     AST_STMT_CASE,
     AST_STMT_DEFAULT,
     AST_STMT_GOTO,
+    AST_STMT_EXPRESSION,
 
     AST_EXPR_BINARY,
     AST_EXPR_UNARY,
