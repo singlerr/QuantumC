@@ -1759,6 +1759,9 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
         label = ALLOC(struct sqz_label);
         label->label = id_node->sym;
         label->stmt = statement;
+
+        result->type = AST_STMT_LABEL;
+        result->stmt.label_stmt = label;
     }
     break;
     case AST_STMT_CASE:
@@ -1779,10 +1782,36 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
         {
             goto fail;
         }
+
+        case_stmt = ALLOC(struct sqz_case);
+        case_stmt->case_expr = const_expr;
+        case_stmt->stmt = statement;
+
+        result->type = AST_STMT_CASE;
+        result->stmt.case_stmt = case_stmt;
     }
     break;
     case AST_STMT_DEFAULT:
-        break;
+    {
+        struct sqz_default *default_stmt;
+        ast_node *stmt_node = stmt->middle;
+        if (!stmt_node)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_stmt(stmt_node, &statement)))
+        {
+            goto fail;
+        }
+
+        default_stmt = ALLOC(struct sqz_default);
+        default_stmt->stmt = statement;
+
+        result->type = AST_STMT_DEFAULT;
+        result->stmt.default_stmt = default_stmt;
+    }
+    break;
     default:
         goto fail;
     }
@@ -1793,7 +1822,177 @@ fail:
     SAFE_FREE(const_expr);
     return VAL_FAILED;
 }
-int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out) {}
-int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out) {}
-int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out) {}
+int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out)
+{
+    sqz_expr *expr;
+    if (stmt->node_type != AST_STMT_EXPRESSION)
+    {
+        return VAL_FAILED;
+    }
+
+    struct sqz_expr_stmt *result = ALLOC(struct sqz_expr_stmt);
+
+    if (stmt->left)
+    {
+        if (FAILED(squeeze_expr(stmt->left, &expr)))
+        {
+            SAFE_FREE(result);
+            return VAL_FAILED;
+        }
+
+        result->expr = expr;
+    }
+
+    *out = result;
+    return VAL_OK;
+}
+int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out)
+{
+    struct sqz_selection *selection;
+    sqz_expr *expr = NULL;
+    sqz_stmt *true_stmt = NULL, *false_stmt = NULL;
+    selection = ALLOC(struct sqz_selection);
+    switch (stmt->node_type)
+    {
+    case AST_STMT_IF:
+    {
+        if (!stmt->left || !stmt->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr(stmt->left, &expr)) || FAILED(squeeze_stmt(stmt->middle, &true_stmt)))
+        {
+            goto fail;
+        }
+
+        struct sqz_if *if_sel = ALLOC(struct sqz_if);
+        if_sel->expr = expr;
+        if_sel->true_stmt = true_stmt;
+
+        selection->type = AST_STMT_IF;
+        selection->selection.if_selection = if_sel;
+    }
+    break;
+    case AST_STMT_IF_ELSE:
+    {
+        if (!stmt->left || !stmt->middle || !stmt->right)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr(stmt->left, &expr)) || FAILED(squeeze_stmt(stmt->middle, &true_stmt)) || FAILED(squeeze_stmt(stmt->right, &false_stmt)))
+        {
+            goto fail;
+        }
+
+        struct sqz_if_else *elif_sel = ALLOC(struct sqz_if_else);
+        elif_sel->expr = expr;
+        elif_sel->false_stmt = false_stmt;
+        elif_sel->true_stmt = true_stmt;
+
+        selection->type = AST_STMT_IF_ELSE;
+        selection->selection.if_else_selection = elif_sel;
+    }
+    break;
+    case AST_STMT_SWITCH:
+    {
+        if (!stmt->left || !stmt->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr(stmt->left, &expr)) || FAILED(squeeze_stmt(stmt->middle, &true_stmt)))
+        {
+            goto fail;
+        }
+
+        struct sqz_switch *swtch_sel = ALLOC(struct sqz_switch);
+        swtch_sel->expr = expr;
+        swtch_sel->body = true_stmt;
+
+        selection->type = AST_STMT_SWITCH;
+        selection->selection.switch_selection = swtch_sel;
+    }
+    break;
+    default:
+        goto fail;
+    }
+    *out = selection;
+    return VAL_OK;
+fail:
+    SAFE_FREE(selection);
+    SAFE_FREE(expr);
+    SAFE_FREE(true_stmt);
+    SAFE_FREE(false_stmt);
+    return VAL_FAILED;
+}
+int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
+{
+    struct sqz_iter *iter = NULL;
+    sqz_expr *expr = NULL;
+    sqz_stmt *body = NULL;
+    struct sqz_expr_stmt *expr_stmt_1 = NULL, *expr_stmt_2 = NULL, *expr_stmt_3 = NULL;
+
+    iter = ALLOC(struct sqz_iter);
+    switch (stmt->node_type)
+    {
+    case AST_STMT_WHILE:
+    {
+        if (!stmt->left || !stmt->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr(stmt->left, &expr)) || FAILED(squeeze_stmt(stmt->middle, &body)))
+        {
+            goto fail;
+        }
+
+        struct sqz_while *w = ALLOC(struct sqz_while);
+        w->body = body;
+        w->expr = expr;
+
+        iter->iter_type = AST_STMT_WHILE;
+        iter->iter.while_iter = w;
+    }
+    break;
+    case AST_STMT_DO_WHILE:
+    {
+        if (!stmt->left || !stmt->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_stmt(stmt->left, &body)) || FAILED(squeeze_expr(stmt->middle, &body)))
+        {
+            goto fail;
+        }
+
+        struct sqz_do_while *dw = ALLOC(struct sqz_do_while);
+        dw->expr = expr;
+        dw->body = body;
+
+        iter->iter_type = AST_STMT_DO_WHILE;
+        iter->iter.do_while_iter = dw;
+    }
+    break;
+    case AST_STMT_FOR:
+        ast_node *expr_1 = ;
+    default:
+        break;
+    }
+
+    return VAL_OK;
+
+fail:
+    SAFE_FREE(iter);
+    SAFE_FREE(expr);
+    SAFE_FREE(body);
+    SAFE_FREE(expr_stmt_1);
+    SAFE_FREE(expr_stmt_2);
+    SAFE_FREE(expr_stmt_3);
+
+    return VAL_FAILED;
+}
 int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out) {}
