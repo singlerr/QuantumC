@@ -534,8 +534,8 @@ block_item
 	;
 
 expression_statement
-	: ';' { $$ = NULL; }
-	| expression ';' { $$ = $1; }
+	: ';' { $$ = AST_SIMPLE_NODE(AST_STMT_EXPRESSION); }
+	| expression ';' { $$ = AST_GENERAL_NODE(AST_STMT_EXPRESSION, $1, NULL, NULL); }
 	;
 
 selection_statement

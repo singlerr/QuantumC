@@ -79,9 +79,7 @@ typedef struct _sqz_var_decl
 {
     sqz_decl_spec *spec;
     type_t *type;
-    symrec_t *symbol;
-    sqz_initializer *init;
-
+    sqz_init_decl *decl_list;
     struct _sqz_var_decl *next;
 } sqz_var_decl;
 
@@ -191,6 +189,14 @@ typedef struct _sqz_cast_expr
 
 } sqz_cast_expr;
 
+typedef struct _sqz_init_decl
+{
+    sqz_type *decl;
+    sqz_initializer *init;
+
+    struct _sqz_init_decl *next;
+} sqz_init_decl;
+
 typedef struct _sqz_unary
 {
 
@@ -261,6 +267,17 @@ typedef struct _sqz_assign_expr
 } sqz_assign_expr;
 
 struct sqz_labeled
+{
+    ast_node_type type;
+    union
+    {
+        struct sqz_label *label_stmt;
+        struct sqz_case *case_stmt;
+        struct sqz_default *default_stmt;
+    } stmt;
+};
+
+struct sqz_label
 {
     symrec_t *label;
     struct _sqz_stmt *stmt;
@@ -398,7 +415,7 @@ typedef struct _sqz_stmt
     {
         struct sqz_compound_stmt *compound;
         struct sqz_expr_stmt *expr;
-        struct sqz_labeld *labeled;
+        struct sqz_labeled *labeled;
         struct sqz_iter *iter;
         struct sqz_jump *jump;
         struct sqz_selection *selection;

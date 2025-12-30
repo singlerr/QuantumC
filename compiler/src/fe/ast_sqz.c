@@ -32,7 +32,7 @@
 int squeeze_program(ast_node *program, sqz_program *out);
 int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out);
 int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out);
-int squeeze_var_init(ast_node *init, sqz_var_decl **out);
+int squeeze_var_init(ast_node *init, sqz_init_decl **out);
 int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_out);
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out);
 int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out);
@@ -55,6 +55,11 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out);
 int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out);
 int squeeze_block_item(ast_node *block_item, struct _sqz_block_item **out);
 int squeeze_stmt(ast_node *stmt, sqz_stmt **out);
+int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out);
+int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out);
+int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out);
+int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out);
+int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -219,7 +224,7 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
     return VAL_OK;
 }
 
-int squeeze_var_init(ast_node *init, sqz_var_decl **out)
+int squeeze_var_init(ast_node *init, sqz_init_decl **out)
 {
     ast_node *decl_node = init->middle;
     if (!decl_node || decl_node->node_type != AST_VARIABLE_DECLARATOR)
@@ -232,7 +237,7 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
 
     ast_node *decl = declarator;
     sqz_type *root = NULL, *type;
-    sqz_var_decl *result;
+    sqz_init_decl *result;
     sqz_type *s_type;
     while (decl)
     {
@@ -331,8 +336,10 @@ int squeeze_var_init(ast_node *init, sqz_var_decl **out)
         decl = decl->right;
     }
 
-    result = ALLOC(sqz_var_decl);
+    result = ALLOC(sqz_init_decl);
+    result->decl = root;
     result->init = NULL;
+
     if (initializer)
     {
         sqz_initializer *s_init;
@@ -367,58 +374,62 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
 {
 
     ast_node *decl_spec = var_decl->left;
-    ast_node *init = var_decl->middle;
+    ast_node *init_list = var_decl->middle;
     sqz_decl_spec *spec;
-    sqz_var_decl *init_decl;
+    sqz_init_decl *root = NULL, *curr, *temp;
     sqz_var_decl *var = NULL;
     type_t *type;
+    ast_node *decl_node;
     if (!decl_spec)
     {
-        return VAL_FAILED;
+        goto fail;
     }
 
     if (FAILED(squeeze_decl_spec(decl_spec, &spec, &type)))
     {
-        return VAL_FAILED;
+        goto fail;
     }
 
-    if (init)
+    decl_node = init_list;
+
+    while (decl_node)
     {
-        if (init->node_type != AST_NODE_LIST)
+        if (decl_node->type != AST_NODE_LIST)
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        if (FAILED(squeeze_var_init(init, &init_decl)))
+        if (!decl_node->middle)
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        var = init_decl;
-        init_decl = init_decl->next;
-
-        init = init->right;
-
-        while (init)
+        if (FAILED(squeeze_var_init(decl_node->middle, &temp)))
         {
-            if (init->node_type != AST_NODE_LIST)
-            {
-                return VAL_FAILED;
-            }
-
-            if (FAILED(squeeze_var_init(init, &init_decl)))
-            {
-                init_decl->next = NULL;
-                return VAL_FAILED;
-            }
-            init_decl->type = type;
-            init_decl->spec = spec;
-            init = init->right;
-            init_decl = init_decl->next;
+            goto fail;
         }
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+        decl_node = decl_node->right;
     }
+    var->spec = spec;
+    var->decl_list = root;
     var->type = type;
     *out = var;
+fail:
+    SAFE_FREE(spec);
+    SAFE_FREE(type);
+    SAFE_FREE(temp);
+    FREE_LIST(sqz_init_decl, root);
     return VAL_OK;
 }
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
@@ -426,6 +437,7 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
     sqz_func_decl *result = NULL;
     sqz_decl_spec *specs = NULL;
     sqz_type *decl = NULL;
+    type_t *return_type;
     sqz_var_decl *decl_list = NULL;
     struct sqz_compound_stmt *body = NULL;
 
@@ -447,7 +459,7 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
     decl_list_node = body_node->left;
     comp_stmt_node = body_node->middle;
 
-    if (FAILED(squeeze_decl_spec(spec_node, &specs, NULL)))
+    if (FAILED(squeeze_decl_spec(spec_node, &specs, &return_type)))
     {
         goto clean;
     }
@@ -509,6 +521,20 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
         goto clean;
     }
 
+    if (FAILED(squeeze_compound_stmt(comp_stmt_node, &body)))
+    {
+        goto clean;
+    }
+
+    result = ALLOC(sqz_func_decl);
+    result->body = body;
+    result->return_type = return_type;
+    result->spec = specs;
+    result->params = NULL;
+
+    *out = result;
+
+    return VAL_OK;
 clean:
     SAFE_FREE(result);
     SAFE_FREE(specs);
@@ -1617,4 +1643,157 @@ int squeeze_block_item(ast_node *block_item, struct _sqz_block_item **out)
 
 int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
 {
+    sqz_stmt *result = ALLOC(sqz_stmt);
+    switch (stmt->node_type)
+    {
+    case AST_STMT_LABEL:
+    case AST_STMT_CASE:
+    case AST_STMT_DEFAULT:
+        struct sqz_labeled *labeld;
+        if (FAILED(squeeze_labeled_stmt(stmt, &labeld)))
+        {
+            goto fail;
+        }
+
+        result->stmt_type = stmt->node_type;
+        result->stmt.labeled = labeld;
+        break;
+    case AST_STMT_COMPOUND:
+        struct sqz_compound_stmt *comp_stmt;
+        if (FAILED(squeeze_compound_stmt(stmt, &comp_stmt)))
+        {
+            goto fail;
+        }
+
+        result->stmt_type = stmt->node_type;
+        result->stmt.compound = comp_stmt;
+        break;
+    case AST_STMT_EXPRESSION:
+        struct sqz_expr_stmt *expr_stmt;
+        if (stmt->left)
+        {
+            if (FAILED(squeeze_expr_stmt(stmt, &expr_stmt)))
+            {
+                goto fail;
+            }
+        }
+        else
+        {
+            expr_stmt = ALLOC(struct sqz_expr_stmt);
+            expr_stmt->expr = NULL;
+        }
+
+        result->stmt.expr = expr_stmt;
+        result->stmt_type = AST_STMT_EXPRESSION;
+        break;
+    case AST_STMT_IF:
+    case AST_STMT_IF_ELSE:
+    case AST_STMT_SWITCH:
+        struct sqz_selection *sel_stmt;
+        if (FAILED(squeeze_selection_stmt(stmt, &sel_stmt)))
+        {
+            goto fail;
+        }
+
+        result->stmt.selection = sel_stmt;
+        result->stmt_type = stmt->node_type;
+        break;
+    case AST_STMT_WHILE:
+    case AST_STMT_DO_WHILE:
+    case AST_STMT_FOR_EXPR:
+        struct sqz_iter *iter_stmt;
+        if (FAILED(squeeze_iter_stmt(stmt, &iter_stmt)))
+        {
+            goto fail;
+        }
+
+        result->stmt.iter = iter_stmt;
+        result->stmt_type = stmt->node_type;
+        break;
+    case AST_STMT_GOTO:
+    case AST_STMT_CONTINUE:
+    case AST_STMT_BREAK:
+    case AST_STMT_RETURN:
+        struct sqz_jump *jump_stmt;
+        if (FAILED(squeeze_jump_stmt(stmt, &jump_stmt)))
+        {
+            goto fail;
+        }
+
+        result->stmt.jump = jump_stmt;
+        result->stmt_type = stmt->node_type;
+        break;
+    default:
+        goto fail;
+    }
+
+    return VAL_OK;
+fail:
+    free(result);
+    return VAL_FAILED;
 }
+
+int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
+{
+    struct sqz_labeled *result = ALLOC(struct sqz_labeled);
+
+    sqz_stmt *statement = NULL;
+    sqz_expr *const_expr = NULL;
+    switch (stmt->node_type)
+    {
+    case AST_STMT_LABEL:
+    {
+        struct sqz_label *label;
+        ast_node *stmt_node = stmt->middle;
+        ast_identifier_node *id_node = stmt->identifier;
+        if (!stmt_node || !id_node)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_stmt(stmt_node, &statement)))
+        {
+            goto fail;
+        }
+
+        label = ALLOC(struct sqz_label);
+        label->label = id_node->sym;
+        label->stmt = statement;
+    }
+    break;
+    case AST_STMT_CASE:
+    {
+        struct sqz_case *case_stmt;
+        ast_node *const_node = stmt->left;
+        ast_node *stmt_node = stmt->middle;
+        if (!const_node || !stmt_node)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr(const_node, &const_expr)))
+        {
+            goto fail;
+        }
+        if (FAILED(squeeze_stmt(stmt_node, &statement)))
+        {
+            goto fail;
+        }
+    }
+    break;
+    case AST_STMT_DEFAULT:
+        break;
+    default:
+        goto fail;
+    }
+    return VAL_OK;
+fail:
+    SAFE_FREE(result);
+    SAFE_FREE(statement);
+    SAFE_FREE(const_expr);
+    return VAL_FAILED;
+}
+int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out) {}
+int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out) {}
+int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out) {}
+int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out) {}
