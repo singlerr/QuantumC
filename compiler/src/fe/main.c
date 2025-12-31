@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "ast.h"
 #include "symrec.h"
+#include "ast_sqz.h"
+
 extern FILE *yyin;
 extern int yyparse(ast_node **root);
-
+extern int squeeze_ast(ast_node *program, sqz_program **out);
 void print_node(ast_node *node);
 void print_node_recursion(ast_node *node, int depth);
 
@@ -12,6 +15,7 @@ int main(int argc, char *argv[])
 {
 
     ast_node *root;
+    sqz_program *squeezed;
     FILE *f;
     int ret;
 
@@ -29,9 +33,14 @@ int main(int argc, char *argv[])
     init_type();
 
     ret = yyparse(&root);
-    if (!ret)
+    if (ret)
     {
-        print_node(root);
+        exit(0);
+    }
+
+    if (FAILED(squeeze_ast(root, &squeezed)))
+    {
+        exit(1);
     }
 
     exit(0);
