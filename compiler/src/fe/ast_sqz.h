@@ -80,7 +80,7 @@ typedef struct _sqz_var_decl
 {
     sqz_decl_spec *spec;
     type_t *type;
-    sqz_init_decl *decl_list;
+    struct _sqz_init_decl *decl_list;
     struct _sqz_var_decl *next;
 } sqz_var_decl;
 
@@ -89,7 +89,7 @@ typedef struct _sqz_func_decl
     struct _sqz_decl_spec *spec;
     type_t *return_type;
     struct _sqz_args *params;
-    struct _expr_compound_stmt *body;
+    struct sqz_compound_stmt *body;
 } sqz_func_decl;
 
 typedef struct _sqz_primary_expr
@@ -351,7 +351,7 @@ struct sqz_do_while
 struct sqz_for
 {
     struct _sqz_var_decl *decl;
-    struct _sqz_expr_stmt *cond;
+    struct sqz_expr_stmt *cond;
     struct _sqz_expr *eval;
 
     struct _sqz_stmt *body;

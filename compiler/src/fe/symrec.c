@@ -56,7 +56,7 @@ typerec_t *puttype(const char *name, ast_node_type type_type, const type_t *type
     typerec_t *rec = (typerec_t *)malloc(sizeof(typerec_t));
     rec->name = strdup(name);
     rec->next = type_table;
-    rec->handle = type;
+    rec->handle = (type_t *)type;
     rec->type_type = type_type;
     type_table = rec;
     return rec;
