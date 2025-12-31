@@ -15,5 +15,6 @@ typedef int BOOL;
 #define CONTINUE(ret) (ret == VAL_CONTINUE)
 
 #define ALLOC(type) ((type *)malloc(sizeof(type)))
+#define IALLOC(type) ((type *)calloc(1, sizeof(type)))
 
 #endif

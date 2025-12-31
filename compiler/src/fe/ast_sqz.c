@@ -63,7 +63,7 @@ int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
-    sqz_program *program = (sqz_program *)malloc(sizeof(sqz_program));
+    sqz_program *program = IALLOC(sqz_program);
     int ret = squeeze_program(root, program);
     *out = program;
 
@@ -846,8 +846,9 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
 {
     ast_node *specifier_qualifier_list;
     ast_node *abstract_declarator;
-    struct _sqz_spec_qal *qualifier;
-
+    struct _sqz_spec_qal *qualifier = NULL;
+    sqz_type *abs_decl = NULL;
+    sqz_type *result;
     if (type_name->node_type != AST_NAME_TYPE)
     {
         return VAL_FAILED;
@@ -860,10 +861,30 @@ int squeeze_type_name(ast_node *type_name, sqz_type **out)
     {
         return VAL_FAILED;
     }
+
+    if (abstract_declarator)
+    {
+        if (FAILED(squeeze_abstract_decl(abstract_declarator, &abs_decl)))
+        {
+            goto fail;
+        }
+    }
+
+    result = IALLOC(sqz_type);
+    result->abs_decl = abs_decl;
+    result->qual = qualifier;
+
+    *out = result;
+    return VAL_OK;
+fail:
+    SAFE_FREE(qualifier);
+    SAFE_FREE(abs_decl);
+    return VAL_FAILED;
 }
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
 {
+    
 }
 
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
@@ -900,7 +921,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
                 goto fail;
             }
 
-            sqz_designator *designator = ALLOC(sqz_designator);
+            sqz_designator *designator = IALLOC(sqz_designator);
             designator->val.expr = ternary;
             designator->designator_type = AST_ARRAY_ACCESS;
 
@@ -918,7 +939,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
                 goto fail;
             }
 
-            sqz_designator *designator = ALLOC(sqz_designator);
+            sqz_designator *designator = IALLOC(sqz_designator);
             designator->val.id = id;
             designator->designator_type = AST_MEMBER_ACCESS;
 
@@ -941,6 +962,8 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 
         node = node->right;
     }
+
+    *out = root;
 fail:
     if (root)
     {
@@ -960,7 +983,7 @@ int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out)
 {
     sqz_id *id;
 
-    id = ALLOC(sqz_id);
+    id = IALLOC(sqz_id);
     id->name = id_node->sym;
     id->id_type = node->node_type;
     id->type = id_node->type;
@@ -974,7 +997,7 @@ int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out)
 int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out)
 {
     sqz_initializer *init;
-    sqz_initializer *i = ALLOC(sqz_initializer);
+    sqz_initializer *i = IALLOC(sqz_initializer);
     // initializer
     switch (initializer->node_type)
     {
@@ -1088,14 +1111,14 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             }
 
             t = type_node->type;
-            temp = ALLOC(struct _sqz_spec_qual);
+            temp = IALLOC(struct _sqz_spec_qual);
             temp->type = t;
             temp->qualifier = NULL;
         }
         // type_qualifier
         else if (cur_node->middle)
         {
-            temp = ALLOC(struct _sqz_spec_qual);
+            temp = IALLOC(struct _sqz_spec_qual);
             temp->type = NULL;
             temp->qualifier = 0;
             switch (cur_node->middle->node_type)
@@ -1131,6 +1154,8 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
 
         cur_node = cur_node->right;
     }
+
+    *out = root;
     return VAL_OK;
 fail:
 
@@ -1165,7 +1190,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
         {
         case AST_TYPE_POINTER:
             type_t *ptr_type = MK_TYPE("pointer", 4);
-            sqz_type *s_type = ALLOC(sqz_type);
+            sqz_type *s_type = IALLOC(sqz_type);
             s_type->type = ptr_type;
             s_type->index = NULL;
             s_type->args = NULL;
@@ -1177,7 +1202,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
             sqz_type *s_type;
             if (!index_node)
             {
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->index = NULL;
                 s_type->args = NULL;
                 s_type->type = NULL;
@@ -1188,7 +1213,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
                 {
                     return VAL_FAILED;
                 }
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->index = index;
                 s_type->args = NULL;
                 s_type->type = NULL;
@@ -1202,7 +1227,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
 
             if (!args_node)
             {
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->args = NULL;
                 s_type->index = NULL;
                 s_type->type = NULL;
@@ -1214,7 +1239,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
                 {
                     return VAL_FAILED;
                 }
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->args = args;
                 s_type->index = NULL;
                 s_type->type = NULL;
@@ -1270,7 +1295,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
         {
         case AST_TYPE_POINTER:
             type_t *ptr_type = MK_TYPE("pointer", 4);
-            sqz_type *s_type = ALLOC(sqz_type);
+            sqz_type *s_type = IALLOC(sqz_type);
             s_type->type = ptr_type;
             s_type->index = NULL;
             s_type->args = NULL;
@@ -1282,7 +1307,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
             sqz_type *s_type;
             if (!index_node)
             {
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->index = NULL;
                 s_type->args = NULL;
                 s_type->type = NULL;
@@ -1293,7 +1318,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
                 {
                     return VAL_FAILED;
                 }
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->index = index;
                 s_type->args = NULL;
                 s_type->type = NULL;
@@ -1307,7 +1332,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
 
             if (!args_node)
             {
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->args = NULL;
                 s_type->index = NULL;
                 s_type->type = NULL;
@@ -1319,7 +1344,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
                 {
                     return VAL_FAILED;
                 }
-                s_type = ALLOC(sqz_type);
+                s_type = IALLOC(sqz_type);
                 s_type->args = args;
                 s_type->index = NULL;
                 s_type->type = NULL;
@@ -1334,11 +1359,11 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
             {
                 return VAL_FAILED;
             }
-            s_type = ALLOC(sqz_type);
+            s_type = IALLOC(sqz_type);
             s_type->args = NULL;
             s_type->index = NULL;
 
-            id = ALLOC(sqz_id);
+            id = IALLOC(sqz_id);
             id->name = strdup(id_node->sym->name);
             id->spec = NULL;
             id->type = id_node->type;
@@ -1363,6 +1388,8 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
 
         node = node->right;
     }
+
+    *out = root;
 
     return VAL_OK;
 fail:
@@ -1424,7 +1451,7 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
         node = node->right;
     }
 
-    result = ALLOC(struct sqz_compound_stmt);
+    result = IALLOC(struct sqz_compound_stmt);
     result->block_list = root;
 
     *out = result;
@@ -1456,7 +1483,7 @@ int squeeze_block_item(ast_node *block_item, struct _sqz_block_item **out)
         break;
     }
 
-    result = ALLOC(struct _sqz_block_item);
+    result = IALLOC(struct _sqz_block_item);
 
     if (stmt)
     {
@@ -1476,7 +1503,7 @@ int squeeze_block_item(ast_node *block_item, struct _sqz_block_item **out)
 
 int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
 {
-    sqz_stmt *result = ALLOC(sqz_stmt);
+    sqz_stmt *result = IALLOC(sqz_stmt);
     switch (stmt->node_type)
     {
     case AST_STMT_LABEL:
@@ -1512,7 +1539,7 @@ int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
         }
         else
         {
-            expr_stmt = ALLOC(struct sqz_expr_stmt);
+            expr_stmt = IALLOC(struct sqz_expr_stmt);
             expr_stmt->expr = NULL;
         }
 
@@ -1560,6 +1587,7 @@ int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
         goto fail;
     }
 
+    *out = result;
     return VAL_OK;
 fail:
     free(result);
@@ -1568,7 +1596,7 @@ fail:
 
 int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
 {
-    struct sqz_labeled *result = ALLOC(struct sqz_labeled);
+    struct sqz_labeled *result = IALLOC(struct sqz_labeled);
 
     sqz_stmt *statement = NULL;
     sqz_expr *const_expr = NULL;
@@ -1589,7 +1617,7 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
             goto fail;
         }
 
-        label = ALLOC(struct sqz_label);
+        label = IALLOC(struct sqz_label);
         label->label = id_node->sym;
         label->stmt = statement;
 
@@ -1616,7 +1644,7 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
             goto fail;
         }
 
-        case_stmt = ALLOC(struct sqz_case);
+        case_stmt = IALLOC(struct sqz_case);
         case_stmt->case_expr = const_expr;
         case_stmt->stmt = statement;
 
@@ -1638,7 +1666,7 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
             goto fail;
         }
 
-        default_stmt = ALLOC(struct sqz_default);
+        default_stmt = IALLOC(struct sqz_default);
         default_stmt->stmt = statement;
 
         result->type = AST_STMT_DEFAULT;
@@ -1663,7 +1691,7 @@ int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out)
         return VAL_FAILED;
     }
 
-    struct sqz_expr_stmt *result = ALLOC(struct sqz_expr_stmt);
+    struct sqz_expr_stmt *result = IALLOC(struct sqz_expr_stmt);
 
     if (stmt->left)
     {
@@ -1684,7 +1712,7 @@ int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out)
     struct sqz_selection *selection;
     sqz_expr *expr = NULL;
     sqz_stmt *true_stmt = NULL, *false_stmt = NULL;
-    selection = ALLOC(struct sqz_selection);
+    selection = IALLOC(struct sqz_selection);
     switch (stmt->node_type)
     {
     case AST_STMT_IF:
@@ -1699,7 +1727,7 @@ int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out)
             goto fail;
         }
 
-        struct sqz_if *if_sel = ALLOC(struct sqz_if);
+        struct sqz_if *if_sel = IALLOC(struct sqz_if);
         if_sel->expr = expr;
         if_sel->true_stmt = true_stmt;
 
@@ -1719,7 +1747,7 @@ int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out)
             goto fail;
         }
 
-        struct sqz_if_else *elif_sel = ALLOC(struct sqz_if_else);
+        struct sqz_if_else *elif_sel = IALLOC(struct sqz_if_else);
         elif_sel->expr = expr;
         elif_sel->false_stmt = false_stmt;
         elif_sel->true_stmt = true_stmt;
@@ -1740,7 +1768,7 @@ int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out)
             goto fail;
         }
 
-        struct sqz_switch *swtch_sel = ALLOC(struct sqz_switch);
+        struct sqz_switch *swtch_sel = IALLOC(struct sqz_switch);
         swtch_sel->expr = expr;
         swtch_sel->body = true_stmt;
 
@@ -1769,7 +1797,7 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
     struct sqz_expr_stmt *for_cond = NULL;
     sqz_expr *for_eval = NULL;
 
-    iter = ALLOC(struct sqz_iter);
+    iter = IALLOC(struct sqz_iter);
     switch (stmt->node_type)
     {
     case AST_STMT_WHILE:
@@ -1784,7 +1812,7 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
             goto fail;
         }
 
-        struct sqz_while *w = ALLOC(struct sqz_while);
+        struct sqz_while *w = IALLOC(struct sqz_while);
         w->body = body;
         w->expr = expr;
 
@@ -1804,7 +1832,7 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
             goto fail;
         }
 
-        struct sqz_do_while *dw = ALLOC(struct sqz_do_while);
+        struct sqz_do_while *dw = IALLOC(struct sqz_do_while);
         dw->expr = expr;
         dw->body = body;
 
@@ -1854,7 +1882,7 @@ int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out)
             goto fail;
         }
 
-        struct sqz_for *f = ALLOC(struct sqz_for);
+        struct sqz_for *f = IALLOC(struct sqz_for);
         f->body = body;
         f->decl = for_init;
         f->cond = for_cond;
@@ -1884,7 +1912,7 @@ fail:
 int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out)
 {
     sqz_expr *expr = NULL;
-    struct sqz_jump *result = ALLOC(struct sqz_jump);
+    struct sqz_jump *result = IALLOC(struct sqz_jump);
     switch (stmt->node_type)
     {
     case AST_STMT_GOTO:
@@ -1893,19 +1921,19 @@ int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out)
             goto fail;
         }
 
-        struct sqz_goto *g = ALLOC(struct sqz_goto);
+        struct sqz_goto *g = IALLOC(struct sqz_goto);
         g->label = stmt->identifier;
 
         result->jump_type = AST_STMT_GOTO;
         result->jump.goto_stmt = g;
         break;
     case AST_STMT_CONTINUE:
-        struct sqz_continue *c = ALLOC(struct sqz_continue);
+        struct sqz_continue *c = IALLOC(struct sqz_continue);
         result->jump_type = AST_STMT_CONTINUE;
         result->jump.continue_stmt = c;
         break;
     case AST_STMT_BREAK:
-        struct sqz_break *b = ALLOC(struct sqz_break);
+        struct sqz_break *b = IALLOC(struct sqz_break);
         result->jump_type = AST_STMT_BREAK;
         result->jump.break_stmt = b;
         break;
@@ -1918,7 +1946,7 @@ int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out)
                 goto fail;
             }
         }
-        struct sqz_return *r = ALLOC(struct sqz_return);
+        struct sqz_return *r = IALLOC(struct sqz_return);
         r->expr = ret;
 
         result->jump_type = AST_STMT_RETURN;

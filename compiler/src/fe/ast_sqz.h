@@ -46,6 +46,7 @@ typedef struct _sqz_type
     struct _sqz_args *args;
     struct _sqz_id *id;
     struct _sqz_spec_qual *qual;
+    struct _sqz_type *abs_decl;
     struct _sqz_type *next;
 } sqz_type;
 
