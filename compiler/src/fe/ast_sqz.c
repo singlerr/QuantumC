@@ -1402,7 +1402,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 
     *out = root;
 fail:
-    // Could be replaed with FREE_LIST?
+    // Could be replaed by FREE_LIST?
     if (root)
     {
         d = root;
