@@ -74,18 +74,34 @@ int squeeze_ast(ast_node *root, sqz_program **out)
 int squeeze_program(ast_node *program, sqz_program *out)
 {
     ast_node *translation_unit = program->middle;
-    sqz_decl *decl;
+    sqz_decl *root = NULL, *curr, *temp = NULL;
     while (translation_unit)
     {
-        if (FAILED(squeeze_translation_unit(translation_unit, &decl)))
+        if (FAILED(squeeze_translation_unit(translation_unit, &temp)))
         {
-            return VAL_FAILED;
+            goto fail;
+        }
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
         }
 
         translation_unit = translation_unit->right;
     }
 
+    out->decl = root;
     return VAL_OK;
+fail:
+    FREE_LIST(sqz_decl, root);
+    SAFE_FREE(temp);
+    return VAL_FAILED;
 }
 
 int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out)
@@ -105,7 +121,7 @@ int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out)
         ret = squeeze_func_declaration(ext_decl, &func_decl);
         if (FAILED(ret))
         {
-            free(func_decl);
+            ret = VAL_FAILED;
         }
         break;
     case AST_VARIABLE_DECLARATION:
