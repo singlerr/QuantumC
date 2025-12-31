@@ -433,7 +433,7 @@ fail:
     SAFE_FREE(type);
     SAFE_FREE(temp);
     FREE_LIST(sqz_init_decl, root);
-    return VAL_OK;
+    return VAL_OK; // VAL_FAILED?
 }
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
 {
@@ -562,7 +562,6 @@ int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out)
         }
 
         ret = squeeze_unary_expr(assign_expr->left, &left);
-
         if (FAILED(ret))
         {
             return VAL_FAILED;
@@ -655,7 +654,7 @@ int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
 
     *out = result;
 
-    return VAL_FAILED;
+    return VAL_FAILED; // VAL_OK?
 }
 
 int squeeze_expr(ast_node *expr, sqz_expr **out)
@@ -1387,6 +1386,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 
     *out = root;
 fail:
+    // Could be replaed with FREE_LIST?
     if (root)
     {
         d = root;
@@ -1584,7 +1584,7 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
     *out = root;
     return VAL_OK;
 fail:
-
+    // Could be replaced by SAFE_FREE and FREE_LIST?
     if (temp)
     {
         free(temp);
@@ -1699,7 +1699,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
     *out = root;
     return VAL_OK;
 fail:
-
+    // Could be replaced by FREE_LIST?
     if (root)
     {
         sqz_type *temp;
@@ -1833,7 +1833,7 @@ int squeeze_decl(ast_node *abs_decl, sqz_type **out)
 
     return VAL_OK;
 fail:
-
+    // Could be replaced by FREE_LIST?
     if (root)
     {
         sqz_type *temp;
@@ -2137,6 +2137,7 @@ int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out)
     {
         if (FAILED(squeeze_expr(stmt->left, &expr)))
         {
+            // Could use a goto statement to keep the consistency of the code.
             SAFE_FREE(result);
             return VAL_FAILED;
         }
