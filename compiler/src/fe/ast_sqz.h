@@ -180,7 +180,7 @@ typedef struct _sqz_expr_src
 
 typedef struct _sqz_cast_expr
 {
-    type_t *type;
+    sqz_type *type;
 
     union
     {

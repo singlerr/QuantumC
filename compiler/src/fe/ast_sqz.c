@@ -46,6 +46,7 @@ int squeeze_pre(ast_node *pre, struct _sqz_pre **out);
 int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out);
 int squeeze_type_name(ast_node *type_name, sqz_type **out);
 int squeeze_parameter_list(ast_node *args, sqz_args **out);
+int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out);
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out);
 int squeeze_initializer(ast_node *initializer, sqz_initializer *parent, sqz_initializer **out);
 int squeeze_id(ast_node *node, ast_identifier_node *id_node, sqz_id **out);
@@ -651,6 +652,51 @@ int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
 
 int squeeze_expr(ast_node *expr, sqz_expr **out)
 {
+    sqz_expr *root = NULL, *curr, *temp = NULL;
+    ast_node *node = expr;
+    sqz_assign_expr *assign_expr = NULL;
+    while (node)
+    {
+
+        if (node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        if (!node->left)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_assign_expr(node->left, &assign_expr)))
+        {
+            goto fail;
+        }
+
+        temp = IALLOC(sqz_expr);
+        temp->expr = assign_expr;
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        node = node->right;
+    }
+
+    *out = root;
+    return VAL_OK;
+fail:
+    FREE_LIST(sqz_expr, root);
+    SAFE_FREE(temp);
+    SAFE_FREE(assign_expr);
+    return VAL_FAILED;
 }
 
 int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
@@ -708,51 +754,304 @@ int squeeze_unary_expr(ast_node *unary_expr, sqz_unary **out)
 }
 int squeeze_cast_expr(ast_node *cast_expr, sqz_cast_expr **out)
 {
-}
-int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
-{
-}
-int squeeze_pre(ast_node *pre, struct _sqz_pre **out)
-{
-}
-int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
-{
-    sqz_unary *result;
-    switch (pre_unary->node_type)
+    sqz_cast_expr *result = IALLOC(sqz_cast_expr);
+    sqz_unary *unary_expr = NULL;
+    sqz_type *type_name = NULL;
+    sqz_cast_expr *cast = NULL;
+    switch (cast_expr->node_type)
     {
-    case AST_EXPR_PRE_INC:
-        sqz_unary *unary;
-        if (FAILED(/*SOME FUNCTION*/))
+    case AST_EXPR_TYPE_CAST:
+        if (!cast_expr->left || !cast_expr->middle)
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        sqz_unary *expr = ALLOC(sqz_unary);
-        /*DOING SOMETHING*/
-
-        result = expr;
-
-        break;
-    case AST_EXPR_PRE_DEC:
-        sqz_unary *unary;
-        if (FAILED(/*SOME FUNCTION*/))
+        if (FAILED(squeeze_type_name(cast_expr->left, &type_name)) || FAILED(squeeze_cast_expr(cast_expr->middle, &cast)))
         {
-            return VAL_FAILED;
+            goto fail;
         }
 
-        sqz_unary *expr = ALLOC(sqz_unary);
-        /*DOING SOMETHING*/
-
-        result = expr;
-
+        result->type = type_name;
+        result->cast = cast;
         break;
-        default;
+
+    default:
+        if (FAILED(squeeze_unary_expr(cast_expr, &unary_expr)))
+        {
+            goto fail;
+        }
+
+        result->unary = unary_expr;
         break;
     }
 
     *out = result;
-
     return VAL_OK;
+fail:
+    SAFE_FREE(cast);
+    SAFE_FREE(type_name);
+    SAFE_FREE(result);
+    SAFE_FREE(unary_expr);
+    return VAL_FAILED;
+}
+int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
+{
+    sqz_expr_src *postfix = IALLOC(sqz_expr_src);
+
+    switch (expr_src->node_type)
+    {
+    case AST_EXPR_ARRAY_ACCESS:
+    {
+        sqz_expr_src *base = NULL;
+        sqz_expr *index = NULL;
+
+        if (!expr_src->left || !expr_src->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr_src(expr_src->left, &base)) ||
+            FAILED(squeeze_expr(expr_src->middle, &index)))
+        {
+            goto fail;
+        }
+
+        sqz_expr_src_arr_access *arr_access = IALLOC(sqz_expr_src_arr_access);
+        arr_access->array = base;
+        arr_access->index = index;
+
+        postfix->expr_type = AST_EXPR_ARRAY_ACCESS;
+        postfix->expr.arr_access = arr_access;
+    }
+    break;
+
+    case AST_EXPR_FUNCTION_CALL:
+    {
+        sqz_expr_src *base = NULL;
+        sqz_args *args = NULL;
+
+        if (!expr_src->left)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr_src(expr_src->left, &base)))
+        {
+            goto fail;
+        }
+
+        if (expr_src->middle)
+        {
+            if (FAILED(squeeze_parameter_list(expr_src->middle, &args)))
+            {
+                goto fail;
+            }
+        }
+
+        sqz_expr_src_func_call *func_call = IALLOC(sqz_expr_src_func_call);
+        func_call->func = base;
+        func_call->args = args;
+
+        postfix->expr_type = AST_EXPR_FUNCTION_CALL;
+        postfix->expr.func_call = func_call;
+    }
+    break;
+
+    case AST_EXPR_MEMBER_ACCESS:
+    case AST_EXPR_POINTER_MEMBER_ACCESS:
+    {
+        sqz_expr_src *base = NULL;
+        sqz_id *id = NULL;
+
+        if (!expr_src->left || !expr_src->identifier)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr_src(expr_src->left, &base)) ||
+            FAILED(squeeze_id(expr_src, expr_src->identifier, &id)))
+        {
+            goto fail;
+        }
+
+        sqz_expr_src_member_access *member_access = IALLOC(sqz_expr_src_member_access);
+        member_access->access_type = expr_src->node_type;
+        member_access->owner = base;
+        member_access->member_name = id;
+
+        postfix->expr_type = expr_src->node_type;
+        postfix->expr.member_access = member_access;
+    }
+    break;
+
+    case AST_EXPR_POST_INC:
+    case AST_EXPR_POST_DEC:
+    {
+        sqz_expr_src *base = NULL;
+
+        if (!expr_src->left)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_expr_src(expr_src->left, &base)))
+        {
+            goto fail;
+        }
+
+        struct _sqz_post *post = IALLOC(struct _sqz_post);
+        post->op_type = expr_src->node_type;
+        post->operand = base;
+
+        postfix->expr_type = expr_src->node_type;
+        postfix->expr.post_inc_dec = post;
+    }
+    break;
+
+    case AST_STRUCT_INIT:
+    {
+        sqz_initializer *init = NULL;
+
+        if (!expr_src->left || !expr_src->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_initializer(expr_src->middle, NULL, &init)))
+        {
+            goto fail;
+        }
+
+        sqz_expr_src_struct_init *struct_init = IALLOC(sqz_expr_src_struct_init);
+        struct_init->struct_type = expr_src->left->type ? expr_src->left->type->handle : NULL;
+
+        postfix->expr_type = AST_STRUCT_INIT;
+        postfix->expr.struct_init = struct_init;
+    }
+    break;
+
+    default:
+    {
+        // Primary expression
+        sqz_primary_expr *primary = IALLOC(sqz_primary_expr);
+        primary->primary_type = expr_src->node_type;
+
+        if (expr_src->identifier)
+        {
+            sqz_id *id = NULL;
+            if (FAILED(squeeze_id(expr_src, expr_src->identifier, &id)))
+            {
+                SAFE_FREE(primary);
+                goto fail;
+            }
+            primary->value.identifier = id;
+        }
+        else if (expr_src->left)
+        {
+            sqz_expr *paren_expr = NULL;
+            if (FAILED(squeeze_expr(expr_src->left, &paren_expr)))
+            {
+                SAFE_FREE(primary);
+                goto fail;
+            }
+            primary->value.expr = paren_expr;
+        }
+        else
+        {
+            if (expr_src->type)
+            {
+                primary->value.i = 0;
+            }
+        }
+
+        postfix->expr_type = expr_src->node_type;
+        postfix->expr.primary_expr = primary;
+    }
+    break;
+    }
+
+    *out = postfix;
+    return VAL_OK;
+
+fail:
+    SAFE_FREE(postfix);
+    return VAL_FAILED;
+}
+
+int squeeze_pre(ast_node *pre, struct _sqz_pre **out)
+{
+    struct _sqz_pre *result = IALLOC(struct _sqz_pre);
+    sqz_unary *unary = NULL;
+
+    if (!pre || !pre->left)
+    {
+        goto fail;
+    }
+
+    switch (pre->node_type)
+    {
+    case AST_EXPR_PRE_INC:
+    case AST_EXPR_PRE_DEC:
+        if (FAILED(squeeze_unary_expr(pre->left, &unary)))
+        {
+            goto fail;
+        }
+
+        result->op_type = pre->node_type;
+        result->operand = unary;
+        break;
+
+    default:
+        goto fail;
+    }
+
+    *out = result;
+    return VAL_OK;
+
+fail:
+    SAFE_FREE(result);
+    SAFE_FREE(unary);
+    return VAL_FAILED;
+}
+
+int squeeze_pre_unary(ast_node *pre_unary, struct _sqz_pre_unary **out)
+{
+    struct _sqz_pre_unary *result = IALLOC(struct _sqz_pre_unary);
+    sqz_cast_expr *cast = NULL;
+
+    if (!pre_unary || !pre_unary->left)
+    {
+        goto fail;
+    }
+
+    switch (pre_unary->node_type)
+    {
+    case AST_UNARY_AMP:
+    case AST_UNARY_STAR:
+    case AST_UNARY_PLUS:
+    case AST_UNARY_MINUS:
+    case AST_UNARY_TILDE:
+    case AST_UNARY_EXCL:
+        if (FAILED(squeeze_cast_expr(pre_unary->left, &cast)))
+        {
+            goto fail;
+        }
+
+        result->op_type = pre_unary->node_type;
+        result->operand = cast;
+        break;
+
+    default:
+        goto fail;
+    }
+
+    *out = result;
+    return VAL_OK;
+
+fail:
+    SAFE_FREE(result);
+    SAFE_FREE(cast);
+    return VAL_FAILED;
 }
 
 int squeeze_binary_expr(ast_node *binary_expr, sqz_binary_expr **out)
@@ -884,7 +1183,104 @@ fail:
 
 int squeeze_parameter_list(ast_node *args, sqz_args **out)
 {
-    
+    sqz_args *root = NULL, *curr, *temp = NULL;
+    ast_node *node = args;
+
+    while (node)
+    {
+        sqz_param_decl *p_decl;
+        if (node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_param_decl(node, &p_decl)))
+        {
+            goto fail;
+        }
+
+        temp = IALLOC(sqz_args);
+        temp->arg = p_decl;
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        node = node->right;
+    }
+
+    *out = root;
+    return VAL_OK;
+fail:
+    SAFE_FREE(temp);
+    FREE_LIST(sqz_args, root);
+    return VAL_FAILED;
+}
+
+int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out)
+{
+    sqz_decl_spec *spec = NULL;
+    sqz_type *decl = NULL;
+    sqz_type *abs_decl = NULL;
+
+    ast_node *spec_node = param_decl->left;
+    ast_node *decl_node = param_decl->middle;
+    ast_node *abs_decl_node = param_decl->right;
+
+    if (!spec_node)
+    {
+        return VAL_FAILED;
+    }
+
+    if (FAILED(squeeze_decl_spec(spec_node, &spec, NULL)))
+    {
+        goto fail;
+    }
+
+    if (decl_node)
+    {
+        if (FAILED(squeeze_decl(decl_node, &decl)))
+        {
+            goto fail;
+        }
+    }
+
+    if (abs_decl_node)
+    {
+        if (false(squeeze_abstract_decl(abs_decl_node, &abs_decl)))
+        {
+            goto fail;
+        }
+    }
+
+    if (!decl && !abs_decl)
+    {
+        goto fail;
+    }
+
+    if (decl && abs_decl)
+    {
+        goto fail;
+    }
+
+    sqz_param_decl *result = IALLOC(sqz_param_decl);
+    result->spec = spec;
+    result->decl = decl ? decl : abs_decl;
+
+    *out = result;
+    return VAL_OK;
+fail:
+    SAFE_FREE(spec);
+    SAFE_FREE(decl);
+    SAFE_FREE(abs_decl);
+    return VAL_FAILED;
 }
 
 int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
@@ -1264,7 +1660,7 @@ int squeeze_abstract_decl(ast_node *abs_decl, sqz_type **out)
 
         node = node->right;
     }
-
+    *out = root;
     return VAL_OK;
 fail:
 
