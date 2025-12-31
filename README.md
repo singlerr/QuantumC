@@ -141,8 +141,7 @@ make clean
 
 ## Contribution
 
-We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
-Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/QuantumC/pulls) tab.
+Before making any contributions, please refer to the [contributing](./CONTRIBUTING.md) documentation.
 
 ## License
 
