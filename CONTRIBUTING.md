@@ -12,3 +12,4 @@ Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug
 * Finish implementing main compilers (classical/quantum).
 * Integrate with the usual C working environemnt.
 * Debug memory leaks.
+* Document the codebase and maintain.
