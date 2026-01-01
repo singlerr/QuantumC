@@ -211,61 +211,60 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
 
     while (t)
     {
-        if (t->node_type != AST_TYPE_SPECIFIER)
-        {
-            LOG_ERROR("Expected type specifier but found: %d", t->node_type);
-            goto fail;
-        }
+
         type_t *tt;
         ast_node *type_node = t->middle;
 
-        if (type_node->node_type == AST_TYPE_STRUCT_UNION || type_node->node_type == AST_TYPE_ENUM)
+        if (type_node)
         {
-            ast_node *companion = type_node->middle;
-
-            if (!companion)
+            if (type_node->node_type == AST_TYPE_STRUCT_UNION || type_node->node_type == AST_TYPE_ENUM)
             {
-                LOG_ERROR("Struct or union structure not found", 0);
-                goto fail;
-            }
+                ast_node *companion = type_node->middle;
 
-            ast_identifier_node *id = companion->identifier;
-            ast_node *struct_or_union = companion->left;
-            ast_node *decl_list = companion->right;
-
-            if (!id || !struct_or_union)
-            {
-                LOG_ERROR("Struct or union structure not found", 0);
-                goto fail;
-            }
-
-            typemeta_t *meta = mk_type_meta(-1); //
-
-            if (decl_list)
-            {
-                if (FAILED(squeeze_struct_decl(decl_list, &struct_decl)))
+                if (!companion)
                 {
-                    LOG_ERROR("Failed to parse fields", 0);
+                    LOG_ERROR("Struct or union structure not found", 0);
                     goto fail;
                 }
+
+                ast_identifier_node *id = companion->identifier;
+                ast_node *struct_or_union = companion->left;
+                ast_node *decl_list = companion->right;
+
+                if (!id || !struct_or_union)
+                {
+                    LOG_ERROR("Struct or union structure not found", 0);
+                    goto fail;
+                }
+
+                typemeta_t *meta = mk_type_meta(-1); //
+
+                if (decl_list)
+                {
+                    if (FAILED(squeeze_struct_decl(decl_list, &struct_decl)))
+                    {
+                        LOG_ERROR("Failed to parse fields", 0);
+                        goto fail;
+                    }
+                }
+                meta->fields = struct_decl;
+                meta->node_type = (int)type_node->node_type;
+                tt = mk_type(id->sym->name, meta, NULL);
             }
-            meta->fields = struct_decl;
-            meta->node_type = (int)type_node->node_type;
-            tt = mk_type(id->sym->name, meta, NULL);
-        }
-        else if (type_node->node_type == AST_TYPE_ENUM)
-        {
-            // handle enum;
+            else if (type_node->node_type == AST_TYPE_ENUM)
+            {
+                // handle enum;
+            }
         }
         else
         {
-            if (!type_node->type)
+            if (!t->type)
             {
                 LOG_ERROR("No type provided", 0);
                 goto fail;
             }
 
-            tt = clone_type(type_node->type->handle);
+            tt = clone_type(t->type->handle);
         }
 
         if (!root_type)
@@ -279,8 +278,10 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
         type = tt;
         t = t->right;
     }
-    *type_out = root_type;
-    *out = spec;
+    if (type_out)
+        *type_out = root_type;
+    if (out)
+        *out = spec;
     return VAL_OK;
 fail:
     SAFE_FREE(type);
@@ -619,7 +620,7 @@ int squeeze_assign_expr(ast_node *assign_expr, sqz_assign_expr **out)
     case AST_EXPR_ASSIGN:
         sqz_unary *left;
         sqz_assign_expr *right;
-        if (!assign_expr->left || !assign_expr->middle || assign_expr->right)
+        if (!assign_expr->left || !assign_expr->middle || !assign_expr->right)
         {
             return VAL_FAILED;
         }
@@ -717,7 +718,7 @@ int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
 
     *out = result;
 
-    return VAL_FAILED; // VAL_OK?
+    return VAL_OK; // VAL_OK?
 }
 
 int squeeze_expr(ast_node *expr, sqz_expr **out)
@@ -1278,7 +1279,12 @@ int squeeze_parameter_list(ast_node *args, sqz_args **out)
             goto fail;
         }
 
-        if (FAILED(squeeze_param_decl(node, &p_decl)))
+        if (!node->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_param_decl(node->middle, &p_decl)))
         {
             goto fail;
         }
@@ -1342,11 +1348,6 @@ int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out)
         {
             goto fail;
         }
-    }
-
-    if (!decl && !abs_decl)
-    {
-        goto fail;
     }
 
     if (decl && abs_decl)
