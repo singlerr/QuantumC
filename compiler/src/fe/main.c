@@ -10,6 +10,7 @@ extern int yyparse(ast_node **root);
 extern int squeeze_ast(ast_node *program, sqz_program **out);
 void print_node(ast_node *node);
 void print_node_recursion(ast_node *node, int depth);
+char *yyfilename;
 
 int main(int argc, char *argv[])
 {
@@ -28,6 +29,7 @@ int main(int argc, char *argv[])
         }
 
         yyin = f;
+        yyfilename = argv[1];
     }
 
     init_type();
@@ -66,8 +68,8 @@ void print_node_recursion(ast_node *node, int depth)
         fprintf(stdout, "  ");
     }
 
-    char *node_identifier_str = node->identifier != NULL ? node->identifier->type->name : "N/A";
-    char *node_type_str = node->type->name;
+    char *node_identifier_str = node->identifier != NULL ? node->identifier->sym->name : "N/A";
+    char *node_type_str = node->type != NULL ? node->type->name : "N/A";
 
     fprintf(stdout, "ID: %s (TYPE: %s)\n", node_identifier_str, node_type_str);
 

@@ -292,8 +292,8 @@ declaration
 declaration_specifiers
 	: storage_class_specifier { $$ = $1; }
 	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
-	| type_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $1, NULL, NULL);  }
-	| declaration_specifiers type_specifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, $2, NULL, NULL)); } 
+	| type_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, NULL, $1, NULL);  }
+	| declaration_specifiers type_specifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, NULL, $1, NULL)); } 
 	| type_qualifier { $$ = $1; }
 	| declaration_specifiers type_qualifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
 	;
@@ -593,8 +593,4 @@ void yyerror(ast_node **root, char const *s)
 {
 	fflush(stdout);
 	printf("%*s\n%*s\n", column, "^", column, s);
-}
-
-const char* to_ast_string(int code){
-	return yysymbol_name(YYTRANSLATE(code));
 }

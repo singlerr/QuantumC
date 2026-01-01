@@ -15,12 +15,15 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 #include "ast.h"
 #include "c.parser.h"
 #include "symrec.h"
+
+int line_number = 0;
 void count(void);
 void comment(void);
 int check_type(void);
 
 %}
 %option nounput
+%option noyywrap
 %%
 "/*"			{ comment(); }
 "//"[^\n]*              { /* consume //-comment */ }
@@ -77,7 +80,7 @@ L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
 0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
-
+"\n"	{ line_number++; }
 L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
 
 "..."			{ count(); return(ELLIPSIS); }
@@ -132,11 +135,6 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITE
 
 %%
 
-int yywrap(void)
-{
-	return 1;
-}
-
 
 void comment(void)
 {
@@ -166,7 +164,6 @@ void count(void)
 		else
 			column++;
 
-	ECHO;
 }
 
 int check_type(void)

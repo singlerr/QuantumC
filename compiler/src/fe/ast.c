@@ -9,7 +9,7 @@ int scope_level = 0;
 
 ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
 {
-    ast_node *node = (ast_node *)malloc(sizeof(ast_node));
+    ast_node *node = IALLOC(ast_node);
     node->node_type = node_type;
     node->identifier = (ast_identifier_node *)id_node;
     node->left = (ast_node *)left;
@@ -24,7 +24,7 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
 {
     ast_node *node = decl;
     BOOL has_typedef = FALSE;
-    while (node->left)
+    while (node)
     {
         if (node->node_type == AST_STG_TYPEDEF)
         {
@@ -79,7 +79,7 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
         node = type_node->left;
     }
 
-    PUT_TYPE(identifier->identifier->sym->name, AST_TYPE_USER, size);
+    PUT_TYPE(identifier->middle->identifier->sym->name, AST_TYPE_USER, size);
     return 1;
 }
 
@@ -129,32 +129,31 @@ const ast_node *find_last_middle_child(const ast_node *parent)
 
 ast_const_node *new_ast_int_const(int i)
 {
-    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    ast_const_node *n = IALLOC(ast_const_node);
     n->data.i = i;
     return n;
 }
 ast_const_node *new_ast_float_const(float f)
 {
-    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    ast_const_node *n = IALLOC(ast_const_node);
     n->data.f = f;
     return n;
 }
 ast_const_node *new_ast_str_const(const char *s)
 {
-    ast_const_node *n = (ast_const_node *)malloc(sizeof(ast_const_node));
+    ast_const_node *n = IALLOC(ast_const_node);
     n->data.s = (char *)s;
     return n;
 }
 
 ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level)
 {
-    ast_identifier_node *node = (ast_identifier_node *)malloc(sizeof(ast_identifier_node));
+    ast_identifier_node *node = IALLOC(ast_identifier_node);
     node->scope_level = scope_level;
     node->sym = symbol;
     node->type = type;
     return node;
 }
-
 int get_scope_level()
 {
     return scope_level;

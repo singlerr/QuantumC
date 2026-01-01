@@ -1,4 +1,4 @@
-OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o
+OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o
 CC = gcc
 CFLAGS = -g -std=c99 -Werror -Wall -D_XOPEN_SOURCE=700
 LEX = flex
@@ -35,3 +35,4 @@ clean:
 	@-rm -f parser.tab.h
 	@-rm -f *.o
 	@-rm -f main
+	@-rm -f *.yy.c
