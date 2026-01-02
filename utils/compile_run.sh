@@ -50,7 +50,7 @@ done
 
 # Ensure source directory exists
 if [ ! -d "$SRC_DIR" ]; then
-  echo "ERROR: source directory '$SRC_DIR' not found." >&2
+  echo "ERROR: Source directory '$SRC_DIR' not found." >&2
   exit 1
 fi
 
@@ -58,12 +58,12 @@ cd "$SRC_DIR"
 
 echo "Compiling in $SRC_DIR..."
 if ! make; then
-  echo "ERROR: make failed." >&2
+  echo "ERROR: Make failed." >&2
   exit 1
 fi
 
 if [ ! -f main ]; then
-  echo "ERROR: compiled 'main' not found in $SRC_DIR." >&2
+  echo "ERROR: Compiled 'main' not found in $SRC_DIR." >&2
   exit 1
 fi
 
@@ -73,7 +73,7 @@ if [ ! -d "$TARGET_DIR" ]; then
   mkdir -p "$TARGET_DIR"
 fi
 
-echo "Moving 'main' to $TARGET_DIR/."
+echo "Moving 'main' to $TARGET_DIR/..."
 mv -f main "$TARGET_DIR/"
 chmod +x "$TARGET_DIR/main"
 
@@ -83,5 +83,5 @@ if ! make clean; then
   exit 1
 fi
 
-echo "Running $TARGET_DIR/main with parameters: ${PARAMS[*]}."
+echo "Running $TARGET_DIR/main with parameters: ${PARAMS[*]}..."
 "$TARGET_DIR/main" "${PARAMS[@]}"
