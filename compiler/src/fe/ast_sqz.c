@@ -717,7 +717,7 @@ int squeeze_ternary_expr(ast_node *ternary_expr, sqz_ternary_expr **out)
 
     *out = result;
 
-    return VAL_OK; // VAL_OK?
+    return VAL_OK;
 }
 
 int squeeze_expr(ast_node *expr, sqz_expr **out)
@@ -1463,7 +1463,7 @@ int squeeze_designator_list(ast_node *designator_list, sqz_designator **out)
 
     *out = root;
 fail:
-    // Could be replaed by FREE_LIST?
+    // Could be replaced by FREE_LIST?
     if (root)
     {
         d = root;
