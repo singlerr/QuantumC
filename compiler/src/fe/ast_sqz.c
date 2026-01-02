@@ -874,7 +874,7 @@ fail:
 int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
 {
     sqz_expr_src *postfix = IALLOC(sqz_expr_src);
-
+    sqz_primary_expr *primary = NULL;
     switch (expr_src->node_type)
     {
     case AST_EXPR_ARRAY_ACCESS:
@@ -1010,35 +1010,48 @@ int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
     default:
     {
         // Primary expression
-        sqz_primary_expr *primary = IALLOC(sqz_primary_expr);
+        primary = IALLOC(sqz_primary_expr);
         primary->primary_type = expr_src->node_type;
 
-        if (expr_src->identifier)
+        if (expr_src->node_type == AST_IDENTIFIER)
         {
+            if (!expr_src->identifier)
+            {
+                goto fail;
+            }
             sqz_id *id = NULL;
             if (FAILED(squeeze_id(expr_src, expr_src->identifier, &id)))
             {
-                SAFE_FREE(primary);
                 goto fail;
             }
             primary->value.identifier = id;
         }
-        else if (expr_src->left)
+        else if (expr_src->constant)
+        {
+            switch (expr_src->node_type)
+            {
+            case AST_LITERAL_INTEGER:
+                primary->value.i = expr_src->constant->data.i;
+                break;
+            case AST_LITERAL_FLOAT:
+                primary->value.f = expr_src->constant->data.f;
+                break;
+            case AST_LITERAL_STRING:
+                primary->value.s = expr_src->constant->data.s;
+                break;
+            default:
+                goto fail;
+            }
+        }
+        else
         {
             sqz_expr *paren_expr = NULL;
-            if (FAILED(squeeze_expr(expr_src->left, &paren_expr)))
+            if (FAILED(squeeze_expr(expr_src, &paren_expr)))
             {
                 SAFE_FREE(primary);
                 goto fail;
             }
             primary->value.expr = paren_expr;
-        }
-        else
-        {
-            if (expr_src->type)
-            {
-                primary->value.i = 0;
-            }
         }
 
         postfix->expr_type = expr_src->node_type;
@@ -1052,6 +1065,7 @@ int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
 
 fail:
     SAFE_FREE(postfix);
+    SAFE_FREE(primary);
     return VAL_FAILED;
 }
 
@@ -1906,6 +1920,7 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
     ast_node *node = comp_stmt->middle;
     if (comp_stmt->node_type != AST_STMT_COMPOUND)
     {
+        LOG_ERROR("Expected compound statement but found: %u", comp_stmt->node_type);
         return VAL_FAILED;
     }
 
@@ -1913,11 +1928,13 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
     {
         if (node->node_type != AST_NODE_LIST)
         {
+            LOG_ERROR("Expected statement list but found: %u", node->node_type);
             goto fail;
         }
 
         if (!node->left)
         {
+            LOG_ERROR("Corrupted ast", 0);
             goto fail;
         }
 
@@ -2073,13 +2090,14 @@ int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
         result->stmt_type = stmt->node_type;
         break;
     default:
+        LOG_ERROR("Unknown statement", 0);
         goto fail;
     }
 
     *out = result;
     return VAL_OK;
 fail:
-    free(result);
+    SAFE_FREE(result);
     return VAL_FAILED;
 }
 
@@ -2447,7 +2465,7 @@ int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out)
     }
 
     *out = result;
-    return VAL_FAILED;
+    return VAL_OK;
 fail:
     SAFE_FREE(result);
     SAFE_FREE(expr);
