@@ -29,7 +29,7 @@ Finally, apply a measurement gate to every qubit to convert the quantum data int
 After this process, we obtain the following quantum circuit.
 <div align='center'>
 
-![Figure 1](./figures/readme-figure-1.png)
+![Figure 1](./figures/readme_figure_1.png)
 
 </div>
 
@@ -79,7 +79,7 @@ meas = measure q;
 
 <div align='center'>
 
-![Figure 2](./figures/readme-figure-2.png)
+![Figure 2](./figures/readme_figure_2.png)
 
 </div>
 The general workflow of QuantumC is shown in the diagram above: write a QuantumC program, compile it with the frontend to produce OpenQASM, then run that OpenQASM code to a local simulator or a cloud quantum backend. 
