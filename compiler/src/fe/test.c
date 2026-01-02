@@ -1,3 +1,9 @@
+typedef struct _test
+{
+    int a;
+} test;
+test a;
+void func(int, int);
 int main(void)
 {
 
@@ -8,4 +14,9 @@ int main(void)
     c = a + b * (10 + 5 / 2 - 5 + (5 / 2 * 3 * (3131 - 315132 / 5423145 / 231432 * 1234210231 + 50 + (2341 / 2134 / (1234)))));
     c = c / 1;
     return 0;
+}
+
+void func(int a, int b)
+{
+    return;
 }

@@ -286,7 +286,7 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';' { $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, NULL, NULL); }
-	| declaration_specifiers init_declarator_list ';' { if(! register_type_if_required($1, $2)) $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL);  else $$ = NULL; }
+	| declaration_specifiers init_declarator_list ';' { register_type_if_required($1, $2); $$ = AST_GENERAL_NODE(AST_VARIABLE_DECLARATION, $1, $2, NULL); }
 	;
 
 declaration_specifiers
@@ -437,7 +437,7 @@ parameter_type_list
 
 parameter_list
 	: parameter_declaration { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| parameter_list ',' parameter_declaration { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
+	| parameter_list ',' parameter_declaration { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); }
 	;
 
 parameter_declaration
