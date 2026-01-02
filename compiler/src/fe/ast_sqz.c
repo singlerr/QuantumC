@@ -84,7 +84,6 @@ int squeeze_program(ast_node *program, sqz_program *out)
         {
             goto fail;
         }
-
         if (!root)
         {
             root = temp;
@@ -95,7 +94,6 @@ int squeeze_program(ast_node *program, sqz_program *out)
             curr->next = temp;
             curr = temp;
         }
-
         translation_unit = translation_unit->right;
     }
 
@@ -253,7 +251,8 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
             }
             else if (type_node->node_type == AST_TYPE_ENUM)
             {
-                // handle enum;
+                LOG_ERROR("Enum type parsing not implemented", 0);
+                goto fail;
             }
         }
         else
@@ -2479,6 +2478,7 @@ int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out)
 
     if (!decl)
     {
+        LOG_ERROR("Struct declaration list is missing", 0);
         return VAL_FAILED;
     }
 
@@ -2486,17 +2486,20 @@ int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out)
     {
         if (node->node_type != AST_NODE_LIST)
         {
+            LOG_ERROR("Struct member list expected AST_NODE_LIST but got: %u", node->node_type);
             goto fail;
         }
 
         ast_node *member_decl = node->left;
         if (!member_decl)
         {
+            LOG_ERROR("Struct member declaration node missing", 0);
             goto fail;
         }
 
         if (FAILED(squeeze_var_declaration(member_decl, &temp)))
         {
+            LOG_ERROR("Failed to squeeze struct member declaration", 0);
             goto fail;
         }
 
