@@ -73,15 +73,15 @@ if [ ! -d "$TARGET_DIR" ]; then
   mkdir -p "$TARGET_DIR"
 fi
 
-echo "Moving 'main' to $TARGET_DIR/"
+echo "Moving 'main' to $TARGET_DIR/."
 mv -f main "$TARGET_DIR/"
 chmod +x "$TARGET_DIR/main"
 
 echo "Cleaning build artifacts in $SRC_DIR..."
 if ! make clean; then
-  echo "make clean failed" >&2
+  echo "ERROR: make clean failed." >&2
   exit 1
 fi
 
-echo "Running $TARGET_DIR/main with parameters: ${PARAMS[*]}"
+echo "Running $TARGET_DIR/main with parameters: ${PARAMS[*]}."
 "$TARGET_DIR/main" "${PARAMS[@]}"
