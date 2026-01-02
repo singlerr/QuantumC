@@ -8,9 +8,14 @@
 extern FILE *yyin;
 extern int yyparse(ast_node **root);
 extern int squeeze_ast(ast_node *program, sqz_program **out);
-void print_node(ast_node *node);
-void print_node_recursion(ast_node *node, int depth);
+
 char *yyfilename;
+
+static void print_indent(int depth);
+static void print_sqz_var_decl(sqz_var_decl *v);
+static void print_sqz_func_decl(sqz_func_decl *f);
+static void print_sqz_decl_list(sqz_decl *decl, int depth);
+void print_program(sqz_program *program);
 
 int main(int argc, char *argv[])
 {
@@ -45,40 +50,95 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    print_program(squeezed);
+
     exit(0);
 }
 
-void print_node(ast_node *node)
+static void print_indent(int depth)
 {
-    if (node == NULL)
+    for (int i = 0; i < depth; i++)
     {
-        fprintf(stdout, "The given AST is empty.\n");
-    }
-    else
-    {
-        print_node_recursion(node, 0);
+        fprintf(stdout, "    ");
     }
 
     return;
 }
-void print_node_recursion(ast_node *node, int depth)
+
+static void print_sqz_var_decl(sqz_var_decl *v)
 {
-    for (int i = 0; i < depth; i++)
+    if (!v)
+        return;
+
+    for (sqz_init_decl *id = v->decl_list; id; id = id->next)
     {
-        fprintf(stdout, "  ");
+        const char *name = "N/A";
+        const char *type = "N/A";
+
+        if (id->decl && id->decl->id && id->decl->id->name)
+        {
+            name = id->decl->id->name->name;
+        }
+        if (id->decl && id->decl->type && id->decl->type->name)
+        {
+            type = id->decl->type->name;
+        }
+        
+        printf("VAR: %s (type: %s)\n", name, type);
     }
 
-    char *node_identifier_str = node->identifier != NULL ? node->identifier->sym->name : "N/A";
-    char *node_type_str = node->type != NULL ? node->type->name : "N/A";
+    return;
+}
 
-    fprintf(stdout, "ID: %s (TYPE: %s)\n", node_identifier_str, node_type_str);
+static void print_sqz_func_decl(sqz_func_decl *f)
+{
+    if (!f)
+        return;
 
-    if (node->left != NULL)
-        print_node_recursion(node->left, depth + 1);
-    if (node->middle != NULL)
-        print_node_recursion(node->middle, depth + 1);
-    if (node->right != NULL)
-        print_node_recursion(node->right, depth + 1);
+    const char *type = "N/A";
+
+    if (f->return_type && f->return_type->name)
+    {
+        type = f->return_type->name;
+    }
+
+    printf("FUNC (return type: %s)\n", type);
+
+    return;
+}
+
+static void print_sqz_decl_list(sqz_decl *decl, int depth)
+{
+    for (sqz_decl *d = decl; d != NULL; d = d->next)
+    {
+        print_indent(depth);
+
+        if (d->decl_type == AST_VARIABLE_DECLARATION)
+        {
+            print_sqz_var_decl(d->decl.var);
+        }
+        else if (d->decl_type == AST_FUNCTION_DECLARATION)
+        {
+            print_sqz_func_decl(d->decl.func);
+        }
+        else
+        {
+            printf("DECL (type = %d)\n", d->decl_type);
+        }
+    }
+
+    return;
+}
+
+void print_program(sqz_program *program)
+{
+    if (program == NULL || program->decl == NULL)
+    {
+        fprintf(stdout, "The given program is empty.\n");
+        return;
+    }
+
+    print_sqz_decl_list(program->decl, 0);
 
     return;
 }
