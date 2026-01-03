@@ -1,14 +1,14 @@
 #ifndef _TYPE_H_
 #define _TYPE_H_
 
-struct _sqz_var_decl;
+struct _sqz_struct_field_decl;
 enum _ast_node_type;
 
 typedef struct _typemeta
 {
     int size;
     int node_type;
-    struct _sqz_var_decl *fields;
+    struct _sqz_struct_decl *fields;
 } typemeta_t;
 
 typedef struct _type

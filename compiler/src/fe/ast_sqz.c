@@ -5,6 +5,9 @@
 #include "common.h"
 #include "stringlib.h"
 #include "diagnostics.h"
+#include "symrec.h"
+
+#include <stdlib.h>
 
 #define MK_TYPE(name, size) mk_type(name, mk_type_meta(size), 0)
 #define FREE_LIST(type, root)   \
@@ -63,7 +66,9 @@ int squeeze_expr_stmt(ast_node *stmt, struct sqz_expr_stmt **out);
 int squeeze_selection_stmt(ast_node *stmt, struct sqz_selection **out);
 int squeeze_iter_stmt(ast_node *stmt, struct sqz_iter **out);
 int squeeze_jump_stmt(ast_node *stmt, struct sqz_jump **out);
-int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out);
+int squeeze_struct_decl(ast_node *decl, sqz_struct_decl **out);
+int squeeze_struct_field_decl(ast_node *decl, sqz_struct_field_decl **out);
+int squeeze_struct_declarator(ast_node *decl, sqz_struct_field **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -103,7 +108,7 @@ int squeeze_program(ast_node *program, sqz_program *out)
     return VAL_OK;
 fail:
     FREE_LIST(sqz_decl, root);
-    SAFE_FREE(temp);
+
     return VAL_FAILED;
 }
 
@@ -163,63 +168,62 @@ int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out)
 
 int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_out)
 {
-    ast_node *s = decl_spec->left;
-    ast_node *t = decl_spec->middle;
-    type_t *type = NULL, *root_type = NULL;
-    sqz_var_decl *struct_decl = NULL;
+    ast_node *node = decl_spec;
+    type_t *root = NULL, *curr, *temp = NULL;
+    sqz_struct_decl *struct_decl = NULL;
 
     sqz_decl_spec *spec = IALLOC(sqz_decl_spec);
 
     spec->qualifier = 0;
     spec->storage_class = 0;
-    while (s)
+    while (node)
     {
-        switch (s->node_type)
+        if (node->node_type != AST_NODE_LIST)
         {
-        case AST_STG_EXTERN:
-            spec->storage_class |= STG_EXTERN;
-            break;
-        case AST_STG_STATIC:
-            spec->storage_class |= STG_STATIC;
-            break;
-        case AST_STG_AUTO:
-            spec->storage_class |= STG_AUTO;
-            break;
-        case AST_STG_REGISTER:
-            spec->storage_class |= STG_REGISTER;
-            break;
-        case AST_QAL_CONST:
-            spec->qualifier |= QAL_CONST;
-            break;
-        case AST_QAL_RESTRICT:
-            spec->qualifier |= QAL_RESTRICT;
-            break;
-        case AST_QAL_VOLATILE:
-            spec->qualifier |= QAL_VOLATILE;
-            break;
-        default:
-            LOG_ERROR("Unknown specifier: %d", s->node_type);
             goto fail;
         }
-        s = s->left;
-    }
 
-    if (!t)
-    {
-        goto fail;
-    }
-
-    while (t)
-    {
-
-        type_t *tt;
-        ast_node *type_node = t->middle;
-
-        if (type_node)
+        // type qualifier / storage class specifier
+        if (node->left)
         {
-            if (type_node->node_type == AST_TYPE_STRUCT_UNION || type_node->node_type == AST_TYPE_ENUM)
+            switch (node->left->node_type)
             {
-                ast_node *companion = type_node->middle;
+            case AST_STG_EXTERN:
+                spec->storage_class |= STG_EXTERN;
+                break;
+            case AST_STG_STATIC:
+                spec->storage_class |= STG_STATIC;
+                break;
+            case AST_STG_AUTO:
+                spec->storage_class |= STG_AUTO;
+                break;
+            case AST_STG_REGISTER:
+                spec->storage_class |= STG_REGISTER;
+                break;
+            case AST_QAL_CONST:
+                spec->qualifier |= QAL_CONST;
+                break;
+            case AST_QAL_RESTRICT:
+                spec->qualifier |= QAL_RESTRICT;
+                break;
+            case AST_QAL_VOLATILE:
+                spec->qualifier |= QAL_VOLATILE;
+                break;
+            case AST_STG_TYPEDEF:
+                spec->storage_class |= STG_TYPEDEF;
+                break;
+            default:
+                LOG_ERROR("Unknown specifier: %d", node->left->node_type);
+                goto fail;
+            }
+        }
+        // type
+        else if (node->middle)
+        {
+            ast_node *t = node->middle;
+            if (t->node_type == AST_TYPE_STRUCT_UNION || t->node_type == AST_TYPE_ENUM)
+            {
+                ast_node *companion = t->middle;
 
                 if (!companion)
                 {
@@ -243,51 +247,53 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
                 {
                     if (FAILED(squeeze_struct_decl(decl_list, &struct_decl)))
                     {
-                        LOG_ERROR("Failed to parse fields", 0);
                         goto fail;
                     }
                 }
                 meta->fields = struct_decl;
-                meta->node_type = (int)type_node->node_type;
-                tt = mk_type(id->sym->name, meta, NULL);
+                meta->node_type = (int)t->node_type;
+                temp = mk_type(id->sym->name, meta, NULL);
             }
-            else if (type_node->node_type == AST_TYPE_ENUM)
+            else if (t->node_type == AST_TYPE_ENUM)
             {
                 LOG_ERROR("Enum type parsing not implemented", 0);
                 goto fail;
             }
-        }
-        else
-        {
-            if (!t->type)
+            else
             {
-                LOG_ERROR("No type provided", 0);
-                goto fail;
+                if (!t->type)
+                {
+                    LOG_ERROR("No type provided", 0);
+                    goto fail;
+                }
+
+                temp = clone_type(t->type->handle);
             }
 
-            tt = clone_type(t->type->handle);
+            if (!root)
+            {
+                root = temp;
+                curr = temp;
+            }
+            else
+            {
+                curr->next = temp;
+                curr = temp;
+            }
         }
 
-        if (!root_type)
-        {
-            root_type = tt;
-        }
-        else
-        {
-            type->next = tt;
-        }
-        type = tt;
-        t = t->right;
+        node = node->right;
     }
+
     if (type_out)
-        *type_out = root_type;
+        *type_out = root;
     if (out)
         *out = spec;
     return VAL_OK;
 fail:
-    SAFE_FREE(type);
+    SAFE_FREE(root);
     SAFE_FREE(struct_decl);
-    FREE_LIST(type_t, root_type);
+    FREE_LIST(type_t, root);
     SAFE_FREE(spec);
     return VAL_FAILED;
 }
@@ -441,11 +447,11 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
 
     ast_node *decl_spec = var_decl->left;
     ast_node *init_list = var_decl->middle;
-    sqz_decl_spec *spec;
-    sqz_init_decl *root = NULL, *curr, *temp;
+    sqz_decl_spec *spec = NULL;
+    sqz_init_decl *root = NULL, *curr, *temp = NULL;
     sqz_var_decl *var = NULL;
-    type_t *type;
-    ast_node *decl_node;
+    type_t *type = NULL;
+    ast_node *decl_node = NULL;
     if (!decl_spec)
     {
         goto fail;
@@ -489,6 +495,27 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
         temp = NULL;
         decl_node = decl_node->right;
     }
+
+    // handle TYPEDEF
+    if (spec->storage_class & STG_TYPEDEF)
+    {
+        if (!root->decl || !root->decl->id)
+        {
+            LOG_ERROR("typedef expected type name but not found", 0);
+            goto fail;
+        }
+
+        sqz_id *id = root->decl->id;
+        typerec_t *reg_type = gettype(id->name->name);
+        if (!reg_type)
+        {
+            LOG_ERROR("Expected type registered in present but not found: %s", id->name);
+            goto fail;
+        }
+
+        reg_type->handle = type;
+    }
+
     var = IALLOC(sqz_var_decl);
     var->spec = spec;
     var->decl_list = root;
@@ -1340,7 +1367,7 @@ int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out)
     sqz_decl_spec *spec = NULL;
     sqz_type *decl = NULL;
     sqz_type *abs_decl = NULL;
-
+    type_t *prim_type = NULL;
     ast_node *spec_node = param_decl->left;
     ast_node *decl_node = param_decl->middle;
     ast_node *abs_decl_node = param_decl->right;
@@ -1350,7 +1377,7 @@ int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out)
         return VAL_FAILED;
     }
 
-    if (FAILED(squeeze_decl_spec(spec_node, &spec, NULL)))
+    if (FAILED(squeeze_decl_spec(spec_node, &spec, &prim_type)))
     {
         goto fail;
     }
@@ -1378,6 +1405,7 @@ int squeeze_param_decl(ast_node *param_decl, sqz_param_decl **out)
 
     sqz_param_decl *result = IALLOC(sqz_param_decl);
     result->spec = spec;
+    result->type = prim_type;
     result->decl = decl ? decl : abs_decl;
 
     *out = result;
@@ -2483,35 +2511,25 @@ fail:
     return VAL_FAILED;
 }
 
-int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out)
+int squeeze_struct_decl(ast_node *decl, sqz_struct_decl **out)
 {
-    sqz_var_decl *root = NULL, *curr, *temp = NULL;
     ast_node *node = decl;
-
-    if (!decl)
-    {
-        LOG_ERROR("Struct declaration list is missing", 0);
-        return VAL_FAILED;
-    }
-
+    sqz_struct_field_decl *root = NULL, *curr, *temp = NULL;
+    sqz_struct_decl *result = NULL;
     while (node)
     {
         if (node->node_type != AST_NODE_LIST)
         {
-            LOG_ERROR("Struct member list expected AST_NODE_LIST but got: %u", node->node_type);
             goto fail;
         }
 
-        ast_node *member_decl = node->left;
-        if (!member_decl)
+        if (!node->middle)
         {
-            LOG_ERROR("Struct member declaration node missing", 0);
             goto fail;
         }
 
-        if (FAILED(squeeze_var_declaration(member_decl, &temp)))
+        if (FAILED(squeeze_struct_field_decl(node->middle, &temp)))
         {
-            LOG_ERROR("Failed to squeeze struct member declaration", 0);
             goto fail;
         }
 
@@ -2525,17 +2543,117 @@ int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out)
             curr->next = temp;
             curr = temp;
         }
-        /* temp linked into list; clear to avoid double-free in fail */
-        temp = NULL;
-
         node = node->right;
     }
-
-    *out = root;
+    result = IALLOC(sqz_struct_decl);
+    result->field = root;
+    *out = result;
     return VAL_OK;
-
 fail:
     SAFE_FREE(temp);
-    FREE_LIST(sqz_var_decl, root);
+    FREE_LIST(sqz_struct_field_decl, root);
+    return VAL_FAILED;
+}
+
+int squeeze_struct_field_decl(ast_node *decl, sqz_struct_field_decl **out)
+{
+    ast_node *decl_spec = decl->left;
+    ast_node *init_list = decl->middle;
+    sqz_decl_spec *spec = NULL;
+    sqz_struct_field *root = NULL, *curr, *temp = NULL;
+    sqz_struct_field_decl *var = NULL;
+    type_t *type = NULL;
+    ast_node *decl_node;
+    if (!decl_spec)
+    {
+        goto fail;
+    }
+
+    if (FAILED(squeeze_decl_spec(decl_spec, &spec, &type)))
+    {
+        goto fail;
+    }
+
+    decl_node = init_list;
+
+    while (decl_node)
+    {
+        if (decl_node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        if (!decl_node->middle)
+        {
+            goto fail;
+        }
+
+        if (FAILED(squeeze_struct_declarator(decl_node->middle, &temp)))
+        {
+            goto fail;
+        }
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        curr->spec = spec;
+        decl_node = decl_node->right;
+
+        temp = NULL;
+    }
+    var = IALLOC(sqz_struct_field_decl);
+    var->spec = spec;
+    var->decl_list = root;
+    var->type = type;
+    *out = var;
+    return VAL_OK;
+fail:
+    SAFE_FREE(spec);
+    SAFE_FREE(type);
+    SAFE_FREE(temp);
+    FREE_LIST(sqz_struct_field, root);
+    return VAL_FAILED;
+}
+
+int squeeze_struct_declarator(ast_node *decl, sqz_struct_field **out)
+{
+    sqz_type *d = NULL;
+    sqz_ternary_expr *bit_field = NULL;
+
+    if (!decl->middle)
+    {
+        goto fail;
+    }
+
+    if (FAILED(squeeze_decl(decl->middle, &d)))
+    {
+        goto fail;
+    }
+
+    // has bit field
+    if (decl->right)
+    {
+        if (FAILED(squeeze_ternary_expr(decl->right, &bit_field)))
+        {
+            goto fail;
+        }
+    }
+
+    sqz_struct_field *result = IALLOC(sqz_struct_field);
+    result->bit_field = bit_field;
+    result->decl = d;
+    *out = result;
+    return VAL_OK;
+fail:
+    SAFE_FREE(decl);
+    SAFE_FREE(bit_field);
     return VAL_FAILED;
 }

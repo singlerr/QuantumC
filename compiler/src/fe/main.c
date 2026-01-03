@@ -21,7 +21,6 @@ void print_program(sqz_program *program);
 
 char *yyfilename;
 
-
 int main(int argc, char *argv[])
 {
 
@@ -60,7 +59,6 @@ int main(int argc, char *argv[])
     exit(0);
 }
 
-
 static void print_indent(int depth)
 {
     for (int i = 0; i < depth; i++)
@@ -71,13 +69,12 @@ static void print_indent(int depth)
     return;
 }
 
-
-static void print_ast_rec(ast_node *node, int depth) 
+static void print_ast_rec(ast_node *node, int depth)
 {
     const char *name = "N/A";
     const char *type = "N/A";
 
-    if (node->identifier && node->identifier->type) 
+    if (node->identifier && node->identifier->type)
     {
         name = node->identifier->type->name;
     }
@@ -89,36 +86,35 @@ static void print_ast_rec(ast_node *node, int depth)
     print_indent(depth);
     fprintf(stdout, "ID: %s (TYPE: %s)\n", name, type);
 
-    if (node->left) 
+    if (node->left)
     {
-        print_ast_rec(node->left, depth+1);
+        print_ast_rec(node->left, depth + 1);
     }
-    if (node->middle) 
+    if (node->middle)
     {
-        print_ast_rec(node->middle, depth+1);
+        print_ast_rec(node->middle, depth + 1);
     }
-    if (node->right != NULL) 
+    if (node->right != NULL)
     {
-        print_ast_rec(node->right, depth+1);
+        print_ast_rec(node->right, depth + 1);
     }
 
     return;
 }
 
-void print_ast(ast_node *node) 
+void print_ast(ast_node *node)
 {
-    if (node == NULL) 
+    if (node == NULL)
     {
         fprintf(stdout, "ERROR: The given AST is empty.\n");
     }
-    else 
+    else
     {
         print_ast_rec(node, 0);
     }
 
     return;
 }
-
 
 static void print_sqz_var_decl(sqz_var_decl *v)
 {
@@ -140,7 +136,7 @@ static void print_sqz_var_decl(sqz_var_decl *v)
         {
             type = id->decl->type->name;
         }
-        
+
         printf("VAR: %s (type: %s)\n", name, type);
     }
 
