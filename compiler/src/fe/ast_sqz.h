@@ -10,6 +10,7 @@
 #define STG_STATIC (1 << 1)
 #define STG_AUTO (1 << 2)
 #define STG_REGISTER (1 << 3)
+#define STG_TYPEDEF (1 << 4)
 
 #define QAL_CONST (1)
 #define QAL_RESTRICT (1 << 1)
@@ -26,6 +27,7 @@ typedef struct _sqz_param_decl
 {
     struct _sqz_decl_spec *spec;
     struct _sqz_type *decl;
+    type_t *type;
 } sqz_param_decl;
 
 typedef struct _sqz_designator
@@ -83,6 +85,20 @@ typedef struct _sqz_var_decl
     struct _sqz_init_decl *decl_list;
     struct _sqz_var_decl *next;
 } sqz_var_decl;
+
+typedef struct _sqz_struct_decl
+{
+    struct _sqz_struct_field_decl *field;
+    struct _sqz_struct_decl *next;
+} sqz_struct_decl;
+
+typedef struct _sqz_struct_field_decl
+{
+    sqz_decl_spec *spec;
+    type_t *type;
+    struct _sqz_struct_field *decl_list;
+    struct _sqz_struct_field_decl *next;
+} sqz_struct_field_decl;
 
 typedef struct _sqz_func_decl
 {
@@ -423,6 +439,15 @@ typedef struct _sqz_stmt
     } stmt;
 
 } sqz_stmt;
+
+typedef struct _sqz_struct_field
+{
+    sqz_decl_spec *spec;
+    sqz_type *decl;
+    sqz_ternary_expr *bit_field;
+
+    struct _sqz_struct_field *next;
+} sqz_struct_field;
 
 typedef struct _sqz_program
 {

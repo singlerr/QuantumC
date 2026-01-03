@@ -290,12 +290,12 @@ declaration
 	;
 
 declaration_specifiers
-	: storage_class_specifier { $$ = $1; }
-	| declaration_specifiers storage_class_specifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
-	| type_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_SPECIFIER, NULL, $1, NULL);  }
-	| declaration_specifiers type_specifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_TYPE_SPECIFIER, NULL, $1, NULL)); } 
-	| type_qualifier { $$ = $1; }
-	| declaration_specifiers type_qualifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), $2); } 
+	: storage_class_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| declaration_specifiers storage_class_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
+	| type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL);  }
+	| declaration_specifiers type_specifier { $$ = $1; append_right_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL)); } 
+	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| declaration_specifiers type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
 	;
 
 init_declarator_list
@@ -334,7 +334,7 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' { inc_scope_level(); } struct_declaration_list '}' { dec_scope_level();  $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, $3 ,$1, NULL, $6); }
+	: struct_or_union IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL); } '{' { inc_scope_level(); } struct_declaration_list '}' { dec_scope_level();  $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, $3 ,$1, NULL, $6); }
 	| struct_or_union '{' { inc_scope_level(); }  struct_declaration_list '}' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_STRUCT_UNION, $1, NULL, $4); }
 	| struct_or_union IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), $1, NULL, NULL); }
 	;
@@ -354,10 +354,10 @@ struct_declaration
 	;
 
 specifier_qualifier_list
-	: type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| specifier_qualifier_list type_specifier { $$ = $1; append_left_child((ast_node*) find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL));  }
-	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL)); }
+	: type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| specifier_qualifier_list type_specifier { $$ = $1; append_right_child((ast_node*) find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL));  }
+	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+	| specifier_qualifier_list type_qualifier { $$ = $1; append_middle_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); }
 	;
 
 struct_declarator_list
@@ -373,10 +373,10 @@ struct_declarator
 
 enum_specifier
 	: ENUM '{'  enumerator_list '}' { $$ = AST_GENERAL_NODE(AST_ENUM, NULL, $3, NULL); }
-	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' enumerator_list '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $2, NULL, NULL, NULL); }
+	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL); } '{' enumerator_list '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $2, NULL, NULL, NULL); }
 	| ENUM '{' enumerator_list ',' '}' { $$ = AST_GENERAL_NODE(AST_ENUM, NULL, $3, NULL); }
-	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '{' enumerator_list ',' '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $3, NULL, $5, NULL); }
-	| ENUM IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUM, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
+	| ENUM IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL); } '{' enumerator_list ',' '}' { $$ = AST_IDENTIFIER_NODE(AST_ENUM, $3, NULL, $5, NULL); }
+	| ENUM IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUM, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL); }
 	;
 
 enumerator_list
@@ -385,8 +385,8 @@ enumerator_list
 	;
 
 enumerator
-	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUM_FIELD_DECLARATION, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
-	| IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yytext), NULL); } '=' constant_expression { $$ = AST_IDENTIFIER_NODE(AST_ENUM_FIELD_DECLARATION, $2, NULL, $4, NULL); }
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_ENUM_FIELD_DECLARATION, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL); }
+	| IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL); } '=' constant_expression { $$ = AST_IDENTIFIER_NODE(AST_ENUM_FIELD_DECLARATION, $2, NULL, $4, NULL); }
 	;
 
 type_qualifier
@@ -402,7 +402,7 @@ declarator
 
 
 direct_declarator
-	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL); }
 	| '(' declarator ')' { $$ = $2; }
 	/* | direct_declarator '[' type_qualifier_list assignment_expression ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, $4, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
 	/* | direct_declarator '[' type_qualifier_list ']' { $$ = AST_GENERAL_NODE(AST_TYPE_ARRAY, $3, NULL, NULL); append_right_child(find_last_right_child($1), $$); $$ = $1; } */
@@ -447,8 +447,8 @@ parameter_declaration
 	;
 
 identifier_list
-	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
-	| identifier_list ',' IDENTIFIER { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL)); }
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL); }
+	| identifier_list ',' IDENTIFIER { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL)); }
 	;
 
 type_name
@@ -500,7 +500,7 @@ designator_list
 
 designator
 	: '[' constant_expression ']' { $$ = AST_GENERAL_NODE(AST_ARRAY_ACCESS, $2, NULL, NULL); }
-	| '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_NONSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); }
+	| '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_NONSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); }
 	;
 
 statement
@@ -513,7 +513,7 @@ statement
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement { $$ = AST_GENERAL_NODE(AST_STMT_LABEL, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), $3, NULL); }
+	: IDENTIFIER ':' statement { $$ = AST_GENERAL_NODE(AST_STMT_LABEL, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), $3, NULL); }
 	| CASE constant_expression ':' statement { $$ = AST_GENERAL_NODE(AST_STMT_CASE, $2, $4, NULL); }
 	| DEFAULT ':' statement { $$ = AST_GENERAL_NODE(AST_STMT_DEFAULT, NULL, $3, NULL); }
 	;
@@ -554,7 +554,7 @@ iteration_statement
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';' { $$ = AST_GENERAL_NODE(AST_STMT_GOTO, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); }
+	: GOTO IDENTIFIER ';' { $$ = AST_GENERAL_NODE(AST_STMT_GOTO, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); }
 	| CONTINUE ';' { $$ = AST_SIMPLE_NODE(AST_STMT_CONTINUE); }
 	| BREAK ';' { $$ = AST_SIMPLE_NODE(AST_STMT_BREAK); }
 	| RETURN ';' { $$ = AST_SIMPLE_NODE(AST_STMT_RETURN); }

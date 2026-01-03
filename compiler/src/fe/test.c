@@ -1,8 +1,9 @@
-typedef struct _test
+struct _test
 {
     int a;
-} test;
-test a;
+} aaa;
+
+typedef struct _test bbb;
 void func(int, int);
 int main(void)
 {

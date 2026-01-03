@@ -36,7 +36,7 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
 
     if (!has_typedef)
     {
-        return 0;
+        return VAL_FAILED;
     }
 
     identifier = identifier->middle;
@@ -64,7 +64,7 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
             perror("unknown type");
         }
 
-        typerec_t *sub = clone_type_rec(type_node->type);
+        typerec_t *sub = type_node->type;
         if (!t)
         {
             t = sub;
@@ -75,12 +75,11 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
         }
 
         size = sub->handle->meta->size;
-
         node = type_node->left;
     }
 
     PUT_TYPE(identifier->middle->identifier->sym->name, AST_TYPE_USER, size);
-    return 1;
+    return VAL_OK;
 }
 
 void append_left_child(ast_node *parent, const ast_node *child)

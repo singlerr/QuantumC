@@ -69,7 +69,6 @@ static void print_sqz_var_decl(sqz_var_decl *v)
 {
     if (!v)
         return;
-
     for (sqz_init_decl *id = v->decl_list; id; id = id->next)
     {
         const char *name = "N/A";
@@ -83,7 +82,7 @@ static void print_sqz_var_decl(sqz_var_decl *v)
         {
             type = id->decl->type->name;
         }
-        
+
         printf("VAR: %s (type: %s)\n", name, type);
     }
 
