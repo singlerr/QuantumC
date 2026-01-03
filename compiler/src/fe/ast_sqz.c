@@ -1,10 +1,10 @@
+#include <stdlib.h>
+
 #include "ast_sqz.h"
 #include "ast.h"
 #include "common.h"
 #include "stringlib.h"
 #include "diagnostics.h"
-
-#include <stdlib.h>
 
 #define MK_TYPE(name, size) mk_type(name, mk_type_meta(size), 0)
 #define FREE_LIST(type, root)   \
@@ -94,6 +94,8 @@ int squeeze_program(ast_node *program, sqz_program *out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
         translation_unit = translation_unit->right;
     }
 
@@ -483,6 +485,8 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
         decl_node = decl_node->right;
     }
     var = IALLOC(sqz_var_decl);
@@ -756,6 +760,8 @@ int squeeze_expr(ast_node *expr, sqz_expr **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
 
         node = node->right;
     }
@@ -1315,6 +1321,8 @@ int squeeze_parameter_list(ast_node *args, sqz_args **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
 
         node = node->right;
     }
@@ -1644,7 +1652,7 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             goto fail;
         }
 
-        if (root)
+        if (!root)
         {
             root = temp;
             curr = temp;
@@ -1654,6 +1662,8 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
 
         cur_node = cur_node->right;
     }
@@ -1952,6 +1962,8 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
 
         node = node->right;
     }
@@ -2513,6 +2525,8 @@ int squeeze_struct_decl(ast_node *decl, sqz_var_decl **out)
             curr->next = temp;
             curr = temp;
         }
+        /* temp linked into list; clear to avoid double-free in fail */
+        temp = NULL;
 
         node = node->right;
     }
