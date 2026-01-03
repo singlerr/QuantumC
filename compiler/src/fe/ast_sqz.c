@@ -492,8 +492,9 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
             curr = temp;
         }
         
-        temp = NULL;
         decl_node = decl_node->right;
+
+        temp = NULL;
     }
 
     // handle TYPEDEF
@@ -787,10 +788,10 @@ int squeeze_expr(ast_node *expr, sqz_expr **out)
             curr->next = temp;
             curr = temp;
         }
-        
-        temp = NULL;
 
         node = node->right;
+
+        temp = NULL;
     }
 
     *out = root;
@@ -1690,10 +1691,10 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             curr->next = temp;
             curr = temp;
         }
-        
-        temp = NULL;
 
         cur_node = cur_node->right;
+
+        temp = NULL;
     }
 
     *out = root;
@@ -1990,10 +1991,10 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
             curr->next = temp;
             curr = temp;
         }
-        
-        temp = NULL;
 
         node = node->right;
+
+        temp = NULL;
     }
 
     result = IALLOC(struct sqz_compound_stmt);
