@@ -99,7 +99,7 @@ int squeeze_program(ast_node *program, sqz_program *out)
             curr->next = temp;
             curr = temp;
         }
-        
+
         temp = NULL;
         translation_unit = translation_unit->right;
     }
@@ -491,7 +491,7 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
             curr->next = temp;
             curr = temp;
         }
-        
+
         decl_node = decl_node->right;
 
         temp = NULL;
@@ -1349,7 +1349,7 @@ int squeeze_parameter_list(ast_node *args, sqz_args **out)
             curr->next = temp;
             curr = temp;
         }
-        
+
         temp = NULL;
 
         node = node->right;
@@ -2106,7 +2106,7 @@ int squeeze_stmt(ast_node *stmt, sqz_stmt **out)
         break;
     case AST_STMT_WHILE:
     case AST_STMT_DO_WHILE:
-    case AST_STMT_FOR_EXPR:
+    case AST_STMT_FOR:
         struct sqz_iter *iter_stmt;
         if (FAILED(squeeze_iter_stmt(stmt, &iter_stmt)))
         {

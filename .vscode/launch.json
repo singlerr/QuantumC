@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/compiler/src/fe/main",
             "args": [
-                "${workspaceFolder}/compiler/src/fe/test.c"
+                "${workspaceFolder}/tests/test_1.c"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
