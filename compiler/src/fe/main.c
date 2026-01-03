@@ -9,13 +9,17 @@ extern FILE *yyin;
 extern int yyparse(ast_node **root);
 extern int squeeze_ast(ast_node *program, sqz_program **out);
 
-char *yyfilename;
-
 static void print_indent(int depth);
+
+static void print_ast_rec(ast_node *node, int depth);
+void print_ast(ast_node *node);
+
 static void print_sqz_var_decl(sqz_var_decl *v);
 static void print_sqz_func_decl(sqz_func_decl *f);
 static void print_sqz_decl_list(sqz_decl *decl, int depth);
 void print_program(sqz_program *program);
+
+char *yyfilename;
 
 int main(int argc, char *argv[])
 {
@@ -65,10 +69,60 @@ static void print_indent(int depth)
     return;
 }
 
+static void print_ast_rec(ast_node *node, int depth)
+{
+    const char *name = "N/A";
+    const char *type = "N/A";
+
+    if (node->identifier && node->identifier->type)
+    {
+        name = node->identifier->type->name;
+    }
+    if (node->type)
+    {
+        type = node->type->name;
+    }
+
+    print_indent(depth);
+    fprintf(stdout, "ID: %s (TYPE: %s)\n", name, type);
+
+    if (node->left)
+    {
+        print_ast_rec(node->left, depth + 1);
+    }
+    if (node->middle)
+    {
+        print_ast_rec(node->middle, depth + 1);
+    }
+    if (node->right != NULL)
+    {
+        print_ast_rec(node->right, depth + 1);
+    }
+
+    return;
+}
+
+void print_ast(ast_node *node)
+{
+    if (node == NULL)
+    {
+        fprintf(stdout, "ERROR: The given AST is empty.\n");
+    }
+    else
+    {
+        print_ast_rec(node, 0);
+    }
+
+    return;
+}
+
 static void print_sqz_var_decl(sqz_var_decl *v)
 {
     if (!v)
+    {
         return;
+    }
+
     for (sqz_init_decl *id = v->decl_list; id; id = id->next)
     {
         const char *name = "N/A";
@@ -92,7 +146,9 @@ static void print_sqz_var_decl(sqz_var_decl *v)
 static void print_sqz_func_decl(sqz_func_decl *f)
 {
     if (!f)
+    {
         return;
+    }
 
     const char *type = "N/A";
 
@@ -133,7 +189,7 @@ void print_program(sqz_program *program)
 {
     if (program == NULL || program->decl == NULL)
     {
-        fprintf(stdout, "The given program is empty.\n");
+        fprintf(stdout, "ERROR The given program is empty.\n");
         return;
     }
 

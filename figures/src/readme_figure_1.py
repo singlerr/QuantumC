@@ -10,7 +10,7 @@ def main() -> None:
     qc.measure_all()
 
     style = {'name': 'iqp-dark'}
-    qc.draw(output='mpl', filename='../readme-figure-1.png', scale=0.5, style=style)
+    qc.draw(output='mpl', filename='../readme_figure_1.png', scale=0.5, style=style)
 
     return
 
