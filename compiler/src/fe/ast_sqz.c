@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "ast_sqz.h"
 #include "ast.h"
 #include "common.h"
@@ -97,6 +99,8 @@ int squeeze_program(ast_node *program, sqz_program *out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
         translation_unit = translation_unit->right;
     }
 
@@ -487,7 +491,10 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
             curr->next = temp;
             curr = temp;
         }
+        
         decl_node = decl_node->right;
+
+        temp = NULL;
     }
 
     // handle TYPEDEF
@@ -783,6 +790,8 @@ int squeeze_expr(ast_node *expr, sqz_expr **out)
         }
 
         node = node->right;
+
+        temp = NULL;
     }
 
     *out = root;
@@ -1340,6 +1349,8 @@ int squeeze_parameter_list(ast_node *args, sqz_args **out)
             curr->next = temp;
             curr = temp;
         }
+        
+        temp = NULL;
 
         node = node->right;
     }
@@ -1670,7 +1681,7 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
             goto fail;
         }
 
-        if (root)
+        if (!root)
         {
             root = temp;
             curr = temp;
@@ -1682,6 +1693,8 @@ int squeeze_spec_qual(ast_node *node, struct _sqz_spec_qual **out)
         }
 
         cur_node = cur_node->right;
+
+        temp = NULL;
     }
 
     *out = root;
@@ -1980,6 +1993,8 @@ int squeeze_compound_stmt(ast_node *comp_stmt, struct sqz_compound_stmt **out)
         }
 
         node = node->right;
+
+        temp = NULL;
     }
 
     result = IALLOC(struct sqz_compound_stmt);
@@ -2589,8 +2604,11 @@ int squeeze_struct_field_decl(ast_node *decl, sqz_struct_field_decl **out)
             curr->next = temp;
             curr = temp;
         }
+
         curr->spec = spec;
         decl_node = decl_node->right;
+
+        temp = NULL;
     }
     var = IALLOC(sqz_struct_field_decl);
     var->spec = spec;
@@ -2608,7 +2626,6 @@ fail:
 
 int squeeze_struct_declarator(ast_node *decl, sqz_struct_field **out)
 {
-
     sqz_type *d = NULL;
     sqz_ternary_expr *bit_field = NULL;
 
