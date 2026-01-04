@@ -7,8 +7,8 @@ Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug
 
 ## Task Queue
 
-* Implement `print_node` in `main.c` with better graphics. 
-* Implement testing cases in QuantumC, Q#, and OpenQASM.
+* Implement `print_ast` and `print_sqz` in `main.c` with better graphics. 
+* Implement testing cases in C, QuantumC, Q#, and OpenQASM.
 * Verify the OpenQASM workflow.
 * Finish implementing main compilers (classical/quantum).
 * Integrate with the usual C working environemnt.
