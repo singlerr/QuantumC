@@ -62,8 +62,6 @@ int main(int argc, char *argv[])
     {
         exit(1);
     }
-
-    print_program(squeezed);
     print_sqz(squeezed);
 
     free_ast(root);
