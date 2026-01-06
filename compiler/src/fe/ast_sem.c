@@ -1503,24 +1503,31 @@ type_t *infer_cast_expr(struct sem_cast_expr *cast_expr)
 
         break;
     }
+
+    return NULL;
 }
 
 type_t *infer_expr(struct sem_expr *expr)
 {
+    return NULL;
 }
 
 type_t *infer_unary(struct sem_unary *unary_expr)
 {
+    return NULL;
 }
 
 type_t *infer_binary(struct sem_binary_expr *binary_expr)
 {
+    return NULL;
 }
 
 type_t *infer_ternary(struct sem_ternary_expr *ternary_expr)
 {
+    return NULL;
 }
 
 type_t *infer_assign_expr(struct sem_assign_expr *assign_expr)
 {
+    return NULL;
 }
