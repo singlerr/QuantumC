@@ -18,13 +18,15 @@ void print_ast(ast_node *node);
 static void print_sqz_var_decl(sqz_var_decl *v);
 static void print_sqz_func_decl(sqz_func_decl *f);
 static void print_sqz_decl_list(sqz_decl *decl, int depth);
-void print_program(sqz_program *program);
+void print_sqz(sqz_program *program);
+
+void free_ast(ast_node *root);
+void free_sqz(sqz_program *program);
 
 char *yyfilename;
 
 int main(int argc, char *argv[])
 {
-
     ast_node *root;
     sqz_program *squeezed;
     struct sem_program *sem_analysis;
@@ -62,6 +64,10 @@ int main(int argc, char *argv[])
     }
 
     print_program(squeezed);
+    print_sqz(squeezed);
+
+    free_ast(root);
+    free_sqz(squeezed);
 
     exit(0);
 }
@@ -192,15 +198,60 @@ static void print_sqz_decl_list(sqz_decl *decl, int depth)
     return;
 }
 
-void print_program(sqz_program *program)
+void print_sqz(sqz_program *program)
 {
     if (program == NULL || program->decl == NULL)
     {
-        fprintf(stdout, "ERROR The given program is empty.\n");
+        fprintf(stdout, "ERROR: The given program is empty.\n");
         return;
     }
 
     print_sqz_decl_list(program->decl, 0);
+
+    return;
+}
+
+void free_ast(ast_node *root)
+{
+    if (!root)
+    {
+        fprintf(stderr, "ERROR: The given AST pointer is invalid.\n");
+        return;
+    }
+
+    if (root->left)
+    {
+        free_ast(root->left);
+    }
+    if (root->middle)
+    {
+        free_ast(root->middle);
+    }
+    if (root->right)
+    {
+        free_ast(root->right);
+    }
+
+    free(root);
+
+    return;
+}
+
+void free_sqz(sqz_program *program)
+{
+    if (!program)
+    {
+        fprintf(stderr, "ERROR: The given squeezed program pointer is invalid.\n");
+        return;
+    }
+
+    sqz_decl *curr = program->decl;
+    while (!curr)
+    {
+        sqz_decl *temp = curr->next;
+        free(curr);
+        curr = temp;
+    }
 
     return;
 }
