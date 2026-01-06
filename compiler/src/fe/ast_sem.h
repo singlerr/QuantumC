@@ -1,446 +1,513 @@
 #ifndef _AST_SEM_H_
 #define _AST_SEM_H_
 
+#include "ast_types.h"
+#include "type.h"
+#include "common.h"
+#include "symrec.h"
+
+struct sqz_program;
+struct sem_spec_qual;
+struct sem_param_decl;
+struct sem_designator;
+struct sem_declarator;
+struct sem_decl_spec;
+struct sem_decl;
+struct sem_initializer;
+struct sem_var_decl;
+struct sem_struct_decl;
+struct sem_struct_field_decl;
+struct sem_func_decl;
+struct sem_primary_expr;
+struct sem_id;
+struct sem_post;
+struct sem_expr;
+struct sem_args;
+struct sem_expr_src_struct_init;
+struct sem_initializer_list;
+struct sem_designation;
+struct sem_expr_src_arr_access;
+struct sem_expr_src_func_call;
+struct sem_expr_src_member_access;
+struct sem_expr_src;
+struct sem_cast_expr;
+struct sem_init_decl;
+struct sem_unary;
+struct sem_pre;
+struct sem_pre_unary;
+struct sem_sizeof;
+struct sem_binary_expr;
+struct sem_ternary_expr;
+struct sem_assign_expr;
+struct sem_struct_field;
+struct sem_labeled;
+struct sem_label;
+struct sem_case;
+struct sem_default;
+struct sem_block_item;
+struct sem_compound_stmt;
+struct sem_expr_stmt;
+struct sem_if;
+struct sem_if_else;
+struct sem_switch;
+struct sem_while;
+struct sem_do_while;
+struct sem_for;
+struct sem_goto;
+struct sem_continue;
+struct sem_break;
+struct sem_return;
+struct sem_jump;
+struct sem_iter;
+struct sem_selection;
+struct sem_stmt;
+
+typedef struct symbol
+{
+    char *name;
+    type_t *type;
+    struct symbol *prev;
+} symbol_t;
+
+struct env
+{
+    int level;
+    struct symbol *symbols;
+    struct env *prev;
+};
+
 struct _sqz_program;
 
-struct _sqz_spec_qual
+struct sem_program
+{
+    struct sem_decl *decl;
+};
+
+struct sem_spec_qual
 {
     unsigned int qualifier;
     type_t *type;
-    struct _sqz_spec_qual *next;
+    struct sem_spec_qual *next;
 };
 
-typedef struct _sqz_param_decl
+struct sem_param_decl
 {
-    struct _sqz_decl_spec *spec;
-    struct _sqz_type *decl;
+    struct sem_decl_spec *spec;
+    struct sem_declarator *decl;
     type_t *type;
-} sqz_param_decl;
+};
 
-typedef struct _sqz_designator
+struct sem_designator
 {
     union
     {
-        struct _sqz_id *id;
-        struct _sqz_ternary_expr *expr;
+        struct sem_id *id;
+        struct sem_ternary_expr *expr;
     } val;
     ast_node_type designator_type;
-    struct _sqz_designator *next;
-} sqz_designator;
+    struct sem_designator *next;
+};
 
-typedef struct _sqz_type
+struct sem_declarator
 {
     type_t *type;
-    struct _sqz_assign_expr *index;
-    struct _sqz_args *args;
-    struct _sqz_id *id;
-    struct _sqz_spec_qual *qual;
-    struct _sqz_type *abs_decl;
-    struct _sqz_type *next;
-} sqz_type;
+    struct sem_assign_expr *index;
+    struct sem_args *args;
+    struct sem_id *id;
+    struct sem_spec_qual *qual;
+    struct sem_declarator *abs_decl;
+    struct sem_declarator *next;
+};
 
-typedef struct _sqz_decl_spec
+struct sem_decl_spec
 {
     unsigned int storage_class;
     unsigned int qualifier;
-} sqz_decl_spec;
+};
 
-typedef struct _sqz_decl
+struct sem_decl
 {
     ast_node_type decl_type;
     union
     {
-        struct _sqz_var_decl *var;
-        struct _sqz_func_decl *func;
+        struct sem_var_decl *var;
+        struct sem_func_decl *func;
     } decl;
+    struct sem_decl *next;
+};
 
-    struct _sqz_decl *next;
-} sqz_decl;
-
-typedef struct _sqz_initializer
+struct sem_initializer
 {
     int level;
-    struct _sqz_assign_expr *expr;
-    sqz_designator *designator;
-    struct _sqz_initializer *next;
-} sqz_initializer;
+    struct sem_assign_expr *expr;
+    struct sem_initializer_list *init_list;
+};
 
-typedef struct _sqz_var_decl
+struct sem_var_decl
 {
-    sqz_decl_spec *spec;
+    struct sem_decl_spec *spec;
     type_t *type;
-    struct _sqz_init_decl *decl_list;
-    struct _sqz_var_decl *next;
-} sqz_var_decl;
+    struct sem_init_decl *decl_list;
+    struct sem_var_decl *next;
+};
 
-typedef struct _sqz_struct_decl
+struct sem_struct_decl
 {
-    struct _sqz_struct_field_decl *field;
-    struct _sqz_struct_decl *next;
-} sqz_struct_decl;
+    struct sem_struct_field_decl *field;
+    struct sem_struct_decl *next;
+};
 
-typedef struct _sqz_struct_field_decl
+struct sem_struct_field_decl
 {
-    sqz_decl_spec *spec;
+    struct sem_decl_spec *spec;
     type_t *type;
-    struct _sqz_struct_field *decl_list;
-    struct _sqz_struct_field_decl *next;
-} sqz_struct_field_decl;
+    struct sem_struct_field *decl_list;
+    struct sem_struct_field_decl *next;
+};
 
-typedef struct _sqz_func_decl
+struct sem_func_decl
 {
-    struct _sqz_decl_spec *spec;
+    struct sem_decl_spec *spec;
     type_t *return_type;
-    struct _sqz_args *params;
-    struct sqz_compound_stmt *body;
-} sqz_func_decl;
+    struct sem_args *params;
+    struct sem_compound_stmt *body;
+};
 
-typedef struct _sqz_primary_expr
+struct sem_primary_expr
 {
     ast_node_type primary_type;
     union
     {
-        struct _sqz_id *identifier;
-        struct _sqz_expr *expr;
+        struct sem_id *identifier;
+        struct sem_expr *expr;
         int i;
         float f;
         char *s;
     } value;
+};
 
-} sqz_primary_expr;
-
-typedef struct _sqz_id
+struct sem_id
 {
     ast_node_type id_type;
     int scope_level;
-    sqz_decl_spec *spec;
+    struct sem_decl_spec *spec;
     symrec_t *name;
     type_t *type;
-} sqz_id;
-
-struct _sqz_post
-{
-    ast_node_type op_type;
-    struct _sqz_expr_src *operand;
 };
 
-typedef struct _sqz_expr
+struct sem_post
 {
-    struct _sqz_assign_expr *expr;
-    struct _sqz_expr *next;
-} sqz_expr;
+    ast_node_type op_type;
+    struct sem_expr_src *operand;
+};
 
-typedef struct _sqz_args
+struct sem_expr
 {
-    sqz_param_decl *arg;
-    struct _sqz_args *next;
-} sqz_args;
+    struct sem_assign_expr *expr;
+    struct sem_expr *next;
+};
 
-typedef struct _sqz_expr_src_struct_init
+struct sem_args
+{
+    struct sem_param_decl *arg;
+    struct sem_args *next;
+};
+
+struct sem_expr_src_struct_init
 {
     type_t *struct_type;
+    struct sem_initializer_list *init_list;
+};
 
-    // TODO initializer list : will be implemented in the future
-} sqz_expr_src_struct_init;
-
-typedef struct _sqz_expr_src_arr_access
+struct sem_initializer_list
 {
-    struct _sqz_expr_src *array;
-    sqz_expr *index;
-} sqz_expr_src_arr_access;
+    struct sem_initializer *initializer;
+    struct sem_designation *designation;
+    struct sem_initializer_list *next;
+};
 
-typedef struct _sqz_expr_src_func_call
+struct sem_designation
 {
-    struct _sqz_expr_src *func;
-    sqz_args *args;
+    struct sem_designator *designator_list;
+    struct sem_designation *next;
+};
 
-} sqz_expr_src_func_call;
+struct sem_expr_src_arr_access
+{
+    struct sem_expr_src *array;
+    struct sem_expr *index;
+};
 
-typedef struct _sqz_expr_src_member_access
+struct sem_expr_src_func_call
+{
+    struct sem_expr_src *func;
+    struct sem_args *args;
+};
+
+struct sem_expr_src_member_access
 {
     ast_node_type access_type;
-    struct _sqz_expr_src *owner;
-    sqz_id *member_name;
-
-} sqz_expr_src_member_access;
-
-typedef struct _sqz_expr_src
-{
-    ast_node_type expr_type;
-
-    union
-    {
-        sqz_expr_src_func_call *func_call;
-        sqz_expr_src_member_access *member_access;
-        sqz_expr_src_arr_access *arr_access;
-        sqz_expr_src_struct_init *struct_init;
-        sqz_primary_expr *primary_expr;
-        struct _sqz_post *post_inc_dec;
-
-    } expr;
-
-} sqz_expr_src;
-
-typedef struct _sqz_cast_expr
-{
-    sqz_type *type;
-
-    union
-    {
-        struct _sqz_cast_expr *cast;
-        struct _sqz_unary *unary;
-    };
-
-} sqz_cast_expr;
-
-typedef struct _sqz_init_decl
-{
-    sqz_type *decl;
-    sqz_initializer *init;
-
-    struct _sqz_init_decl *next;
-} sqz_init_decl;
-
-typedef struct _sqz_unary
-{
-
-    ast_node_type expr_type;
-
-    union
-    {
-        sqz_cast_expr *cast;
-        sqz_expr_src *postfix;
-        struct _sqz_sizeof *sizeof_expr;
-        struct _sqz_pre *pre_inc_dec;
-        struct _sqz_pre_unary *pre_unary_op;
-        sqz_type *type_name;
-    } expr;
-
-} sqz_unary;
-
-struct _sqz_pre
-{
-    ast_node_type op_type;
-    sqz_unary *operand;
+    struct sem_expr_src *owner;
+    struct sem_id *member_name;
 };
 
-struct _sqz_pre_unary
+struct sem_expr_src
 {
-    ast_node_type op_type;
-    sqz_cast_expr *operand;
+    ast_node_type expr_type;
+    union
+    {
+        struct sem_expr_src_func_call *func_call;
+        struct sem_expr_src_member_access *member_access;
+        struct sem_expr_src_arr_access *arr_access;
+        struct sem_expr_src_struct_init *struct_init;
+        struct sem_primary_expr *primary_expr;
+        struct sem_post *post_inc_dec;
+    } expr;
 };
 
-struct _sqz_sizeof
+struct sem_cast_expr
+{
+    struct sem_declarator *type;
+    ast_node_type cast_type;
+    union
+    {
+        struct sem_cast_expr *cast;
+        struct sem_unary *unary;
+    } expr;
+};
+
+struct sem_init_decl
+{
+    struct sem_declarator *decl;
+    struct sem_initializer *init;
+    struct sem_init_decl *next;
+};
+
+struct sem_unary
+{
+    ast_node_type expr_type;
+    union
+    {
+        struct sem_cast_expr *cast;
+        struct sem_expr_src *postfix;
+        struct sem_sizeof *sizeof_expr;
+        struct sem_pre *pre_inc_dec;
+        struct sem_pre_unary *pre_unary_op;
+        struct sem_declarator *type_name;
+    } expr;
+};
+
+struct sem_pre
+{
+    ast_node_type op_type;
+    struct sem_unary *operand;
+};
+
+struct sem_pre_unary
+{
+    ast_node_type op_type;
+    struct sem_cast_expr *operand;
+};
+
+struct sem_sizeof
 {
     BOOL is_unary_expr;
-
     union
     {
-        sqz_unary *unary;
+        struct sem_unary *unary;
         type_t *type;
     };
 };
 
-typedef struct _sqz_binary_expr
+struct sem_binary_expr
 {
     ast_node_type expr_type;
-    sqz_cast_expr *cast_expr;
-    struct _sqz_binary_expr *left;
+    struct sem_cast_expr *cast_expr;
+    struct sem_binary_expr *left;
     union
     {
-        sqz_cast_expr *cast;
-        struct _sqz_binary_expr *binary;
+        struct sem_cast_expr *cast;
+        struct sem_binary_expr *binary;
     } right;
-} sqz_binary_expr;
+};
 
-typedef struct _sqz_ternary_expr
+struct sem_ternary_expr
 {
-    sqz_binary_expr *condition;
-    sqz_expr *true_expr;
-    struct _sqz_ternary_expr *false_expr;
+    struct sem_binary_expr *condition;
+    struct sem_expr *true_expr;
+    struct sem_ternary_expr *false_expr;
+    struct sem_binary_expr *binary_expr;
+};
 
-    sqz_binary_expr *binary_expr;
-} sqz_ternary_expr;
-
-typedef struct _sqz_assign_expr
+struct sem_assign_expr
 {
     ast_node_type assign_type;
-    sqz_unary *left;
-    struct _sqz_assign_expr *right;
-    sqz_ternary_expr *ternary_expr;
-} sqz_assign_expr;
+    struct sem_unary *left;
+    struct sem_assign_expr *right;
+    struct sem_ternary_expr *ternary_expr;
+};
 
-struct sqz_labeled
+struct sem_labeled
 {
     ast_node_type type;
     union
     {
-        struct sqz_label *label_stmt;
-        struct sqz_case *case_stmt;
-        struct sqz_default *default_stmt;
+        struct sem_label *label_stmt;
+        struct sem_case *case_stmt;
+        struct sem_default *default_stmt;
     } stmt;
 };
 
-struct sqz_label
+struct sem_label
 {
     symrec_t *label;
-    struct _sqz_stmt *stmt;
+    struct sem_stmt *stmt;
 };
 
-struct sqz_case
+struct sem_case
 {
-    sqz_ternary_expr *case_expr;
-    struct _sqz_stmt *stmt;
+    struct sem_ternary_expr *case_expr;
+    struct sem_stmt *stmt;
 };
 
-struct sqz_default
+struct sem_default
 {
-    struct _sqz_stmt *stmt;
+    struct sem_stmt *stmt;
 };
 
-struct _sqz_block_item
+struct sem_block_item
 {
     ast_node_type decl_or_stmt;
     union
     {
-        struct _sqz_var_decl *decl;
-        struct _sqz_stmt *stmt;
+        struct sem_var_decl *decl;
+        struct sem_stmt *stmt;
     } item;
-
-    struct _sqz_block_item *next;
+    struct sem_block_item *next;
 };
 
-struct sqz_compound_stmt
+struct sem_compound_stmt
 {
-    struct _sqz_block_item *block_list;
+    struct sem_block_item *block_list;
 };
 
-struct sqz_expr_stmt
+struct sem_expr_stmt
 {
-    struct _sqz_expr *expr;
+    struct sem_expr *expr;
 };
 
-struct sqz_if
+struct sem_if
 {
-    struct _sqz_expr *expr;
-    struct _sqz_stmt *true_stmt;
+    struct sem_expr *expr;
+    struct sem_stmt *true_stmt;
 };
 
-struct sqz_if_else
+struct sem_if_else
 {
-    struct _sqz_expr *expr;
-    struct _sqz_stmt *true_stmt;
-    struct _sqz_stmt *false_stmt;
+    struct sem_expr *expr;
+    struct sem_stmt *true_stmt;
+    struct sem_stmt *false_stmt;
 };
 
-struct sqz_switch
+struct sem_switch
 {
-    struct _sqz_expr *expr;
-    struct _sqz_stmt *body;
+    struct sem_expr *expr;
+    struct sem_stmt *body;
 };
 
-struct sqz_while
+struct sem_while
 {
-    struct _sqz_expr *expr;
-    struct _sqz_stmt *body;
+    struct sem_expr *expr;
+    struct sem_stmt *body;
 };
 
-struct sqz_do_while
+struct sem_do_while
 {
-    struct _sqz_expr *expr;
-    struct _sqz_stmt *body;
+    struct sem_expr *expr;
+    struct sem_stmt *body;
 };
 
-struct sqz_for
+struct sem_for
 {
-    struct _sqz_var_decl *decl;
-    struct sqz_expr_stmt *cond;
-    struct _sqz_expr *eval;
-
-    struct _sqz_stmt *body;
+    struct sem_var_decl *decl;
+    struct sem_expr_stmt *cond;
+    struct sem_expr *eval;
+    struct sem_stmt *body;
 };
 
-struct sqz_goto
+struct sem_goto
 {
     symrec_t *label;
 };
 
-struct sqz_continue
+struct sem_continue
 {
 };
 
-struct sqz_break
+struct sem_break
 {
 };
 
-struct sqz_return
+struct sem_return
 {
-    sqz_expr *expr;
+    struct sem_expr *expr;
 };
 
-struct sqz_jump
+struct sem_jump
 {
     ast_node_type jump_type;
     union
     {
-        struct sqz_goto *goto_stmt;
-        struct sqz_continue *continue_stmt;
-        struct sqz_break *break_stmt;
-        struct sqz_return *return_stmt;
+        struct sem_goto *goto_stmt;
+        struct sem_continue *continue_stmt;
+        struct sem_break *break_stmt;
+        struct sem_return *return_stmt;
     } jump;
 };
 
-struct sqz_iter
+struct sem_iter
 {
     ast_node_type iter_type;
     union
     {
-        struct sqz_while *while_iter;
-        struct sqz_do_while *do_while_iter;
-        struct sqz_for *for_iter;
+        struct sem_while *while_iter;
+        struct sem_do_while *do_while_iter;
+        struct sem_for *for_iter;
     } iter;
 };
 
-struct sqz_selection
+struct sem_selection
 {
     ast_node_type type;
     union
     {
-        struct sqz_if *if_selection;
-        struct sqz_if_else *if_else_selection;
-        struct sqz_switch *switch_selection;
+        struct sem_if *if_selection;
+        struct sem_if_else *if_else_selection;
+        struct sem_switch *switch_selection;
     } selection;
 };
 
-typedef struct _sqz_stmt
+struct sem_stmt
 {
     ast_node_type stmt_type;
     union
     {
-        struct sqz_compound_stmt *compound;
-        struct sqz_expr_stmt *expr;
-        struct sqz_labeled *labeled;
-        struct sqz_iter *iter;
-        struct sqz_jump *jump;
-        struct sqz_selection *selection;
+        struct sem_compound_stmt *compound;
+        struct sem_expr_stmt *expr;
+        struct sem_labeled *labeled;
+        struct sem_iter *iter;
+        struct sem_jump *jump;
+        struct sem_selection *selection;
     } stmt;
+};
 
-} sqz_stmt;
-
-typedef struct _sqz_struct_field
+struct sem_struct_field
 {
-    sqz_decl_spec *spec;
-    sqz_type *decl;
-    sqz_ternary_expr *bit_field;
+    struct sem_decl_spec *spec;
+    struct sem_declarator *decl;
+    struct sem_ternary_expr *bit_field;
+    struct sem_struct_field *next;
+};
 
-    struct _sqz_struct_field *next;
-} sqz_struct_field;
-
-typedef struct _sqz_program
-{
-    sqz_decl *decl;
-} sqz_program;
-
-int sem_program(struct _sqz_program *root);
-
+int sem_program(struct _sqz_program *root, struct sem_program **out);
 #endif

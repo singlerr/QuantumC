@@ -2,7 +2,7 @@
 #define _AST_TYPES_H_
 typedef enum _ast_node_type
 {
-    AST_PROGRAM,
+    AST_PROGRAM = 0,
     AST_TRANSLATION_UNIT,
     AST_VARIABLE_DECLARATOR,
     AST_VARIABLE_DECLARATION,
@@ -22,6 +22,7 @@ typedef enum _ast_node_type
     AST_NAME_TYPE,
     AST_ARRAY_ACCESS,
     AST_MEMBER_ACCESS,
+    AST_INITIALIZER,
 
     AST_NODE_LIST,
 

@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "symrec.h"
 #include "ast_sqz.h"
+#include "ast_sem.h"
 
 extern FILE *yyin;
 extern int yyparse(ast_node **root);
@@ -26,6 +27,7 @@ int main(int argc, char *argv[])
 
     ast_node *root;
     sqz_program *squeezed;
+    struct sem_program *sem_analysis;
     FILE *f;
     int ret;
 
@@ -50,6 +52,11 @@ int main(int argc, char *argv[])
     }
 
     if (FAILED(squeeze_ast(root, &squeezed)))
+    {
+        exit(1);
+    }
+
+    if (FAILED(sem_program(squeezed, &sem_analysis)))
     {
         exit(1);
     }

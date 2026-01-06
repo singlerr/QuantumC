@@ -74,8 +74,7 @@ typedef struct _sqz_initializer
 {
     int level;
     struct _sqz_assign_expr *expr;
-    sqz_designator *designator;
-    struct _sqz_initializer *next;
+    struct _sqz_initializer_list *init_list;
 } sqz_initializer;
 
 typedef struct _sqz_var_decl
@@ -152,9 +151,21 @@ typedef struct _sqz_args
 typedef struct _sqz_expr_src_struct_init
 {
     type_t *struct_type;
-
-    // TODO initializer list : will be implemented in the future
+    struct _sqz_initializer_list *init_list;
 } sqz_expr_src_struct_init;
+
+typedef struct _sqz_initializer_list
+{
+    struct _sqz_initializer *initializer;
+    struct _sqz_designation *designation;
+    struct _sqz_initializer_list *next;
+} sqz_initializer_list;
+
+typedef struct _sqz_designation
+{
+    sqz_designator *designator_list;
+    struct _sqz_designation *next;
+} sqz_designation;
 
 typedef struct _sqz_expr_src_arr_access
 {
@@ -197,12 +208,12 @@ typedef struct _sqz_expr_src
 typedef struct _sqz_cast_expr
 {
     sqz_type *type;
-
+    ast_node_type cast_type;
     union
     {
         struct _sqz_cast_expr *cast;
         struct _sqz_unary *unary;
-    };
+    } expr;
 
 } sqz_cast_expr;
 
