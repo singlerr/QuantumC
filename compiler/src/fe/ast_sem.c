@@ -5,6 +5,7 @@
 #include "ast_sem.h"
 #include "ast_sqz.h"
 #include "diagnostics.h"
+#include "ast_typing.h"
 
 #ifndef SAFE_FREE
 #define SAFE_FREE(ptr) \
@@ -50,7 +51,7 @@ int sem_cast_expr(struct env *env, sqz_cast_expr *src, struct sem_cast_expr **ou
 int sem_unary(struct env *env, sqz_unary *src, struct sem_unary **out);
 int sem_expr_src(struct env *env, sqz_expr_src *src, struct sem_expr_src **out);
 int sem_primary_expr(struct env *env, sqz_primary_expr *src, struct sem_primary_expr **out);
-int sem_declarator(struct env *env, sqz_type *src, struct sem_declarator **out);
+int sem_declarator(struct env *env, sqz_declarator *src, struct sem_declarator **out);
 int sem_initializer(struct env *env, sqz_initializer *src, struct sem_initializer **out);
 int sem_initializer_list(struct env *env, sqz_initializer_list *src, struct sem_initializer_list **out);
 int sem_stmt(struct env *env, sqz_stmt *src, struct sem_stmt **out);
@@ -70,6 +71,8 @@ type_t *infer_unary(struct sem_unary *unary_expr);
 type_t *infer_binary(struct sem_binary_expr *binary_expr);
 type_t *infer_ternary(struct sem_ternary_expr *ternary_expr);
 type_t *infer_assign_expr(struct sem_assign_expr *assign_expr);
+type_t *infer_expr_src(struct sem_expr_src *expr_src);
+int *infer_type_size(const type_t *type);
 
 struct env *push_env()
 {
@@ -221,6 +224,13 @@ int sem_primary_expr(struct env *env, sqz_primary_expr *src, struct sem_primary_
     switch (src->primary_type)
     {
     case AST_IDENTIFIER:
+        symbol_t *s = find_symbol(env, src->value.identifier->name->name, TRUE);
+        if (!s)
+        {
+            LOG_ERROR("Undefined symbol: %s", src->value.identifier->name->name);
+            goto fail;
+        }
+
         if (FAILED(sem_id(src->value.identifier, &result->value.identifier)))
         {
             goto fail;
@@ -266,6 +276,23 @@ int sem_expr_src(struct env *env, sqz_expr_src *src, struct sem_expr_src **out)
     {
     case AST_EXPR_ARRAY_ACCESS:
     {
+        struct sem_expr_src_arr_access *access = src->expr.arr_access;
+        if (access->array)
+        {
+            type_t *arr_type = infer_expr_src(access->array);
+
+            if (!arr_type)
+            {
+                goto fail;
+            }
+
+            if (!ARRAY_ACCESSIBLE(arr_type))
+            {
+                LOG_ERROR("Type mismatch: %s; Only pointer or array type could be accessed via brackets", arr_type->name);
+                goto fail;
+            }
+        }
+
         struct sem_expr_src_arr_access *arr = IALLOC(struct sem_expr_src_arr_access);
         if (FAILED(sem_expr_src(env, src->expr.arr_access->array, &arr->array)) ||
             FAILED(sem_expr(env, src->expr.arr_access->index, &arr->index)))
@@ -351,14 +378,14 @@ int sem_cast_expr(struct env *env, sqz_cast_expr *src, struct sem_cast_expr **ou
     if (src->type)
     {
         if (FAILED(sem_declarator(env, src->type, &result->type)) ||
-            FAILED(sem_cast_expr(env, src->cast, &result->expr.cast)))
+            FAILED(sem_cast_expr(env, src->expr.cast, &result->expr.cast)))
         {
             goto fail;
         }
     }
     else
     {
-        if (FAILED(sem_unary(env, src->unary, &result->expr.unary)))
+        if (FAILED(sem_unary(env, src->expr.unary, &result->expr.unary)))
         {
             goto fail;
         }
@@ -580,7 +607,7 @@ fail:
 }
 
 /* sqz_type to sem_declarator */
-int sem_declarator(struct env *env, sqz_type *src, struct sem_declarator **out)
+int sem_declarator(struct env *env, sqz_declarator *src, struct sem_declarator **out)
 {
     if (!src)
     {
@@ -589,7 +616,8 @@ int sem_declarator(struct env *env, sqz_type *src, struct sem_declarator **out)
     }
 
     struct sem_declarator *root = NULL, *curr, *temp = NULL;
-    sqz_type *node = src;
+
+    sqz_declarator *node = src;
 
     while (node)
     {
@@ -610,20 +638,17 @@ int sem_declarator(struct env *env, sqz_type *src, struct sem_declarator **out)
             }
         }
 
-        if (node->index)
+        if (node->type->meta->node_type == AST_ARRAY_ACCESS)
         {
-            if (FAILED(sem_assign_expr(env, node->index, &temp->index)))
-            {
-                goto fail;
-            }
+
+            // if (FAILED(sem_assign_expr(env, node->index, &temp->index)))
+            // {
+            //     goto fail;
+            // }
         }
 
-        if (node->args)
+        if (node->type->meta->node_type == AST_TYPE_FUNCTION)
         {
-            if (FAILED(sem_args(node->args, &temp->args)))
-            {
-                goto fail;
-            }
         }
 
         if (!root)
@@ -968,7 +993,6 @@ int sem_func_decl(sqz_func_decl *src, struct sem_func_decl **out)
 
     struct sem_func_decl *result = IALLOC(struct sem_func_decl);
     result->return_type = src->return_type;
-
     if (src->spec)
     {
         if (FAILED(sem_decl_spec(src->spec, &result->spec)))
@@ -1496,12 +1520,21 @@ type_t *infer_cast_expr(struct sem_cast_expr *cast_expr)
     {
     case AST_EXPR_TYPE_CAST:
     {
-        type_t *casting_type = cast_expr->type;
+        type_t *caster_type = cast_expr->type->type;
+        type_t *castee_type = infer_cast_expr(cast_expr->expr.cast);
+
+        if (!is_casting_compatible(caster_type, castee_type))
+        {
+            LOG_ERROR("Casting type error; Cannot cast from %s to %s", castee_type->name, caster_type->name);
+            return NULL;
+        }
+
+        return caster_type;
     }
     break;
     default:
-
-        break;
+        struct sem_unary *unary = cast_expr->expr.unary;
+        return infer_unary(unary);
     }
 
     return NULL;
@@ -1509,11 +1542,47 @@ type_t *infer_cast_expr(struct sem_cast_expr *cast_expr)
 
 type_t *infer_expr(struct sem_expr *expr)
 {
-    return NULL;
+    return infer_assign_expr(expr->expr);
 }
 
 type_t *infer_unary(struct sem_unary *unary_expr)
 {
+    switch (unary_expr->expr_type)
+    {
+    case AST_EXPR_PRE_INC:
+        struct sem_pre *pre = unary_expr->expr.pre_inc_dec;
+        type_t *t = infer_unary(pre->operand);
+        if (!IS_NUMERIC(t))
+        {
+            LOG_ERROR("Operand type mismatch: %s; pre inc must be applied to numeric types", t->name);
+            return NULL;
+        }
+        return t;
+    case AST_EXPR_PRE_DEC:
+        struct sem_pre *pre = unary_expr->expr.pre_inc_dec;
+        type_t *t = infer_unary(pre->operand);
+        if (!IS_NUMERIC(t))
+        {
+            LOG_ERROR("Operand type mismatch: %s; pre dec must be applied to numeric types", t->name);
+            return NULL;
+        }
+        return t;
+    case AST_EXPR_UNARY:
+        struct sem_cast_expr *cast = unary_expr->expr.cast;
+        type_t *t = infer_cast_expr(cast);
+        if (!IS_INTEGRAL(t))
+        {
+            LOG_ERROR("Operand type mismatch: %s; unary operator must be applied to integral types", t->name);
+            return NULL;
+        }
+
+        return t;
+        break;
+    case AST_EXPR_SIZEOF:
+        return PRIM_INT->handle->meta->size;
+    default:
+        break;
+    }
     return NULL;
 }
 
@@ -1530,4 +1599,53 @@ type_t *infer_ternary(struct sem_ternary_expr *ternary_expr)
 type_t *infer_assign_expr(struct sem_assign_expr *assign_expr)
 {
     return NULL;
+}
+
+int *infer_type_size(const type_t *type)
+{
+    if (type->meta->size != -1)
+    {
+        return type->meta->size;
+    }
+    typemeta_t *meta = type->meta;
+    switch (meta->node_type)
+    {
+    case AST_TYPE_STRUCT:
+        struct _sqz_struct_decl *struct_decl = meta->fields;
+        struct _sqz_struct_field_decl *field = struct_decl->field;
+
+        while (field)
+        {
+            struct _sqz_struct_field *f = field->decl_list;
+            int field_type_size = infer_type_size(field->type);
+            if (field_type_size == -1)
+            {
+                LOG_ERROR("Cannot infer type of field: %s", field->type->name);
+                return -1;
+            }
+
+            while (f)
+            {
+
+                f = f->next;
+            }
+
+            field = field->next;
+        }
+
+        break;
+    case AST_TYPE_UNION:
+        break;
+    case AST_TYPE_FUNCTION:
+        return 4;
+    case AST_TYPE_POINTER:
+        return 4;
+    default:
+        LOG_ERROR("Unknown type size for: %s", type->name);
+        return -1;
+    }
+}
+
+type_t *infer_expr_src(struct sem_expr_src *expr_src)
+{
 }

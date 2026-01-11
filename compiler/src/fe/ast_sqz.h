@@ -26,7 +26,7 @@ struct _sqz_spec_qual
 typedef struct _sqz_param_decl
 {
     struct _sqz_decl_spec *spec;
-    struct _sqz_type *decl;
+    struct _sqz_declarator *decl;
     type_t *type;
 } sqz_param_decl;
 
@@ -41,16 +41,14 @@ typedef struct _sqz_designator
     struct _sqz_designator *next;
 } sqz_designator;
 
-typedef struct _sqz_type
+typedef struct _sqz_declarator
 {
     type_t *type;
-    struct _sqz_assign_expr *index;
-    struct _sqz_args *args;
+    struct _sqz_declarator *abs_decl;
     struct _sqz_id *id;
     struct _sqz_spec_qual *qual;
-    struct _sqz_type *abs_decl;
-    struct _sqz_type *next;
-} sqz_type;
+    struct _sqz_declarator *next;
+} sqz_declarator;
 
 typedef struct _sqz_decl_spec
 {
@@ -207,7 +205,7 @@ typedef struct _sqz_expr_src
 
 typedef struct _sqz_cast_expr
 {
-    sqz_type *type;
+    sqz_declarator *type;
     ast_node_type cast_type;
     union
     {
@@ -219,7 +217,7 @@ typedef struct _sqz_cast_expr
 
 typedef struct _sqz_init_decl
 {
-    sqz_type *decl;
+    sqz_declarator *decl;
     sqz_initializer *init;
 
     struct _sqz_init_decl *next;
@@ -237,7 +235,7 @@ typedef struct _sqz_unary
         struct _sqz_sizeof *sizeof_expr;
         struct _sqz_pre *pre_inc_dec;
         struct _sqz_pre_unary *pre_unary_op;
-        sqz_type *type_name;
+        sqz_declarator *type_name;
     } expr;
 
 } sqz_unary;
@@ -262,7 +260,7 @@ struct _sqz_sizeof
     {
         sqz_unary *unary;
         type_t *type;
-    };
+    } expr;
 };
 
 typedef struct _sqz_binary_expr
@@ -454,7 +452,7 @@ typedef struct _sqz_stmt
 typedef struct _sqz_struct_field
 {
     sqz_decl_spec *spec;
-    sqz_type *decl;
+    sqz_declarator *decl;
     sqz_ternary_expr *bit_field;
 
     struct _sqz_struct_field *next;

@@ -4,7 +4,41 @@
 #include "type.h"
 #include "common.h"
 
-BOOL is_casting_compatible(const type_t *caster, const type_t *castee);
+#ifndef TYPE_OP
+#define TYPE_OP
+
+#define IS_PTR(type) (type->meta->node_type == AST_TYPE_POINTER)
+#define IS_INT(type) (type == PRIM_INT)
+#define IS_VOID(type) (type == PRIM_VOID)
+#define IS_CHAR(type) (type == PRIM_CHAR)
+#define IS_SHORT(type) (type == PRIM_SHORT)
+#define IS_LONG(type) (type == PRIM_LONG)
+#define IS_FLOAT(type) (type == PRIM_FLOAT)
+#define IS_DOUBLE(type) (type == PRIM_DOUBLE)
+#define IS_SIGNED(type) (type == PRIM_SIGNED)
+#define IS_UNSIGNED(type) (type == PRIM_UNSIGNED)
+#define IS_COMPLEX(type) (type == PRIM_COMPLEX)
+#define IS_IMAGINARY(type) (type == PRIM_IMAGINARY)
+#define IS_QUBIT(type) (type == PRIM_QUBIT)
+#define IS_ANGLE(type) (type == PRIM_ANGLE)
+#define IS_ARRAY(type) (type->meta->node_type == AST_TYPE_ARRAY)
+#define ARRAY_ACCESSIBLE(type) (IS_ARRAY(type) || IS_PTR(type))
+#define IS_STRUCT(type) (type->meta->node_type == AST_TYPE_STRUCT)
+#define IS_AGGREGATE(type) (IS_ARRAY(type) || IS_STRUCT(type))
+#define IS_EXCL_NULL(a, b) ((!a && b) || (a && !b))
+#define IS_INCL_NULL(a, b) (!a || !b)
+
+#define TYPE_EQUAL(a, b) (a == b || a->meta->node_type == b->meta->node_type)
+#define SPEC_EQUAL(a, b) (a->qualifier == b->qualifier && a->storage_class == b->storage_class)
+#define IS_INTEGRAL(type) (IS_INT(type) || IS_CHAR(type) || IS_SHORT(type) || IS_LONG(type) || IS_SIGNED(type) || IS_UNSIGNED(type))
+#define IS_NUMERIC(type) (IS_INTEGRAL(type) || IS_FLOAT(type) || IS_DOUBLE(type))
+#define IS_SCALAR(type) (IS_NUMERIC(type) || IS_PTR(type))
+#define IS_UNION(type) (type->meta->node_type == AST_TYPE_UNION)
+#define IS_FUNC(type) (type->meta->node_type == AST_TYPE_FUNCTION)
+#endif
+
 BOOL is_type_compatible(const type_t *left, const type_t *right);
-BOOL is_param_compatible(const type_t *input, const type_t *param);
+BOOL is_casting_compatible(const type_t *caster, const type_t *castee);
+BOOL is_param_compatible(const sqz_args *a, const sqz_args *b);
+
 #endif
