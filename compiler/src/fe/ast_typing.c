@@ -1,5 +1,6 @@
 #include "ast_typing.h"
 #include "ast_sqz.h"
+#include "ast_sem.h"
 #include "symrec.h"
 #include "diagnostics.h"
 #include <string.h>
@@ -9,6 +10,31 @@ BOOL is_struct_compatible(const type_t *a, const type_t *b);
 BOOL is_array_compatible(const type_t *a, const type_t *b);
 BOOL is_func_compatible(const type_t *a, const type_t *b);
 BOOL is_spec_compatible(const struct _sqz_spec_qual *a, const struct _sqz_spec_qual *b);
+BOOL pointer_equals(const type_t *a, const type_t *b);
+
+BOOL type_equals(const type_t *a, const type_t *b)
+{
+}
+
+BOOL pointer_equals(const type_t *a, const type_t *b)
+{
+    if (!a || !b)
+    {
+        return FALSE;
+    }
+
+    if (!a->next || !b->next)
+    {
+        return FALSE;
+    }
+
+    if (!type_equals(a->next, b->next))
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
 
 BOOL is_pointer_compatible(const type_t *a, const type_t *b)
 {
@@ -186,10 +212,6 @@ BOOL is_func_compatible(const type_t *a, const type_t *b)
 
 BOOL is_type_compatible(const type_t *left, const type_t *right)
 {
-    if (TYPE_EQUAL(left, right))
-    {
-        return TRUE;
-    }
 
     if (IS_PTR(left) && IS_PTR(right))
     {
@@ -220,14 +242,19 @@ BOOL is_type_compatible(const type_t *left, const type_t *right)
         return is_func_compatible(left, right);
     }
 
+    if (SHALLOW_TYPE_EQUAL(left, right))
+    {
+        return TRUE;
+    }
+
     return FALSE;
 }
-BOOL is_param_compatible(const sqz_args *a, const sqz_args *b)
+BOOL is_param_compatible(const struct sem_args *a, const struct sem_args *b)
 {
-    sqz_param_decl *a_param = NULL;
-    sqz_param_decl *b_param = NULL;
-    sqz_declarator *a_decl = NULL;
-    sqz_declarator *b_decl = NULL;
+    struct sem_param_decl *a_param = NULL;
+    struct sem_param_decl *b_param = NULL;
+    struct sem_declarator *a_decl = NULL;
+    struct sem_declarator *b_decl = NULL;
     while (TRUE)
     {
         if (IS_INCL_NULL(a, b))

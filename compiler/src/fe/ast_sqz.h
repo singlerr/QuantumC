@@ -102,6 +102,7 @@ typedef struct _sqz_func_decl
     struct _sqz_decl_spec *spec;
     type_t *return_type;
     struct _sqz_args *params;
+    struct _sqz_id *name;
     struct sqz_compound_stmt *body;
 } sqz_func_decl;
 

@@ -42,6 +42,7 @@ symbol_t *push_symbol(struct env *env, const char *name, type_t *type);
 symbol_t *find_symbol(struct env *env, const char *name, BOOL lookup_outer);
 void pop_env(struct env *);
 
+int sem_func_decl(struct env *env, sqz_func_decl *src, struct sem_func_decl **out);
 int sem_var_decl(struct env *env, sqz_var_decl *var_decl, struct sem_var_decl **out);
 int sem_expr(struct env *env, sqz_expr *src, struct sem_expr **out);
 int sem_assign_expr(struct env *env, sqz_assign_expr *src, struct sem_assign_expr **out);
@@ -276,23 +277,6 @@ int sem_expr_src(struct env *env, sqz_expr_src *src, struct sem_expr_src **out)
     {
     case AST_EXPR_ARRAY_ACCESS:
     {
-        struct sem_expr_src_arr_access *access = src->expr.arr_access;
-        if (access->array)
-        {
-            type_t *arr_type = infer_expr_src(access->array);
-
-            if (!arr_type)
-            {
-                goto fail;
-            }
-
-            if (!ARRAY_ACCESSIBLE(arr_type))
-            {
-                LOG_ERROR("Type mismatch: %s; Only pointer or array type could be accessed via brackets", arr_type->name);
-                goto fail;
-            }
-        }
-
         struct sem_expr_src_arr_access *arr = IALLOC(struct sem_expr_src_arr_access);
         if (FAILED(sem_expr_src(env, src->expr.arr_access->array, &arr->array)) ||
             FAILED(sem_expr(env, src->expr.arr_access->index, &arr->index)))
@@ -300,6 +284,43 @@ int sem_expr_src(struct env *env, sqz_expr_src *src, struct sem_expr_src **out)
             SAFE_FREE(arr);
             goto fail;
         }
+
+        if (arr->array)
+        {
+            type_t *arr_type = infer_expr_src(arr->array);
+
+            if (!arr_type)
+            {
+                SAFE_FREE(arr);
+                goto fail;
+            }
+
+            if (!ARRAY_ACCESSIBLE(arr_type))
+            {
+                LOG_ERROR("Type mismatch: %s; Only pointer or array type could be accessed via brackets", arr_type->name);
+                SAFE_FREE(arr);
+                goto fail;
+            }
+        }
+
+        if (arr->index)
+        {
+            type_t *index_type = infer_expr(arr->index);
+
+            if (!index_type)
+            {
+                SAFE_FREE(arr);
+                goto fail;
+            }
+
+            if (!ARRAY_INDEXIBLE(index_type))
+            {
+                LOG_ERROR("Type mismatch: %s; Only integral types can be used as index", index_type->name);
+                SAFE_FREE(arr);
+                goto fail;
+            }
+        }
+
         result->expr.arr_access = arr;
     }
     break;
@@ -311,6 +332,19 @@ int sem_expr_src(struct env *env, sqz_expr_src *src, struct sem_expr_src **out)
             SAFE_FREE(func);
             goto fail;
         }
+
+        type_t *func_type = infer_expr_src(func->func);
+        if (!func_type)
+        {
+            goto fail;
+        }
+
+        if (!IS_FUNC(func_type))
+        {
+            LOG_ERROR("Type mismatch: %s; Only function types can be called", func_type->name);
+            goto fail;
+        }
+
         if (src->expr.func_call->args)
         {
             if (FAILED(sem_args(src->expr.func_call->args, &func->args)))
@@ -983,7 +1017,7 @@ fail:
 }
 
 /* sqz_func_decl to sem_func_decl */
-int sem_func_decl(sqz_func_decl *src, struct sem_func_decl **out)
+int sem_func_decl(struct env *env, sqz_func_decl *src, struct sem_func_decl **out)
 {
     if (!src)
     {
@@ -1012,6 +1046,27 @@ int sem_func_decl(sqz_func_decl *src, struct sem_func_decl **out)
     if (FAILED(sem_compound_stmt(src->body, &result->body)))
     {
         goto fail;
+    }
+
+    symbol_t *func_sym = find_symbol(env, (const char *)src->name, TRUE);
+
+    if (func_sym)
+    {
+        typemeta_t *meta = func_sym->type->meta;
+        if (meta->node_type != AST_TYPE_FUNCTION)
+        {
+            goto fail;
+        }
+
+        if (!meta->func)
+        {
+            goto fail;
+        }
+
+        if (func_sym->type->meta->node_type == AST_TYPE_FUNCTION)
+        {
+            typemeta_t *meta = func_sym->type->meta;
+                }
     }
 
     *out = result;

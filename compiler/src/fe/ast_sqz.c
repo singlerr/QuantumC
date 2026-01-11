@@ -134,12 +134,23 @@ int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out)
     switch (ext_decl->node_type)
     {
     case AST_FUNCTION_DECLARATION:
+    {
         ret = squeeze_func_declaration(ext_decl, &func_decl);
         if (FAILED(ret))
         {
             ret = VAL_FAILED;
         }
-        break;
+
+        typemeta_t *meta = mk_type_meta(0);
+        meta->node_type = AST_TYPE_FUNCTION;
+        meta->func = func_decl;
+
+        type_t *type = mk_type("func", meta, NULL);
+        type->name = strdup(func_decl->name->name->name);
+
+        puttype((const char *)type->name, AST_TYPE_FUNCTION, type);
+    }
+    break;
     case AST_VARIABLE_DECLARATION:
         ret = squeeze_var_declaration(ext_decl, &var_decl);
         if (FAILED(ret))
@@ -435,6 +446,7 @@ fail:
     FREE_LIST(sqz_init_decl, root);
     return VAL_FAILED;
 }
+
 int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
 {
     sqz_func_decl *result = NULL;
@@ -443,6 +455,7 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
     type_t *return_type;
     sqz_var_decl *decl_list = NULL;
     sqz_args *func_args = NULL;
+    sqz_id *func_id = NULL;
     struct sqz_compound_stmt *body = NULL;
 
     ast_node *spec_node = func_decl->left;
@@ -482,6 +495,19 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
             func_args = d->type->meta->args;
             break;
         }
+
+        d = d->next;
+    }
+
+    d = decl;
+    while (d)
+    {
+        if (d->id)
+        {
+            func_id = d->id;
+            break;
+        }
+
         d = d->next;
     }
 
@@ -547,7 +573,7 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
     result->return_type = return_type;
     result->spec = specs;
     result->params = func_args;
-
+    result->name = func_id;
     *out = result;
 
     return VAL_OK;
