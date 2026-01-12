@@ -157,7 +157,15 @@ symbol_t *find_symbol(struct env *cur, const char *name, BOOL lookup_outer)
     {
         if (!cur->symbols)
         {
-            break;
+            if (lookup_outer)
+            {
+                cur = cur->prev;
+                continue;
+            }
+            else
+            {
+                break;
+            }
         }
 
         symbol_t *sym = cur->symbols;
@@ -672,17 +680,22 @@ int sem_declarator(struct env *env, sqz_declarator *src, struct sem_declarator *
             }
         }
 
-        if (node->type->meta->node_type == AST_ARRAY_ACCESS)
-        {
+        typemeta_t *meta = node->type->meta;
 
-            // if (FAILED(sem_assign_expr(env, node->index, &temp->index)))
-            // {
-            //     goto fail;
-            // }
-        }
-
-        if (node->type->meta->node_type == AST_TYPE_FUNCTION)
+        if (meta->index)
         {
+            struct sem_assign_expr *index_expr = NULL;
+            if (FAILED(sem_assign_expr(env, meta->index, &index_expr)))
+            {
+                goto fail;
+            }
+
+            type_t *t = infer_assign_expr(index_expr);
+            if (!IS_INTEGRAL(t))
+            {
+                LOG_ERROR("Array size must be integral type", 0);
+                goto fail;
+            }
         }
 
         if (!root)
@@ -821,7 +834,13 @@ int sem_init_decl(struct env *env, sqz_init_decl *src, struct sem_init_decl **ou
                 }
                 else
                 {
-                    push_symbol(env, d->id->name->name, temp->decl->type);
+                    type_t *t = temp->decl->type;
+                    // current var type is func
+                    if (d->next && d->next->type && strcmp(d->next->type->name, "func") == 0)
+                    {
+                        t = d->next->type;
+                    }
+                    push_symbol(env, d->id->name->name, t);
                 }
             }
 
@@ -1567,6 +1586,7 @@ int sem_program(struct _sqz_program *root, struct sem_program **out)
 {
     sqz_decl *decl = root->decl;
     struct sem_var_decl *sem_var = NULL;
+    struct sem_func_decl *sem_func = NULL;
     struct env *top = push_env();
     while (decl)
     {
@@ -1581,6 +1601,12 @@ int sem_program(struct _sqz_program *root, struct sem_program **out)
 
             break;
         case AST_FUNCTION_DECLARATION:
+            sqz_func_decl *func_decl = decl->decl.func;
+            if (FAILED(sem_func_decl(top, func_decl, &sem_func)))
+            {
+                goto fail;
+            }
+
             break;
         default:
             LOG_ERROR("Unknown delcaration type", decl->decl_type);

@@ -10,8 +10,6 @@ void yyerror(ast_node **root, char const *s);
 extern int yylex();
 #include "c.parser.h"
 
-extern char* yytext;
-
 %}
 
 
@@ -145,7 +143,7 @@ extern char* yytext;
 program: translation_unit { *root = AST_GENERAL_NODE(AST_PROGRAM, NULL, $1, NULL); }
 
 primary_expression
-	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL); }
+	: IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL); }
 	| INTCONSTANT { $$ = AST_CONST_NODE(AST_LITERAL_INTEGER, new_ast_int_const(yylval.i)); }
 	| FLOATCONSTANT { $$ = AST_CONST_NODE(AST_LITERAL_FLOAT, new_ast_float_const(yylval.f)); }
 	| STRING_LITERAL { $$ = AST_CONST_NODE(AST_LITERAL_STRING, new_ast_str_const(yylval.str)); }
@@ -157,8 +155,8 @@ postfix_expression
 	| postfix_expression '[' expression ']' { $$ = AST_GENERAL_NODE(AST_EXPR_ARRAY_ACCESS, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression '(' ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression '(' argument_expression_list ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression INC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_INC, $1, NULL, NULL); }
 	| postfix_expression DEC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_DEC, $1, NULL, NULL); }
 	| '(' type_name ')' '{' initializer_list '}' { $$ = AST_GENERAL_NODE(AST_STRUCT_INIT, $2, $5, NULL); }
@@ -330,13 +328,13 @@ type_specifier
 	| IMAGINARY { $$ = AST_TYPE_NODE(AST_TYPE_IMAGINARY, PRIM_IMAGINARY, NULL, NULL, NULL); }
 	| struct_or_union_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_STRUCT_UNION, NULL, $1, NULL); }
 	| enum_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_ENUM, NULL, $1, NULL); }
-	| TYPE_NAME { $$ = AST_TYPE_NODE(AST_TYPE_USER, gettype(yytext) ,NULL, NULL , NULL); }
+	| TYPE_NAME { $$ = AST_TYPE_NODE(AST_TYPE_USER, gettype(yylval.str) ,NULL, NULL , NULL); }
 	;
 
 struct_or_union_specifier
 	: struct_or_union IDENTIFIER <id_node> { $$ = AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL); } '{' { inc_scope_level(); } struct_declaration_list '}' { dec_scope_level();  $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, $3 ,$1, NULL, $6); }
 	| struct_or_union '{' { inc_scope_level(); }  struct_declaration_list '}' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_STRUCT_UNION, $1, NULL, $4); }
-	| struct_or_union IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, AST_ID_CURSCOPE(getorcreatesym(yytext), NULL), $1, NULL, NULL); }
+	| struct_or_union IDENTIFIER { $$ = AST_IDENTIFIER_NODE(AST_STRUCT_UNION, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), $1, NULL, NULL); }
 	;
 
 struct_or_union

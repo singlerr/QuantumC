@@ -4,60 +4,27 @@
 #include "ast_types.h"
 #include "type.h"
 
-#ifndef PRIM_VOID
+#ifndef PRIM_TYPES
+
 #define PRIM_VOID prim_void
-#endif
-
-#ifndef PRIM_CHAR
 #define PRIM_CHAR prim_char
-#endif
-
-#ifndef PRIM_SHORT
 #define PRIN_SHORT prim_short
-#endif
-
-#ifndef PRIM_INT
-#define PRIM_INT prim_int
-#endif
-
-#ifndef PRIM_LONG
+#define PRIM_INT32 prim_int32
+#define PRIM_INT64 prim_int64
+#define PRIM_INT PRIM_INT32
 #define PRIM_LONG prim_long
-#endif
-
-#ifndef PRIM_FLOAT
-#define PRIM_FLOAT prim_float
-#endif
-
-#ifndef PRIM_DOUBLE
+#define PRIM_FLOAT32 prim_float32
+#define PRIM_FLOAT64 prim_float64
+#define PRIM_FLOAT prim_float32
 #define PRIM_DOUBLE prim_double
-#endif
-
-#ifndef PRIM_SIGNED
 #define PRIM_SIGNED prim_signed
-#endif
-
-#ifndef PRIM_UNSIGNED
 #define PRIM_UNSIGNED prim_unsigned
-#endif
-
-#ifndef PRIM_COMPLEX
 #define PRIM_COMPLEX prim_complex
-#endif
-
-#ifndef PRIM_IMAGINARY
 #define PRIM_IMAGINARY prim_imaginary
-#endif
-
-#ifndef PRIM_QUBIT
 #define PRIM_QUBIT prim_qubit
-#endif
-
-#ifndef PRIM_ANGLE
 #define PRIM_ANGLE prim_angle
-#endif
-
-#ifndef PRIM_STRING
 #define PRIM_STRING prim_string
+
 #endif
 
 #ifndef PUT_TYPE
@@ -84,9 +51,11 @@ extern typerec_t *type_table;
 extern typerec_t *PRIM_VOID;
 extern typerec_t *PRIM_CHAR;
 extern typerec_t *PRIM_SHORT;
-extern typerec_t *PRIM_INT;
+extern typerec_t *PRIM_INT32;
+extern typerec_t *PRIM_INT64;
 extern typerec_t *PRIM_LONG;
-extern typerec_t *PRIM_FLOAT;
+extern typerec_t *PRIM_FLOAT32;
+extern typerec_t *PRIM_FLOAT64;
 extern typerec_t *PRIM_DOUBLE;
 extern typerec_t *PRIM_SIGNED;
 extern typerec_t *PRIM_UNSIGNED;

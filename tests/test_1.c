@@ -1,4 +1,6 @@
 int ***val[10][10] = {10, 1};
+
+int func(int);
 int main(int argc, char *argv[10])
 {
     int ***val[10][10] = {10, 1};
@@ -10,4 +12,9 @@ int main(int argc, char *argv[10])
     }
 
     return 0;
+}
+
+int func(int a)
+{
+    printf("aaa");
 }
