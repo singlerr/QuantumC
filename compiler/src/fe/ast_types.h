@@ -47,6 +47,7 @@ typedef enum _ast_node_type
     AST_TYPE_USER,
     AST_TYPE_FUNCTION,
     AST_TYPE_ENUM,
+    AST_TYPE_STRING,
 
     AST_STMT_COMPOUND,
     AST_STMT_IF,

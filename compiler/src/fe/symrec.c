@@ -18,6 +18,7 @@ typerec_t *PRIM_SIGNED;
 typerec_t *PRIM_UNSIGNED;
 typerec_t *PRIM_COMPLEX;
 typerec_t *PRIM_IMAGINARY;
+typerec_t *PRIM_STRING;
 
 symrec_t *putsym(const char *name)
 {
@@ -99,6 +100,7 @@ void init_primitives()
     PRIM_UNSIGNED = PUT_TYPE("unsigned", AST_TYPE_UNSIGNED, 4);
     PRIM_COMPLEX = PUT_TYPE("complex", AST_TYPE_COMPLEX, 4);
     PRIM_IMAGINARY = PUT_TYPE("imaginary", AST_TYPE_IMAGINARY, 4);
+    PRIM_STRING = PUT_TYPE("string", AST_TYPE_STRING, 4);
 }
 
 void init_type()

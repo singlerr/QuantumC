@@ -56,6 +56,10 @@
 #define PRIM_ANGLE prim_angle
 #endif
 
+#ifndef PRIM_STRING
+#define PRIM_STRING prim_string
+#endif
+
 #ifndef PUT_TYPE
 #define PUT_TYPE(name, type, size) puttype(name, type, mk_type(name, mk_type_meta(size), 0))
 #endif
@@ -90,6 +94,7 @@ extern typerec_t *PRIM_COMPLEX;
 extern typerec_t *PRIM_IMAGINARY;
 extern typerec_t *PRIM_QUBIT;
 extern typerec_t *PRIM_ANGLE;
+extern typerec_t *PRIM_STRING;
 
 symrec_t *putsym(const char *name);
 symrec_t *getsym(const char *name);

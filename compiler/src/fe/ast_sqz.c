@@ -77,6 +77,7 @@ int squeeze_struct_field_decl(ast_node *decl, sqz_struct_field_decl **out);
 int squeeze_struct_declarator(ast_node *decl, sqz_struct_field **out);
 int squeeze_initializer_list(ast_node *init_list, int level, sqz_initializer_list **out);
 int squeeze_designation(ast_node *designation, sqz_designation **out);
+int squeeze_enum_decl(ast_node *enum_list, struct _sqz_enum_decl **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -190,6 +191,7 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
     ast_node *node = decl_spec;
     type_t *root = NULL, *curr, *temp = NULL;
     sqz_struct_decl *struct_decl = NULL;
+    struct _sqz_enum_decl *enum_decl = NULL;
 
     sqz_decl_spec *spec = IALLOC(sqz_decl_spec);
 
@@ -240,7 +242,7 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
         else if (node->middle)
         {
             ast_node *t = node->middle;
-            if (t->node_type == AST_TYPE_STRUCT_UNION || t->node_type == AST_TYPE_ENUM)
+            if (t->node_type == AST_TYPE_STRUCT_UNION)
             {
                 ast_node *companion = t->middle;
 
@@ -276,8 +278,28 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
             }
             else if (t->node_type == AST_TYPE_ENUM)
             {
-                LOG_ERROR("Enum type parsing not implemented", 0);
-                goto fail;
+                ast_node *companion = t->middle;
+                if (!companion || !companion->identifier)
+                {
+                    LOG_ERROR("Enum structure not found", 0);
+                    goto fail;
+                }
+
+                ast_node *enum_list = companion->left;
+                if (enum_list)
+                {
+                    if (FAILED(squeeze_enum_decl(enum_list, &enum_decl)))
+                    {
+                        goto fail;
+                    }
+                }
+
+                typemeta_t *meta = mk_type_meta(-1);
+                meta->node_type = AST_TYPE_ENUM;
+                meta->enums = enum_decl;
+
+                type_t *enum_type = mk_type(companion->identifier->sym->name, meta, NULL);
+                temp = mk_type("enum", NULL, enum_type);
             }
             else
             {
@@ -313,6 +335,7 @@ int squeeze_decl_spec(ast_node *decl_spec, sqz_decl_spec **out, type_t **type_ou
 fail:
     SAFE_FREE(root);
     SAFE_FREE(struct_decl);
+    FREE_LIST(struct _sqz_enum_decl, enum_decl);
     FREE_LIST(type_t, root);
     SAFE_FREE(spec);
     return VAL_FAILED;
@@ -490,7 +513,7 @@ int squeeze_func_declaration(ast_node *func_decl, sqz_func_decl **out)
 
     while (d)
     {
-        if (d->type->meta && d->type->meta->args)
+        if (d->type && d->type->meta && d->type->meta->args)
         {
             func_args = d->type->meta->args;
             break;
@@ -2659,5 +2682,65 @@ int squeeze_designation(ast_node *designation, sqz_designation **out)
     return VAL_OK;
 fail:
     FREE_LIST(sqz_designation, root);
+    return VAL_FAILED;
+}
+
+int squeeze_enum_decl(ast_node *enum_list, struct _sqz_enum_decl **out)
+{
+    struct _sqz_enum_decl *root = NULL, *curr = NULL, *temp = NULL;
+    ast_node *node = enum_list;
+
+    while (node)
+    {
+        if (node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        ast_node *enumerator = node->middle;
+        if (!enumerator || enumerator->node_type != AST_ENUM || !enumerator->identifier)
+        {
+            goto fail;
+        }
+
+        sqz_id *id = NULL;
+        if (FAILED(squeeze_id(enumerator, enumerator->identifier, &id)))
+        {
+            goto fail;
+        }
+
+        sqz_assign_expr *value = NULL;
+        if (enumerator->middle)
+        {
+            if (FAILED(squeeze_assign_expr(enumerator->middle, &value)))
+            {
+                goto fail;
+            }
+        }
+
+        temp = IALLOC(struct _sqz_enum_decl);
+        temp->id = id;
+        temp->value = value;
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        node = node->right;
+        temp = NULL;
+    }
+
+    *out = root;
+    return VAL_OK;
+fail:
+    SAFE_FREE(temp);
+    FREE_LIST(struct _sqz_enum_decl, root);
     return VAL_FAILED;
 }

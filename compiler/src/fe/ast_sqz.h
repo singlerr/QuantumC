@@ -464,4 +464,11 @@ typedef struct _sqz_program
     sqz_decl *decl;
 } sqz_program;
 
+typedef struct _sqz_enum_decl
+{
+    struct _sqz_id *id;
+    struct _sqz_assign_expr *value;
+    struct _sqz_enum_decl *next;
+} sqz_enum_decl;
+
 #endif
