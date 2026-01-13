@@ -6,16 +6,6 @@
 #include "common.h"
 #include "symrec.h"
 
-#define STG_EXTERN (1)
-#define STG_STATIC (1 << 1)
-#define STG_AUTO (1 << 2)
-#define STG_REGISTER (1 << 3)
-#define STG_TYPEDEF (1 << 4)
-
-#define QAL_CONST (1)
-#define QAL_RESTRICT (1 << 1)
-#define QAL_VOLATILE (1 << 2)
-
 struct _sqz_spec_qual
 {
     unsigned int qualifier;

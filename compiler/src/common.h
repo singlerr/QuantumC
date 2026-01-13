@@ -10,6 +10,16 @@ typedef int BOOL;
 #define VAL_CONTINUE -2
 #define VAL_FAILED -1
 
+#define STG_EXTERN (1)
+#define STG_STATIC (1 << 1)
+#define STG_AUTO (1 << 2)
+#define STG_REGISTER (1 << 3)
+#define STG_TYPEDEF (1 << 4)
+
+#define QAL_CONST (1)
+#define QAL_RESTRICT (1 << 1)
+#define QAL_VOLATILE (1 << 2)
+
 #define OK(ret) (ret == VAL_OK)
 #define FAILED(ret) (ret == VAL_FAILED)
 #define CONTINUE(ret) (ret == VAL_CONTINUE)

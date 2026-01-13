@@ -56,7 +56,7 @@ extern int yylex();
 %token STRUCT_OR_UNION STRUCT_DECLARATION_LIST STRUCT_DECLARATION
 %token SPECIFIER_QUALIFIER_LIST STRUCT_DECLARATOR_LIST STRUCT_DECLARATOR
 %token ENUM_SPECIFIER ENUMERATOR_LIST ENUMERATOR TYPE_QUALIFIER FUNCTION_SPECIFIER
-%token DECLARATOR DIRECT_DECLARATOR POINTER PARAMETER_TYPE_LIST
+%token DECLARATOR DIRECT_DECLARATOR PARAMETER_TYPE_LIST
 %token PARAMETER_LIST PARAMETER_DECLARATION IDENTIFIER_LIST
 %token ABSTRACT_DECLARATOR DIRECT_ABSTRACT_DECLARATOR INITIALIZER INITIALIZER_LIST
 %token DESIGNATION DESIGNATOR_LIST DESIGNATOR STATEMENT LABELED_STATEMENT
@@ -110,7 +110,6 @@ extern int yylex();
 %type <node> type_qualifier
 %type <node> declarator
 %type <node> direct_declarator
-%type <node> pointer
 %type <node> type_qualifier_list
 %type <node> parameter_type_list
 %type <node> parameter_list
@@ -394,7 +393,6 @@ type_qualifier
 	;
 
 declarator
-	: pointer direct_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	| direct_declarator { $$ = $1; }
 	;
 
@@ -415,12 +413,6 @@ direct_declarator
 	| direct_declarator '(' ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	;
 
-pointer
-	: '*' { $$ = AST_SIMPLE_NODE(AST_TYPE_POINTER); }
-	| '*' type_qualifier_list { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, $2, NULL, NULL); }
-	| '*' pointer { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, NULL, NULL, $2);}
-	| '*' type_qualifier_list pointer { $$ = AST_GENERAL_NODE(AST_TYPE_POINTER, $2, NULL, $3); }
-	;
 
 type_qualifier_list
 	: type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
@@ -455,9 +447,7 @@ type_name
 	;
 
 abstract_declarator
-	: pointer { $$ = $1; }
 	| direct_abstract_declarator { $$ = $1; }
-	| pointer direct_abstract_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 direct_abstract_declarator
