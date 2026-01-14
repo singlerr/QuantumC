@@ -120,3 +120,7 @@ Cargo.lock
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
 qasm3Parser.g4
+.antlr/qasm3Lexer.interp
+.gitignore
+.antlr/qasm3Lexer.tokens
+.gitignore
