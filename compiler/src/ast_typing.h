@@ -49,6 +49,5 @@ BOOL type_equals(const type_t *a, const type_t *b);
 BOOL is_type_compatible(const type_t *left, const type_t *right);
 BOOL is_casting_compatible(const type_t *caster, const type_t *castee);
 BOOL is_param_compatible(const struct sem_args *a, const struct sem_args *b);
-BOOL is_args_compatible(const struct _sqz_args *a, const struct _sqz_args *b);
 
 #endif

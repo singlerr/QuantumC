@@ -11,7 +11,7 @@ BOOL is_array_compatible(const type_t *a, const type_t *b);
 BOOL is_func_compatible(const type_t *a, const type_t *b);
 BOOL is_spec_compatible(const struct _sqz_decl_spec *a, const struct _sqz_decl_spec *b);
 BOOL pointer_equals(const type_t *a, const type_t *b);
-BOOL _is_spec_compatible(const struct sem_decl_spec *a, const struct sem_decl_spec *b);
+BOOL is_args_compatible(const sqz_args *a, const sqz_args *b);
 
 BOOL type_equals(const type_t *a, const type_t *b)
 {
@@ -307,67 +307,6 @@ BOOL is_type_compatible(const type_t *left, const type_t *right)
     return FALSE;
 }
 
-BOOL is_param_compatible(const struct sem_args *a, const struct sem_args *b)
-{
-    struct sem_param_decl *a_param = NULL;
-    struct sem_param_decl *b_param = NULL;
-    struct sem_declarator *a_decl = NULL;
-    struct sem_declarator *b_decl = NULL;
-    while (TRUE)
-    {
-        if (IS_INCL_NULL(a, b))
-        {
-            if (IS_EXCL_NULL(a, b))
-            {
-                return FALSE;
-            }
-            break;
-        }
-
-        a_param = a->arg;
-        b_param = b->arg;
-
-        if (!is_type_compatible(a_param->type, b_param->type))
-        {
-            return FALSE;
-        }
-
-        if (!_is_spec_compatible(a_param->spec, b_param->spec))
-        {
-            return FALSE;
-        }
-
-        a_decl = a_param->decl;
-        b_decl = b_param->decl;
-
-        while (TRUE)
-        {
-            if (IS_INCL_NULL(a_decl, b_decl))
-            {
-                if (IS_EXCL_NULL(a_decl, b_decl))
-                {
-                    return FALSE;
-                }
-
-                break;
-            }
-
-            if (!is_type_compatible(a_decl->type, b_decl->type))
-            {
-                return FALSE;
-            }
-
-            a_decl = a_decl->next;
-            b_decl = b_decl->next;
-        }
-
-        a = a->next;
-        b = b->next;
-    }
-
-    return TRUE;
-}
-
 BOOL is_args_compatible(const sqz_args *a, const sqz_args *b)
 {
     sqz_param_decl *a_param = NULL;
@@ -430,16 +369,6 @@ BOOL is_args_compatible(const sqz_args *a, const sqz_args *b)
 }
 
 BOOL is_spec_compatible(const struct _sqz_decl_spec *a, const struct _sqz_decl_spec *b)
-{
-    if (!a || !b)
-    {
-        return FALSE;
-    }
-
-    return a->qualifier == b->qualifier && a->storage_class == b->storage_class;
-}
-
-BOOL _is_spec_compatible(const struct sem_decl_spec *a, const struct sem_decl_spec *b)
 {
     if (!a || !b)
     {

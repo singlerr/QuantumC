@@ -110,7 +110,6 @@ extern int yylex();
 %type <node> type_qualifier
 %type <node> declarator
 %type <node> direct_declarator
-%type <node> type_qualifier_list
 %type <node> parameter_type_list
 %type <node> parameter_list
 %type <node> parameter_declaration
@@ -297,7 +296,7 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); }
+	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); }
 	;
 
 init_declarator
@@ -389,11 +388,11 @@ enumerator
 type_qualifier
 	: CONST { $$ = AST_SIMPLE_NODE(AST_QAL_CONST); }
 	| RESTRICT { $$ = AST_SIMPLE_NODE(AST_QAL_RESTRICT); }
-	| VOLATILE { $$ = AST_SIMPLE_NODE(AST_QAL_VOLATILE); }
+	| VOLATILE { $$ = AST_SIMPLE_NODE(AST_QAL_VOLATILE); } 
 	;
 
 declarator
-	| direct_declarator { $$ = $1; }
+	: direct_declarator { $$ = $1; }
 	;
 
 
@@ -411,12 +410,6 @@ direct_declarator
 	| direct_declarator '(' { inc_scope_level(); }  parameter_type_list ')' { dec_scope_level(); $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $4, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| direct_declarator '(' identifier_list ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| direct_declarator '(' ')' { $$ = AST_GENERAL_NODE(AST_TYPE_FUNCTION, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
-	;
-
-
-type_qualifier_list
-	: type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| type_qualifier_list type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $2); }
 	;
 
 
@@ -447,7 +440,7 @@ type_name
 	;
 
 abstract_declarator
-	| direct_abstract_declarator { $$ = $1; }
+	: direct_abstract_declarator { $$ = $1; }
 	;
 
 direct_abstract_declarator

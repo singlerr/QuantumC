@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 {
     ast_node *root;
     sqz_program *squeezed;
-    struct sem_program *sem_analysis;
+    program *sem_analysis;
     FILE *f;
     int ret;
 
@@ -58,10 +58,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if (FAILED(sem_program(squeezed, &sem_analysis)))
-    {
-        exit(1);
-    }
+    convert_program(squeezed, &sem_analysis);
 
     print_sqz(squeezed);
 

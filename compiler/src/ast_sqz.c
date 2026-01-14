@@ -141,15 +141,17 @@ int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out)
         {
             ret = VAL_FAILED;
         }
+        else
+        {
+            typemeta_t *meta = mk_type_meta(0);
+            meta->node_type = AST_TYPE_FUNCTION;
+            meta->func = func_decl;
 
-        typemeta_t *meta = mk_type_meta(0);
-        meta->node_type = AST_TYPE_FUNCTION;
-        meta->func = func_decl;
+            type_t *type = mk_type("func", meta, NULL);
+            type->name = strdup(func_decl->name->name->name);
 
-        type_t *type = mk_type("func", meta, NULL);
-        type->name = strdup(func_decl->name->name->name);
-
-        puttype((const char *)type->name, AST_TYPE_FUNCTION, type);
+            puttype((const char *)type->name, AST_TYPE_FUNCTION, type);
+        }
     }
     break;
     case AST_VARIABLE_DECLARATION:

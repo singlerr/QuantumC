@@ -8,7 +8,7 @@
             "label": "make",
             "command": "make",
             "options": {
-                "cwd": "${workspaceFolder}/compiler/src/fe"
+                "cwd": "${workspaceFolder}/compiler/src"
             },
             "args": [
                 "debug=1 all"

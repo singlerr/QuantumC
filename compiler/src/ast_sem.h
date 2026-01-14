@@ -5,9 +5,33 @@
 #include "type.h"
 #include "common.h"
 #include "symrec.h"
-#include "list.h"
 
-typedef enum operator
+#define INIT_LIST(_type) \
+    _type *prev;         \
+    _type *next;
+
+#define DEFINE_LIST(type)         \
+    typedef struct type##_list    \
+    {                             \
+        struct type *value;       \
+        struct type##_list *prev; \
+        struct type##_list *next; \
+    } type##_list
+
+#define list_add(type, new, head)                  \
+    do                                             \
+    {                                              \
+        type *_new = (new), *_prev = (head)->prev; \
+        _prev->next = _new;                        \
+        _new->next = (head);                       \
+        _new->prev = _prev;                        \
+        (head)->prev = _new;                       \
+    } while (0)
+
+struct _sqz_program;
+
+typedef enum
+operator
 {
     OP_DOUBLE_ASTERISK,
     OP_TILDE,
@@ -21,49 +45,57 @@ typedef enum operator
 
 typedef enum expr_kind
 {
-    EXPR_INDEX,
-    EXPR_UNARY,
-    EXPR_BINARY,
-    EXPR_CAST,
-    EXPR_CALL,
-    EXPR_DURATIONOF,
-    EXPR_PRIMARY,
-    EXPR_RANGED
+    EXPR_DISCRETE_SET,
+    EXPR_EXPRESSION,
+    EXPR_RANGED_DEFINITION,
+    EXPR_QUANTUM_MEASUREMENT
 } expr_kind;
 
 typedef enum stmt_kind
 {
-    ALIAS_DECLARATION,
-    ASSIGNMENT,
-    BARRIER,
-    BOX,
-    BREAK,
-    CAL,
-    CALIBRATION_GRAMMAR,
-    CLASSICAL_DECLARATION,
-    CONST_DECLARATION,
-    CONTINUE,
-    DEF,
-    DEFCAL,
-    DELAY,
-    END,
-    EXPRESSION,
-    EXTERN,
-    FOR,
-    GATE_CALL,
-    GATE,
-    IF,
-    INCLUDE,
-    IO_DECLARATION,
-    MEASURE_ARROW_ASSIGNMENT,
-    NOP,
-    OLD_STYLE_DECLARATION,
-    QUANTUM_DECLARATION,
-    RESET,
-    RETURN,
-    SWITCH,
-    WHILE
+    STMT_ALIAS_DECLARATION,
+    STMT_ASSIGNMENT,
+    STMT_BARRIER,
+    STMT_BOX,
+    STMT_BREAK,
+    STMT_CAL,
+    STMT_CALIBRATION_GRAMMAR,
+    STMT_CLASSICAL_DECLARATION,
+    STMT_CONST_DECLARATION,
+    STMT_CONTINUE,
+    STMT_DEF,
+    STMT_DEFCAL,
+    STMT_DELAY,
+    STMT_END,
+    STMT_EXPRESSION,
+    STMT_EXTERN,
+    STMT_FOR,
+    STMT_GATE_CALL,
+    STMT_GATE,
+    STMT_IF,
+    STMT_INCLUDE,
+    STMT_IO_DECLARATION,
+    STMT_MEASURE_ARROW_ASSIGNMENT,
+    STMT_NOP,
+    STMT_OLD_STYLE_DECLARATION,
+    STMT_QUANTUM_DECLARATION,
+    STMT_RESET,
+    STMT_RETURN,
+    STMT_SWITCH,
+    STMT_WHILE
 } stmt_kind;
+
+typedef enum id_kind
+{
+    ID_INDEXED_IDENTIFIER,
+    ID_IDENTIFIER
+} id_kind;
+
+typedef enum access_control
+{
+    READONLY,
+    MUTABLE
+} access_control;
 
 typedef struct symbol_t
 {
@@ -85,17 +117,19 @@ typedef struct identifier
     char *name;
 } identifier;
 
+DEFINE_LIST(identifier);
+
 typedef struct annotation
 {
-    struct list_head list;
-
     char *keyword;
     char *command;
 } annotation;
 
+DEFINE_LIST(annotation);
+
 typedef struct discrete_set
 {
-    struct list_head values; /* Expression */
+    struct expression *values;
 } discrete_set;
 
 typedef struct range_definition
@@ -105,25 +139,44 @@ typedef struct range_definition
     struct expression *step;
 } range_definition;
 
+typedef struct expr_or_range
+{
+    union
+    {
+        struct expression *expr;
+        range_definition *range_definition;
+    };
+} expr_or_range;
+
+DEFINE_LIST(expr_or_range);
+
+typedef struct cls_args_or_expr
+{
+    union
+    {
+        struct classical_argument *argument;
+        struct expression *expr;
+    };
+} cls_args_or_expr;
+
+DEFINE_LIST(cls_args_or_expr);
+
 typedef struct index_element
 {
-    enum
-    {
-        DISCRETE_SET,
-        EXPRESSION,
-        RANGED_DEFINITION
-    } kind;
+    expr_kind kind;
     union
     {
         discrete_set *discrete_set;
-        struct list_head expr;
+        expr_or_range *expr_or_range;
     } index;
 } index_element;
+
+DEFINE_LIST(index_element);
 
 typedef struct indexed_identifier
 {
     identifier *name;
-    struct list_head indices; /* Index Element */
+    index_element *index;
 } indexed_identifier;
 
 typedef struct quantum_gate_modifier
@@ -138,13 +191,11 @@ typedef struct quantum_gate_modifier
     struct expression *argument;
 } quantum_gate_modifier;
 
+DEFINE_LIST(quantum_gate_modifier);
+
 typedef struct qubit
 {
-    enum
-    {
-        INDEXED_IDENTIFIER,
-        IDENTIFIER
-    } kind;
+    id_kind kind;
 
     union
     {
@@ -153,6 +204,8 @@ typedef struct qubit
     } value;
 
 } qubit;
+
+DEFINE_LIST(qubit);
 
 typedef struct quantum_measurement
 {
@@ -163,19 +216,60 @@ typedef struct quantum_argument
 {
     identifier *name;
     struct expression *size;
+
 } quantum_argument;
+
+typedef struct extern_argument
+{
+    classical_type *type;
+    access_control access;
+
+} extern_argument;
+
+DEFINE_LIST(extern_argument);
+
+typedef struct classical_argument
+{
+    classical_type *type;
+    identifier *name;
+    access_control access;
+
+} classical_argument;
+
+DEFINE_LIST(classical_argument);
+
+typedef struct cls_or_quantum_args
+{
+    union
+    {
+        classical_argument *classical_argument;
+        quantum_argument *quantum_argument;
+    };
+
+} cls_or_quantum_args;
+
+DEFINE_LIST(cls_or_quantum_args);
+
+typedef struct case_stmt
+{
+    struct expression_list *expr;
+    struct statement *statmenet;
+} case_stmt;
+
+DEFINE_LIST(case_stmt);
 
 typedef struct statement
 {
     stmt_kind kind;
-    struct list_head annotations;
+
+    annotation_list *annotations;
 
     union
     {
 
         struct
         {
-            struct list_head statements;
+            struct statement_list *statements;
         } compound;
 
         struct
@@ -197,15 +291,16 @@ typedef struct statement
         struct
         {
             identifier *name;
-            struct list_head arguments; /* Identifier */
-            struct list_head qubits;    /* Identifier */
-            struct list_head body;      /* Quantum Statement */
+            identifier_list *identifiers;
+            identifier_list *arguments;  /* Identifier */
+            identifier_list *qubits;     /* Identifier */
+            struct statement_list *body; /* Quantum Statement */
         } quantum_gate_definition;
 
         struct
         {
             identifier *name;
-            struct list_head arguments; /* Extern Argument */
+            extern_argument_list *arguments; /* Extern Argument */
             classical_type *return_type;
         } extern_declaration;
 
@@ -213,11 +308,7 @@ typedef struct statement
         {
             classical_type *type;
             identifier *identifier;
-            enum
-            {
-                EXPRESSION,
-                QUANTUM_MEASUREMENT
-            } init_expression_kind;
+            expr_kind init_expression_kind;
             union
             {
                 struct expression *expr;
@@ -257,8 +348,8 @@ typedef struct statement
         struct
         {
             identifier *name;
-            struct list_head arguments;
-            struct list_head qubits;
+            cls_args_or_expr_list *arguments;
+            identifier_list *qubits;
             classical_type *return_type;
             char *body;
         } calibration_definition;
@@ -266,18 +357,14 @@ typedef struct statement
         struct
         {
             identifier *name;
-            struct list_head arguments;
-            struct list_head body;
+            cls_or_quantum_args_list *arguments;
+            struct statement_list *body;
             classical_type *return_type;
         } subroutine_definition;
 
         struct
         {
-            enum
-            {
-                EXPRESSION,
-                QUANTUM_MEASUREMENT
-            } expr_kind;
+            expr_kind kind;
             union
             {
                 struct expression *expr;
@@ -288,57 +375,52 @@ typedef struct statement
         struct
         {
             struct expression *condition;
-            struct list_head if_block;
-            struct list_head else_block;
+            struct statement_list *if_block;
+            struct statmenet_list *else_block;
         } branching;
 
         struct
         {
             struct expression *condition;
-            struct list_head block;
+            struct statement_list *block;
         } while_loop;
 
         struct
         {
             classical_type *type;
             identifier *identifier;
-            enum
-            {
-                RANGED_DEFINITION,
-                DISCRETE_SET,
-                EXPRESSION
-            } set_declaration_kind;
+            expr_kind set_declaration_kind;
             union
             {
                 range_definition *range_definition;
                 discrete_set *discrete_set;
                 struct expression *expression;
             } set_declaration;
-            struct list_head block;
+            struct statement_list *block;
         } for_in_loop;
 
         struct
         {
             struct expression *target;
-            struct list_head cases;
+            case_stmt_list *cases;
             struct statement *deflt;
         } swtch;
 
         struct
         {
             struct expression *duration;
-            struct list_head qubits;
+            qubit_list *qubits;
         } delay;
 
         struct
         {
             struct expression *duration;
-            struct list_head body;
+            struct statement_list *body;
         } box;
 
         struct
         {
-            struct list_head target;
+            struct statement_list *target;
         } duration_of;
 
         struct
@@ -365,11 +447,7 @@ typedef struct statement
 
         struct
         {
-            enum
-            {
-                IDENTIFIER,
-                INDEXED_IDENTIFIER
-            } lvalue_kind;
+            id_kind lvalue_kind;
             union
             {
                 identifier *identifier;
@@ -384,23 +462,23 @@ typedef struct statement
     {
         struct
         {
-            struct list_head modifiers; /* Quantum Gate Modifier */
+            quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
             identifier *name;
-            struct list_head arguments; /* Expression */
-            struct list_head qubits;    /* Qubit */
+            struct expression_list *arguments; /* Expression */
+            qubit_list *qubits;                /* Qubit */
             struct expression *duration;
         } quantum_gate;
 
         struct
         {
-            struct list_head modifiers; /* Quantum Gate Modifier */
+            quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
             struct expression *argument;
-            struct list_head qubits; /* Qubit */
+            qubit_list *qubits; /* Qubit */
         } quantum_phase;
 
         struct
         {
-            struct list_head operands; /* Qubit */
+            qubit_list *operands; /* Qubit */
         } quantum_nop;
 
         struct
@@ -411,16 +489,18 @@ typedef struct statement
 
         struct
         {
-            struct list_head qubits; /* Expression */
+            struct expression_list *qubits; /* Expression */
         } quantum_barrier;
 
         struct
         {
             qubit *qubits;
         } quantum_reset;
-    } qunatum;
+    } quantum;
 
 } statement;
+
+DEFINE_LIST(statement);
 
 typedef struct expression
 {
@@ -449,17 +529,17 @@ typedef struct expression
         {
             enum
             {
-                BIN_INT,
-                OCT_INT,
-                DEC_INT,
-                HEX_INT,
-                FLOAT,
-                IMAGINARY,
-                BOOL,
-                BIT_STR,
-                TIMING,
-                HWQUBIT,
-                IDENTIFIER
+                LIT_BIN_INT,
+                LIT_OCT_INT,
+                LIT_DEC_INT,
+                LIT_HEX_INT,
+                LIT_FLOAT,
+                LIT_IMAGINARY,
+                LIT_BOOL,
+                LIT_BIT_STR,
+                LIT_TIMING,
+                LIT_HWQUBIT,
+                LIT_IDENTIFIER
             } literal_kind;
 
             union
@@ -470,7 +550,7 @@ typedef struct expression
                 int b;
                 char *bit_str;
                 int timing;
-                struct list_head array; /* Expression */
+                struct expression_list *array; /* Expression */
             } data;
 
         } literal;
@@ -478,7 +558,7 @@ typedef struct expression
         struct
         {
             identifier *name;
-            struct list_head arguments; /* Expression */
+            struct expression_list *arguments; /* Expression */
         } function_call;
 
         struct
@@ -490,16 +570,11 @@ typedef struct expression
         struct
         {
             struct expression *collection;
-            enum
-            {
-                DISCRETE_SET,
-                EXPRESSION,
-                RANGE
-            } index_kind;
+            expr_kind index_kind;
             union
             {
                 discrete_set *discrete_set;
-                struct list_head list; /* Union of expression and range definition */
+                expr_or_range_list *list; /* Union of expression and range definition */
             };
 
         } index;
@@ -511,5 +586,14 @@ typedef struct expression
         } concat;
     } as;
 } expression;
+
+DEFINE_LIST(expression);
+
+typedef struct program
+{
+    statement_list *stmts;
+} program;
+
+void convert_program(const struct _sqz_program *p, program **out);
 
 #endif
