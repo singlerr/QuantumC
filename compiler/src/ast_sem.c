@@ -1609,7 +1609,7 @@ int sem_program(struct _sqz_program *root, struct sem_program **out)
 
             break;
         default:
-            LOG_ERROR("Unknown delcaration type", decl->decl_type);
+            LOG_ERROR("Unknown declaration type", decl->decl_type);
             break;
         }
         decl = decl->next;
