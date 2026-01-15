@@ -21,6 +21,9 @@ typerec_t *PRIM_UNSIGNED;
 typerec_t *PRIM_COMPLEX;
 typerec_t *PRIM_IMAGINARY;
 typerec_t *PRIM_STRING;
+typerec_t *PRIM_DURATION;
+typerec_t *PRIM_BIT;
+typerec_t *PRIM_BOOL;
 
 symrec_t *putsym(const char *name)
 {
@@ -105,6 +108,9 @@ void init_primitives()
     PRIM_COMPLEX = PUT_TYPE("complex", AST_TYPE_COMPLEX, 4);
     PRIM_IMAGINARY = PUT_TYPE("imaginary", AST_TYPE_IMAGINARY, 4);
     PRIM_STRING = PUT_TYPE("string", AST_TYPE_STRING, 4);
+    PRIM_DURATION = PUT_TYPE("duration", AST_TYPE_DURATION, 4);
+    PRIM_BIT = PUT_TYPE("bit", AST_TYPE_BIT, 1);
+    PRIM_BOOL = PUT_TYPE("bool", AST_TYPE_BOOL, 4);
 }
 
 void init_type()

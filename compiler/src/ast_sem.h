@@ -10,13 +10,22 @@
     _type *prev;         \
     _type *next;
 
+#define DEFINE_WRAP_FUNC(type)                                 \
+    static inline type##_list *wrap_##type##_list(type *value) \
+    {                                                          \
+        type##_list *_list = IALLOC(type##_list);              \
+        _list->value = value;                                  \
+        return _list;                                          \
+    }
+
 #define DEFINE_LIST(type)         \
     typedef struct type##_list    \
     {                             \
         struct type *value;       \
         struct type##_list *prev; \
         struct type##_list *next; \
-    } type##_list
+    } type##_list;                \
+    DEFINE_WRAP_FUNC(type)
 
 #define list_add(type, new, head)                  \
     do                                             \
@@ -40,7 +49,20 @@ operator
     OP_ASTERISK,
     OP_SLASH,
     OP_PERCENT,
-    OP_PLUS
+    OP_PLUS,
+    OP_LSHIFT,
+    OP_RSHIFT,
+    OP_LT,
+    OP_GT,
+    OP_GEQ,
+    OP_LEQ,
+    OP_EQ,
+    OP_NEQ,
+    OP_AMP,
+    OP_PIPE,
+    OP_CARET,
+    OP_DOUBLE_AMP,
+    OP_DOUBLE_PIPE
 } operator;
 
 typedef enum expr_kind
@@ -48,7 +70,15 @@ typedef enum expr_kind
     EXPR_DISCRETE_SET,
     EXPR_EXPRESSION,
     EXPR_RANGED_DEFINITION,
-    EXPR_QUANTUM_MEASUREMENT
+    EXPR_QUANTUM_MEASUREMENT,
+
+    EXPR_UNARY,
+    EXPR_BINARY,
+    EXPR_LITERAL,
+    EXPR_FUNC_CALL,
+    EXPR_CAST,
+    EXPR_INDEX,
+    EXPR_CONCAT
 } expr_kind;
 
 typedef enum stmt_kind
@@ -97,6 +127,21 @@ typedef enum access_control
     MUTABLE
 } access_control;
 
+typedef enum type_kind
+{
+    TYPE_INT,
+    TYPE_UINT,
+    TYPE_FLOAT,
+    TYPE_COMPLEX,
+    TYPE_ANGLE,
+    TYPE_BIT,
+    TYPE_BOOL,
+    TYPE_ARRAY,
+    TYPE_ARRAY_REF,
+    TYPE_DURATION,
+    TYPE_STRETCH,
+} type_kind;
+
 typedef struct symbol_t
 {
     char *name;
@@ -104,12 +149,136 @@ typedef struct symbol_t
 
 typedef struct
 {
-
-} type;
+    struct expression *size;
+} int_type;
 
 typedef struct
 {
+    struct expression *size;
+} uint_type;
 
+typedef struct
+{
+    struct expression *size;
+} float_type;
+
+typedef struct
+{
+    float_type *base_type;
+} complex_type;
+
+typedef struct
+{
+    struct expression *size;
+} angle_type;
+
+typedef struct
+{
+    struct expression *size;
+} bit_type;
+
+typedef struct
+{
+    struct expression *size;
+} bool_type;
+
+typedef struct duration_type
+{
+
+} duration_type;
+
+typedef struct stetch_type
+{
+
+} stretch_type;
+
+typedef enum
+{
+    SINGLE_EXPRESSION,
+    EXPRESSION_LIST
+} dimension_kind;
+
+typedef struct
+{
+    type_kind kind;
+    union
+    {
+        int_type *int_type;
+        uint_type *uint_type;
+        float_type *float_type;
+        angle_type *angle_type;
+        duration_type *duration_type;
+        bit_type *bit_type;
+        bool_type *bool_type;
+        complex_type *complex_type;
+    } base_type;
+
+    dimension_kind dimension_kind;
+
+    union
+    {
+        struct expression *expr;
+        struct expression_list *expr_list;
+    } dimensions;
+
+} array_type;
+
+typedef struct
+{
+    type_kind kind;
+    union
+    {
+        int_type *int_type;
+        uint_type *uint_type;
+        float_type *float_type;
+        angle_type *angle_type;
+        duration_type *duration_type;
+        bit_type *bit_type;
+        bool_type *bool_type;
+        complex_type *complex_type;
+    } base_type;
+
+    dimension_kind dimension_kind;
+
+    union
+    {
+        struct expression *expr;
+        struct expression_list *expr_list;
+    } dimensions;
+
+} array_ref_type;
+
+typedef struct type
+{
+    enum
+    {
+        CLASSICAL_TYPE,
+        QUANTUM_TYPE
+    } kind;
+
+    union
+    {
+        struct classical_type *classical_type;
+        struct quantum_type *quantum_type;
+    };
+
+} type;
+
+typedef struct classical_type
+{
+    type_kind kind;
+    union
+    {
+        int_type *int_type;
+        uint_type *uint_type;
+        float_type *float_type;
+        angle_type *angle_type;
+        duration_type *duration_type;
+        bit_type *bit_type;
+        bool_type *bool_type;
+        complex_type *complex_type;
+        array_type *array_type;
+    };
 } classical_type;
 
 typedef struct identifier
@@ -505,9 +674,6 @@ DEFINE_LIST(statement);
 typedef struct expression
 {
     expr_kind kind;
-
-    struct expression *next;
-
     union
     {
         identifier *identifier;

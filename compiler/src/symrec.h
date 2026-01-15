@@ -23,7 +23,10 @@
 #define PRIM_IMAGINARY prim_imaginary
 #define PRIM_QUBIT prim_qubit
 #define PRIM_ANGLE prim_angle
+#define PRIM_DURATION prim_duration
 #define PRIM_STRING prim_string
+#define PRIM_BIT prim_bit
+#define PRIM_BOOL prim_bool
 
 #endif
 
@@ -64,6 +67,9 @@ extern typerec_t *PRIM_IMAGINARY;
 extern typerec_t *PRIM_QUBIT;
 extern typerec_t *PRIM_ANGLE;
 extern typerec_t *PRIM_STRING;
+extern typerec_t *PRIM_DURATION;
+extern typerec_t *PRIM_BIT;
+extern typerec_t *PRIM_BOOL;
 
 symrec_t *putsym(const char *name);
 symrec_t *getsym(const char *name);

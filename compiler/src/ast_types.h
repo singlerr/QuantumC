@@ -48,6 +48,9 @@ typedef enum _ast_node_type
     AST_TYPE_FUNCTION,
     AST_TYPE_ENUM,
     AST_TYPE_STRING,
+    AST_TYPE_DURATION,
+    AST_TYPE_BIT,
+    AST_TYPE_BOOL,
 
     AST_STMT_COMPOUND,
     AST_STMT_IF,
