@@ -36,7 +36,6 @@ typedef enum _ast_node_type
     AST_TYPE_SIGNED,
     AST_TYPE_UNSIGNED,
     AST_TYPE_LONG,
-    AST_TYPE_BOOL,
     AST_TYPE_COMPLEX,
     AST_TYPE_IMAGINARY,
     AST_TYPE_POINTER,
@@ -51,6 +50,8 @@ typedef enum _ast_node_type
     AST_TYPE_DURATION,
     AST_TYPE_BIT,
     AST_TYPE_BOOL,
+    AST_TYPE_QUBIT,
+    AST_TYPE_ANGLE,
 
     AST_STMT_COMPOUND,
     AST_STMT_IF,

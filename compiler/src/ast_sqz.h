@@ -134,7 +134,7 @@ typedef struct _sqz_expr
 typedef struct _sqz_args
 {
     sqz_param_decl *arg;
-    sqz_assign_expr *expr;
+    struct _sqz_assign_expr *expr;
     struct _sqz_args *next;
 } sqz_args;
 

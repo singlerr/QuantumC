@@ -564,7 +564,7 @@ typedef struct statement
         {
             struct expression *condition;
             struct statement_list *if_block;
-            struct statmenet_list *else_block;
+            struct statement_list *else_block;
         } branching;
 
         struct

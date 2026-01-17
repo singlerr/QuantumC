@@ -24,6 +24,8 @@ typerec_t *PRIM_STRING;
 typerec_t *PRIM_DURATION;
 typerec_t *PRIM_BIT;
 typerec_t *PRIM_BOOL;
+typerec_t *PRIM_QUBIT;
+typerec_t *PRIM_ANGLE;
 
 symrec_t *putsym(const char *name)
 {
@@ -111,6 +113,8 @@ void init_primitives()
     PRIM_DURATION = PUT_TYPE("duration", AST_TYPE_DURATION, 4);
     PRIM_BIT = PUT_TYPE("bit", AST_TYPE_BIT, 1);
     PRIM_BOOL = PUT_TYPE("bool", AST_TYPE_BOOL, 4);
+    PRIM_QUBIT = PUT_TYPE("qubit", AST_TYPE_QUBIT, 1);
+    PRIM_ANGLE = PUT_TYPE("angle", AST_TYPE_ANGLE, 1);
 }
 
 void init_type()
