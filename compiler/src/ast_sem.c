@@ -188,7 +188,7 @@ void convert_program(const struct _sqz_program *p, program **out)
         }
         list = list->next;
     }
-
+    list_goto_first(statement_list, prog->stmts);
     *out = prog;
 }
 
@@ -199,7 +199,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
     type_t *var_type = var->type;
     sqz_declarator *declarator;
     sqz_initializer *initializer;
-    statement_list *list = IALLOC(statement_list), *head = list;
+    statement_list *list = NULL;
     statement *stmt;
     expression *init_expr = NULL;
     while (decl_list)
@@ -212,12 +212,14 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
         if (initializer)
         {
             convert_assign_expression(initializer->expr, &init_expr);
+            stmt->classical.declaration.init_expression_kind = EXPR_EXPRESSION;
         }
         identifier *id = new_identifier(declarator->id->name->name);
         // qubit declaration
         if (IS_QUBIT(var_type))
         {
             stmt->classical.qubit_declaration.qubit = id;
+            stmt->kind = STMT_QUANTUM_DECLARATION;
         }
         // classical declaration
         else
@@ -225,7 +227,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
             if (var->spec->qualifier & QAL_CONST)
             {
                 stmt->classical.constant_declaration.identifier = id;
-
+                stmt->kind = STMT_CONST_DECLARATION;
                 if (init_expr)
                 {
                     stmt->classical.constant_declaration.expression = init_expr;
@@ -240,7 +242,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
             else
             {
                 stmt->classical.declaration.identifier = id;
-
+                stmt->kind = STMT_CLASSICAL_DECLARATION;
                 if (init_expr)
                 {
                     stmt->classical.declaration.init_expression.expr = init_expr;
@@ -249,16 +251,22 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
                 }
             }
         }
-
-        if (head->value)
+        statement_list *l = wrap_statement_list(stmt);
+        if (!list)
         {
-            statement_list *l = IALLOC(statement_list);
-            l->value = stmt;
-            list_add(statement_list, l, head);
+            list = l;
         }
         else
         {
-            head->value = stmt;
+            do
+            {
+                statement_list *_new = l;
+                statement_list *_prev = list;
+                _prev->next = _new;
+                _new->prev = _prev;
+                list = _new;
+            } while (0);
+            // list_add(statement_list, l, list);
         }
 
         decl_list = decl_list->next;
@@ -887,7 +895,9 @@ type *convert_type(const type_t *t)
     if (is_array_type(t, &type_array))
     {
         type *result = IALLOC(type);
+        result->type_name = "array";
         result->kind = CLASSICAL_TYPE;
+        result->classical_type = IALLOC(classical_type);
         result->classical_type->kind = TYPE_ARRAY;
         result->classical_type->array_type = type_array;
         return result;
@@ -913,9 +923,11 @@ type *convert_scalar_type(const type_t *t)
     if (IS_INT(t))
     {
         result->kind = CLASSICAL_TYPE;
+        result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(IS_INT32(t) ? 32 : 64);
         if (is_unsigned(t))
         {
+            result->type_name = "uint";
             result->classical_type->kind = TYPE_UINT;
             init_size_type(type_uint, uint_type, index_expr);
             result->classical_type->uint_type = type_uint;
@@ -923,6 +935,7 @@ type *convert_scalar_type(const type_t *t)
         }
         else
         {
+            result->type_name = "int";
             result->classical_type->kind = TYPE_INT;
             init_size_type(type_int, int_type, index_expr);
             result->classical_type->int_type = type_int;
@@ -933,6 +946,8 @@ type *convert_scalar_type(const type_t *t)
     if (IS_FLOAT(t))
     {
         result->kind = CLASSICAL_TYPE;
+        result->type_name = "float";
+        result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(IS_FLOAT32(t) ? 32 : 64);
         result->classical_type->kind = TYPE_FLOAT;
         init_size_type(type_float, float_type, index_expr);
@@ -943,6 +958,8 @@ type *convert_scalar_type(const type_t *t)
     if (IS_ANGLE(t))
     {
         result->kind = CLASSICAL_TYPE;
+        result->type_name = "angle";
+        result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(8); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_ANGLE;
         init_size_type(type_angle, angle_type, index_expr);
@@ -953,7 +970,9 @@ type *convert_scalar_type(const type_t *t)
     if (IS_DURATION(t))
     {
         type_duration = IALLOC(duration_type);
+        result->type_name = "duration";
         result->kind = CLASSICAL_TYPE;
+        result->classical_type = IALLOC(classical_type);
         result->classical_type->kind = TYPE_DURATION;
         result->classical_type->duration_type = type_duration;
         return result;
@@ -962,6 +981,8 @@ type *convert_scalar_type(const type_t *t)
     if (IS_BIT(t))
     {
         result->kind = CLASSICAL_TYPE;
+        result->type_name = "bit";
+        result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_BIT;
         init_size_type(type_bit, bit_type, index_expr);
@@ -972,6 +993,8 @@ type *convert_scalar_type(const type_t *t)
     if (IS_BOOL(t))
     {
         result->kind = CLASSICAL_TYPE;
+        result->type_name = "bool";
+        result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_BOOL;
         init_size_type(type_bool, bool_type, index_expr);

@@ -5,6 +5,7 @@
 #include "symrec.h"
 #include "ast_sqz.h"
 #include "ast_sem.h"
+#include "codegen.h"
 
 extern FILE *yyin;
 extern int yyparse(ast_node **root);
@@ -59,6 +60,7 @@ int main(int argc, char *argv[])
     }
 
     convert_program(squeezed, &sem_analysis);
+    gen_program(sem_analysis);
 
     print_sqz(squeezed);
 

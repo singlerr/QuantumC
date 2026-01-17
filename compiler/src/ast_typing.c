@@ -1,10 +1,11 @@
+
+#include <string.h>
+#include <stdlib.h>
 #include "ast_typing.h"
 #include "ast_sqz.h"
 #include "ast_sem.h"
 #include "symrec.h"
 #include "diagnostics.h"
-#include <string.h>
-
 BOOL is_pointer_compatible(const type_t *a, const type_t *b);
 BOOL is_struct_compatible(const type_t *a, const type_t *b);
 BOOL is_array_compatible(const type_t *a, const type_t *b);

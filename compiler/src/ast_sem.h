@@ -27,21 +27,24 @@
     } type##_list;                \
     DEFINE_WRAP_FUNC(type)
 
-#define list_add(type, new, head)                  \
-    do                                             \
-    {                                              \
-        type *_new = (new), *_prev = (head)->prev; \
-        _prev->next = _new;                        \
-        _new->next = (head);                       \
-        _new->prev = _prev;                        \
-        (head)->prev = _new;                       \
-        head = _new;                               \
+#define list_add(type, new, head) \
+    do                            \
+    {                             \
+        type *_new = new;         \
+        type *_prev = head;       \
+        _prev->next = _new;       \
+        _new->prev = _prev;       \
+        head = _new;              \
     } while (0)
 
 #define list_for_each_entry(pos, head) \
     for (pos = head;                   \
          pos;                          \
          pos = pos->next)
+#define list_reverse_for_each_entry(pos, head) \
+    for (pos = head;                           \
+         pos;                                  \
+         pos = pos->prev)
 
 #define list_add_all(type, list, head) \
     do                                 \
@@ -53,6 +56,17 @@
             head = pos;                \
         }                              \
     } while (0);
+
+#define list_goto_first(type, list)              \
+    do                                           \
+    {                                            \
+        type *_pos;                              \
+        type *_head = list;                      \
+        list_reverse_for_each_entry(_pos, _head) \
+        {                                        \
+            list = _pos;                         \
+        }                                        \
+    } while (0)
 
 struct _sqz_program;
 
@@ -281,6 +295,7 @@ typedef struct type
         struct quantum_type *quantum_type;
     };
 
+    char *type_name;
 } type;
 
 typedef struct classical_type

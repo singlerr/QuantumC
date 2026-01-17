@@ -1,31 +1,21 @@
-#include "codegen.h"
-#include "ast_sem.h"
-#include "ast_typing.h"
+
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>
 #include "diagnostics.h"
-
+#include "codegen.h"
+#include "ast_sem.h"
+#include "ast_typing.h"
 FILE *fout = NULL;
 
 void gen(const char *msg, ...);
 void error(const char *msg, ...);
 
-void gen_type(const type_t *);
-void gen_var_declaration(struct sem_var_decl *var);
-void gen_func_declaration(struct sem_func_decl *func);
-void gen_declarator(struct sem_declarator *declarator);
-void gen_decl_spec(struct sem_decl_spec *spec);
-void gen_initializer(struct sem_initializer *init);
-void gen_assign_expr(struct sem_assign_expr *expr);
-void gen_unary_expr(struct sem_unary *unary);
-void gen_ternary_expr(struct sem_ternary_expr *ternary);
-void gen_binary_expr(struct sem_binary_expr *binary);
-void gen_operator(ast_node_type op_type);
-void gen_cast_expr(struct sem_cast_expr *cast);
-void gen_postfix(struct sem_expr_src *postfix);
+void gen_type(const type *);
+void gen_operator(operator op_type);
+void gen_statement(statement *stmt);
 
 void begin_paren();
 void end_paren();
@@ -37,298 +27,107 @@ void set_codegen_output(FILE *out)
     fout = out;
 }
 
-void gen_program(struct sem_program *prog)
+void gen_program(struct program *prog)
 {
-    struct sem_decl *d = prog->decl;
-    while (d)
+    statement_list *list = prog->stmts;
+
+    statement_list *cur;
+    list_for_each_entry(cur, list)
     {
-        switch (d->decl_type)
-        {
-        case AST_FUNCTION_DECLARATION:
-            gen_func_declaration(d->decl.func);
-            break;
-        case AST_VARIABLE_DECLARATION:
-            gen_var_declaration(d->decl.var);
-            break;
-        }
-        d = d->next;
+        gen_statement(cur->value);
     }
 }
 
-void gen_var_declaration(struct sem_var_decl *var)
+void gen_statement(statement *stmt)
 {
-    struct sem_init_decl *d = var->decl_list;
-
-    while (d)
+    switch (stmt->kind)
     {
-        struct sem_declarator *declarator = d->decl;
-        struct sem_initializer *initializer = d->init;
-        d = d->next;
-    }
-}
-
-void gen_func_declaration(struct sem_func_decl *func)
-{
-}
-
-void gen_type(const type_t *type)
-{
-    // classical
-    if (IS_INT(type))
-    {
-        int bit = IS_INT64(type) ? 64 : 32;
-        gen("int[%d]", bit);
-    }
-    else if (IS_FLOAT(type))
-    {
-        int bit = IS_FLOAT64(type) ? 64 : 32;
-        gen("float[%d]", bit);
-    }
-    else if (IS_COMPLEX(type))
-    {
-        gen("complex");
-    }
-    // quantum types
-    else if (IS_QUBIT(type))
-    {
-        gen("qubit");
-    }
-    else if (IS_ANGLE(type))
-    {
-        gen("angle");
-    }
-    else
-    {
-        error("Error: Unsupported type %s", type->name);
-        exit(1);
-    }
-}
-
-void gen_declarator(struct sem_declarator *declarator)
-{
-    if (declarator->index)
-    {
-        gen("[");
-    }
-}
-
-void gen_decl_spec(struct sem_decl_spec *spec)
-{
-    if (spec->qualifier & QAL_CONST)
-    {
-        gen("const");
-        space();
-    }
-}
-
-void gen_initializer(struct sem_initializer *init)
-{
-}
-
-void gen_assign_expr(struct sem_assign_expr *expr)
-{
-    switch (expr->assign_type)
-    {
-    case AST_EXPR_ASSIGN:
-        struct sem_unary *left = expr->left;
-        struct sem_assign_expr *right = expr->right;
-
-        gen_unary_expr(left);
-        space();
-        gen("=");
-        space();
-        gen_assign_expr(right);
+    case STMT_CLASSICAL_DECLARATION:
         break;
 
     default:
-        gen_ternary_expr(expr->ternary_expr);
         break;
     }
 }
 
-void gen_unary_expr(struct sem_unary *unary)
+void gen_type(const type *type)
 {
-    switch (unary->expr_type)
-    {
-    case AST_EXPR_PRE_INC:
-    case AST_EXPR_PRE_DEC:
-        perror("pre inc or pre dec are not supported");
-        break;
-    case AST_UNARY_AMP:
-    case AST_UNARY_STAR:
-    case AST_UNARY_PLUS:
-    case AST_UNARY_MINUS:
-    case AST_UNARY_TILDE:
-    case AST_UNARY_EXCL:
-        gen_operator(unary->expr_type);
-        space();
-        gen_unary_expr(unary->expr.cast);
-        break;
-    default:
-        gen_postfix(unary->expr.postfix);
-        break;
-    }
+    gen(type->type_name);
 }
 
-void gen_postfix(struct sem_expr_src *postfix)
+void gen_operator(operator op_type)
 {
-    switch (postfix->expr_type)
-    {
-    case AST_EXPR_ARRAY_ACCESS:
-        /* code */
-        break;
-    case AST_EXPR_FUNCTION_CALL:
-        break;
-    case AST_EXPR_MEMBER_ACCESS:
-        break;
-    case AST_ default:
-        break;
-    }
-}
+    const char *op = NULL;
 
-void gen_ternary_expr(struct sem_ternary_expr *ternary)
-{
-    if (ternary->binary_expr)
-    {
-        gen_binary_expr(ternary->binary_expr);
-    }
-    else
-    {
-        perror("OpenQASM does not have ternary expression");
-    }
-}
-
-void gen_binary_expr(struct sem_binary_expr *binary)
-{
-    switch (binary->expr_type)
-    {
-    case AST_EXPR_LOR:
-    case AST_EXPR_LAND:
-    case AST_EXPR_OR:
-    case AST_EXPR_XOR:
-    case AST_EXPR_AND:
-    case AST_EXPR_EQ:
-    case AST_EXPR_NEQ:
-    case AST_EXPR_LT:
-    case AST_EXPR_GT:
-    case AST_EXPR_LEQ:
-    case AST_EXPR_GEQ:
-    case AST_EXPR_LSHIFT:
-    case AST_EXPR_RSHIFT:
-    case AST_EXPR_ADD:
-    case AST_EXPR_SUB:
-        gen_binary_expr(binary->left);
-        space();
-        gen_operator(binary->expr_type);
-        space();
-        gen_binary_expr(binary->right.binary);
-        break;
-    case AST_EXPR_MUL:
-    case AST_EXPR_DIV:
-    case AST_EXPR_MOD:
-        gen_binary_expr(binary->left);
-        space();
-        gen_operator(binary->expr_type);
-        space();
-        gen_cast_expr(binary->right.cast);
-        break;
-    case AST_EXPR_TYPE_CAST:
-        gen_cast_expr(binary->cast_expr);
-        break;
-    default:
-        perror("Unknown binary expression");
-        break;
-    }
-}
-
-void gen_cast_expr(struct sem_cast_expr *cast)
-{
-    switch (cast->cast_type)
-    {
-    case AST_EXPR_TYPE_CAST:
-        begin_paren();
-        gen_declarator(cast->type);
-        end_paren();
-        gen_cast_expr(cast->expr.cast);
-        break;
-    default:
-        gen_unary_expr(cast->expr.unary);
-        break;
-    }
-}
-
-void gen_operator(ast_node_type op_type)
-{
-    char *op;
     switch (op_type)
     {
-    case AST_EXPR_LOR:
-        op = "||";
+    case OP_DOUBLE_ASTERISK:
+        op = "**";
         break;
-    case AST_EXPR_LAND:
-        op = "&&";
-        break;
-    case AST_EXPR_OR:
-        op = "|";
-        break;
-    case AST_EXPR_XOR:
-        op = "^";
-        break;
-    case AST_UNARY_AMP:
-    case AST_EXPR_AND:
-        op = "&";
-        break;
-    case AST_EXPR_EQ:
-        op = "==";
-        break;
-    case AST_EXPR_NEQ:
-        op = "!=";
-        break;
-    case AST_EXPR_LT:
-        op = "<";
-        break;
-    case AST_EXPR_GT:
-        op = ">";
-        break;
-    case AST_EXPR_LEQ:
-        op = "<=";
-        break;
-    case AST_EXPR_GEQ:
-        op = ">=";
-        break;
-    case AST_EXPR_LSHIFT:
-        op = "<<";
-        break;
-    case AST_EXPR_RSHIFT:
-        op = ">>";
-        break;
-    case AST_UNARY_PLUS:
-    case AST_EXPR_ADD:
-        op = "+";
-        break;
-    case AST_UNARY_MINUS:
-    case AST_EXPR_SUB:
-        op = "-";
-        break;
-    case AST_UNARY_STAR:
-    case AST_EXPR_MUL:
-        op = "*";
-        break;
-    case AST_EXPR_DIV:
-        op = "/";
-        break;
-    case AST_EXPR_MOD:
-        op = "%";
-        break;
-    case AST_UNARY_TILDE:
+    case OP_TILDE:
         op = "~";
         break;
-    case AST_UNARY_EXCL:
+    case OP_EXCLAMATION_POINT:
         op = "!";
         break;
-    default:
-        perror("Unknown operation type");
+    case OP_MINUS:
+        op = "-";
         break;
+    case OP_ASTERISK:
+        op = "*";
+        break;
+    case OP_SLASH:
+        op = "/";
+        break;
+    case OP_PERCENT:
+        op = "%";
+        break;
+    case OP_PLUS:
+        op = "+";
+        break;
+    case OP_LSHIFT:
+        op = "<<";
+        break;
+    case OP_RSHIFT:
+        op = ">>";
+        break;
+    case OP_LT:
+        op = "<";
+        break;
+    case OP_GT:
+        op = ">";
+        break;
+    case OP_GEQ:
+        op = ">=";
+        break;
+    case OP_LEQ:
+        op = "<=";
+        break;
+    case OP_EQ:
+        op = "==";
+        break;
+    case OP_NEQ:
+        op = "!=";
+        break;
+    case OP_AMP:
+        op = "&";
+        break;
+    case OP_PIPE:
+        op = "|";
+        break;
+    case OP_CARET:
+        op = "^";
+        break;
+    case OP_DOUBLE_AMP:
+        op = "&&";
+        break;
+    case OP_DOUBLE_PIPE:
+        op = "||";
+        break;
+
+    default:
+        P_ERROR("Unknown operator");
+        return;
     }
 
     gen("%s", op);

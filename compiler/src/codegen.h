@@ -3,9 +3,9 @@
 
 #include <stdio.h>
 
-struct sem_program;
+struct program;
 
 void set_codegen_output(FILE *);
-void gen_program(struct sem_program *);
+void gen_program(struct program *);
 
 #endif

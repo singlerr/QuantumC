@@ -1,5 +1,4 @@
-OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o
-CC = gcc
+OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o
 CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
 LEX = flex
 YACC = bison
