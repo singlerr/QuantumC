@@ -162,8 +162,8 @@ postfix_expression
 	;
 
 argument_expression_list
-	: assignment_expression { $$ = $1; }
-	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), $3); } 
+	: assignment_expression { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); } 
 	;
 
 unary_expression

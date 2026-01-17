@@ -35,7 +35,24 @@
         _new->next = (head);                       \
         _new->prev = _prev;                        \
         (head)->prev = _new;                       \
+        head = _new;                               \
     } while (0)
+
+#define list_for_each_entry(pos, head) \
+    for (pos = head;                   \
+         pos;                          \
+         pos = pos->next)
+
+#define list_add_all(type, list, head) \
+    do                                 \
+    {                                  \
+        type *pos;                     \
+        list_for_each_entry(pos, list) \
+        {                              \
+            list_add(type, pos, head); \
+            head = pos;                \
+        }                              \
+    } while (0);
 
 struct _sqz_program;
 
@@ -78,7 +95,8 @@ typedef enum expr_kind
     EXPR_FUNC_CALL,
     EXPR_CAST,
     EXPR_INDEX,
-    EXPR_CONCAT
+    EXPR_CONCAT,
+    EXPR_IDENTIFIER
 } expr_kind;
 
 typedef enum stmt_kind
@@ -93,6 +111,7 @@ typedef enum stmt_kind
     STMT_CLASSICAL_DECLARATION,
     STMT_CONST_DECLARATION,
     STMT_CONTINUE,
+    STMT_COMPOUND,
     STMT_DEF,
     STMT_DEFCAL,
     STMT_DELAY,

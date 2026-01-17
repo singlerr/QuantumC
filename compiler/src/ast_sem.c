@@ -31,10 +31,23 @@ void convert_binary_expression(const sqz_binary_expr *binary, expression **out);
 void convert_cast_expression(const sqz_cast_expr *cast, expression **out);
 void convert_unary_expression(const sqz_unary *unary, expression **out);
 void convert_postfix_expression(const sqz_expr_src *src, expression **out);
+void convert_expression_arguments(const sqz_args *args, expression_list **out);
+void convert_statement(const sqz_stmt *stmt, statement **out);
+void convert_expression(const sqz_expr *expr, expression_list **out);
+void convert_case_statement(const sqz_stmt *case_stmt, case_stmt_list **out);
 
 type *convert_scalar_type(const type_t *t);
 type *convert_type(const type_t *t);
 type *convert_declarator(const sqz_declarator *declarator);
+
+static inline statement *wrap_expr_to_stmt(expression *expr)
+{
+    statement *s = IALLOC(statement);
+    s->kind = STMT_EXPRESSION;
+    s->classical.expression.expr = expr;
+
+    return s;
+}
 
 static inline operator to_operator(ast_node_type node_type)
 {
@@ -202,7 +215,6 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
             statement_list *l = IALLOC(statement_list);
             l->value = stmt;
             list_add(statement_list, l, head);
-            head = l;
         }
         else
         {
@@ -347,6 +359,7 @@ void convert_unary_expression(const sqz_unary *unary, expression **out)
         break;
     case AST_EXPR_SIZEOF:
         // FIXME: return integer literal?
+        P_ERROR("FIXME: return integer literal?");
         break;
     case AST_UNARY_AMP:
     case AST_UNARY_STAR:
@@ -371,14 +384,200 @@ void convert_unary_expression(const sqz_unary *unary, expression **out)
 void convert_postfix_expression(const sqz_expr_src *src, expression **out)
 {
     expression *expr = IALLOC(expression);
+    expression *id_expr = NULL;
+    expression_list *arg_list = NULL;
     switch (src->expr_type)
     {
     case AST_EXPR_FUNCTION_CALL:
+        convert_expression_arguments(src->expr.func_call->args, &arg_list);
+        convert_postfix_expression(src->expr.func_call->func, &id_expr);
+        if (id_expr->kind != EXPR_IDENTIFIER)
+        {
+            P_ERROR("Only identifier can be a function name");
+        }
+        expr->as.function_call.name = id_expr->as.identifier;
+        expr->as.function_call.arguments = arg_list;
+        free(id_expr);
         break;
+    case AST_EXPR_ARRAY_ACCESS:
+        // convert_postfix_expression(src->expr.arr_access->array, &expr->as.index.collection);
 
+        break;
     default:
         break;
     }
+
+    *out = expr;
+}
+
+void convert_arguments(const sqz_args *args, cls_or_quantum_args_list **out)
+{
+    // FIXME
+}
+
+void convert_expression_arguments(const sqz_args *args, expression_list **out)
+{
+    expression_list *list = NULL;
+    expression_list *head = list;
+    expression *expr;
+    while (args)
+    {
+        convert_assign_expression(args->expr, &expr);
+        expression_list *cur = wrap_expression_list(expr);
+        if (list)
+        {
+            list_add(expression_list, cur, head);
+        }
+        else
+        {
+            list = cur;
+        }
+        args = args->next;
+    }
+
+    *out = list;
+}
+
+void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_list **out)
+{
+    struct _sqz_block_item *block = comp->block_list;
+    statement_list *list = NULL;
+    statement_list *head = list;
+    while (block)
+    {
+        switch (block->decl_or_stmt)
+        {
+        case AST_VARIABLE_DECLARATION:
+            statement_list *var_decl;
+            convert_variable_declaration(block->item.decl, &var_decl);
+            list_add_all(statement_list, var_decl, head);
+            break;
+        default:
+
+            break;
+        }
+        block = block->next;
+    }
+}
+
+void convert_statement(const sqz_stmt *stmt, statement **out)
+{
+    statement *result = IALLOC(statement);
+    expression_list *target_expr;
+    case_stmt_list *case_list;
+    expression_list *condition;
+    statement *body;
+    switch (stmt->stmt_type)
+    {
+    case AST_STMT_SWITCH:
+        convert_expression(stmt->stmt.selection->selection.switch_selection->expr, &target_expr);
+        result->classical.swtch.target = target_expr->value;
+        stmt->stmt.selection->selection.switch_selection->body;
+        convert_case_statement(stmt->stmt.selection->selection.switch_selection->body, &case_list);
+        result->classical.swtch.cases = case_list;
+        result->kind = STMT_SWITCH;
+        break;
+    case AST_STMT_WHILE:
+        convert_expression(stmt->stmt.iter->iter.while_iter->expr, &condition);
+        convert_statement(stmt->stmt.iter->iter.while_iter->body, &body);
+        result->classical.while_loop.condition = condition->value;
+        result->classical.while_loop.block = body->classical.compound.statements;
+        result->kind = STMT_WHILE;
+        break;
+    case AST_STMT_FOR:
+        statement_list *declaration;
+        statement_list *while_body = NULL;
+        statement_list *for_body = NULL;
+        statement *eval_stmt;
+        expression *eval_expr = NULL;
+        convert_variable_declaration(stmt->stmt.iter->iter.for_iter->decl, &declaration);
+        convert_expression(stmt->stmt.iter->iter.for_iter->cond->expr, &condition);
+        convert_expression(stmt->stmt.iter->iter.for_iter->eval, &eval_expr);
+        convert_statement(stmt->stmt.iter->iter.for_iter->body, &for_body);
+        eval_stmt = wrap_expr_to_stmt(eval_expr);
+        result->classical.while_loop.condition = condition->value;
+        while_body = declaration;
+        list_add_all(statement_list, for_body, while_body);
+        list_add(statement_list, wrap_statement_list(eval_stmt), while_body);
+        result->classical.while_loop.block = while_body;
+        result->kind = STMT_WHILE;
+        break;
+    case AST_STMT_COMPOUND:
+        statement_list *compound = NULL;
+        struct _sqz_block_item *block_item = stmt->stmt.compound->block_list;
+        while (block_item)
+        {
+            switch (block_item->decl_or_stmt)
+            {
+            case AST_VARIABLE_DECLARATION:
+                statement_list *var_stmt;
+                convert_variable_declaration(block_item->item.decl, &var_stmt);
+
+                if (!compound)
+                {
+                    compound = var_stmt;
+                }
+                else
+                {
+                    list_add_all(statement_list, var_stmt, compound);
+                }
+                break;
+            default:
+                statement *inner_stmt;
+                convert_statement(block_item->item.stmt, &inner_stmt);
+
+                if (!compound)
+                {
+                    compound = wrap_statement_list(inner_stmt);
+                }
+                else
+                {
+                    list_add(statement_list, wrap_statement_list(inner_stmt), compound);
+                }
+                break;
+            }
+            block_item = block_item->next;
+        }
+        result->kind = STMT_COMPOUND;
+        result->classical.compound.statements = compound;
+        break;
+    case AST_STMT_EXPRESSION:
+        expression_list *expr_list;
+        expression_list *pos;
+        statement_list *comp = NULL;
+        convert_expression(stmt->stmt.expr->expr, &expr_list);
+        list_for_each_entry(pos, expr_list)
+        {
+            statement *expr_stmt = wrap_expr_to_stmt(pos->value);
+            if (!comp)
+            {
+                comp = wrap_statement_list(expr_stmt);
+            }
+            else
+            {
+                list_add(statement_list, wrap_statement_list(expr_stmt), comp);
+            }
+        }
+
+        result->kind = STMT_COMPOUND;
+        result->classical.compound.statements = comp;
+        break;
+    case AST_STMT_CONTINUE:
+        result->kind = STMT_CONTINUE;
+        break;
+    case AST_STMT_BREAK:
+        result->kind = STMT_BREAK;
+        break;
+    case AST_STMT_RETURN:
+        result->kind = STMT_RETURN;
+        result->classical.retrn.expr.;
+        break;
+    default:
+
+        break;
+    }
+
+    *out = result;
 }
 
 struct env *push_env()
@@ -469,7 +668,6 @@ static int is_array_type(const type_t *t, array_type **out)
                 convert_assign_expression(meta->index, &index_expr);
                 expression_list *head = wrap_expression_list(index_expr);
                 list_add(expression_list, head, indices_head);
-                indices_head = head;
             }
         }
         t = t->next;

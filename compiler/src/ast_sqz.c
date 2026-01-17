@@ -78,6 +78,7 @@ int squeeze_struct_declarator(ast_node *decl, sqz_struct_field **out);
 int squeeze_initializer_list(ast_node *init_list, int level, sqz_initializer_list **out);
 int squeeze_designation(ast_node *designation, sqz_designation **out);
 int squeeze_enum_decl(ast_node *enum_list, struct _sqz_enum_decl **out);
+int squeeze_argument_list(ast_node *args_list, sqz_args **out);
 
 int squeeze_ast(ast_node *root, sqz_program **out)
 {
@@ -941,7 +942,7 @@ int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
 
         if (expr_src->middle)
         {
-            if (FAILED(squeeze_parameter_list(expr_src->middle, &args)))
+            if (FAILED(squeeze_argument_list(expr_src->middle, &args)))
             {
                 goto fail;
             }
@@ -2744,5 +2745,51 @@ int squeeze_enum_decl(ast_node *enum_list, struct _sqz_enum_decl **out)
 fail:
     SAFE_FREE(temp);
     FREE_LIST(struct _sqz_enum_decl, root);
+    return VAL_FAILED;
+}
+
+int squeeze_argument_list(ast_node *args_list, sqz_args **out)
+{
+    ast_node *node = args_list;
+    ast_node *expr_node;
+    sqz_assign_expr *expr;
+    sqz_args *root = NULL, *curr = NULL, *temp = NULL;
+    while (node)
+    {
+        if (node->node_type != AST_NODE_LIST)
+        {
+            goto fail;
+        }
+
+        expr_node = node->middle;
+
+        if (FAILED(squeeze_assign_expr(expr_node, &expr)))
+        {
+            goto fail;
+        }
+
+        temp = IALLOC(sqz_args);
+        temp->expr = expr;
+
+        if (!root)
+        {
+            root = temp;
+            curr = temp;
+        }
+        else
+        {
+            curr->next = temp;
+            curr = temp;
+        }
+
+        node = node->right;
+    }
+
+    *out = root;
+
+    return VAL_OK;
+fail:
+    FREE_LIST(sqz_args, root);
+    SAFE_FREE(temp);
     return VAL_FAILED;
 }
