@@ -669,6 +669,7 @@ void convert_statement(const sqz_stmt *stmt, statement **out)
         result->kind = STMT_SWITCH;
         break;
     case AST_STMT_WHILE:
+        // FIXME: join declaration part and while part into one compound
         convert_expression(stmt->stmt.iter->iter.while_iter->expr, &condition);
         convert_statement(stmt->stmt.iter->iter.while_iter->body, &body);
         result->classical.while_loop.condition = condition->value;

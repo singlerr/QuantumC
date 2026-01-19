@@ -15,4 +15,5 @@ int main(int test)
 int func(int a)
 {
     printf("aaa");
+    return 10;
 }
