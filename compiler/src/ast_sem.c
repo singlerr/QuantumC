@@ -296,15 +296,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
         }
         else
         {
-            do
-            {
-                statement_list *_new = l;
-                statement_list *_prev = list;
-                _prev->next = _new;
-                _new->prev = _prev;
-                list = _new;
-            } while (0);
-            // list_add(statement_list, l, list);
+            list_add(statement_list, l, list);
         }
 
         decl_list = decl_list->next;
