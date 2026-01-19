@@ -1830,11 +1830,6 @@ int squeeze_decl(ast_node *abs_decl, sqz_declarator **out)
             goto fail;
         }
 
-        if (curr && curr->type)
-        {
-            curr->type->next = t->type;
-        }
-
         if (!root)
         {
             root = t;
@@ -1843,6 +1838,12 @@ int squeeze_decl(ast_node *abs_decl, sqz_declarator **out)
         else
         {
             curr->next = t;
+
+            if (curr->type)
+            {
+                curr->type->next = t->type;
+            }
+
             curr = t;
         }
 

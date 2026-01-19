@@ -99,7 +99,7 @@ void init_primitives()
     PRIM_VOID = PUT_TYPE("void", AST_TYPE_VOID, 0);
     PRIM_CHAR = PUT_TYPE("char", AST_TYPE_CHAR, 1);
     PRIM_SHORT = PUT_TYPE("short", AST_TYPE_SHORT, 2);
-    PRIM_INT32 = PUT_TYPE("int", AST_TYPE_INT, 4);
+    PRIM_INT32 = PUT_TYPE("int32", AST_TYPE_INT, 4);
     PRIM_INT64 = PUT_TYPE("int64", AST_TYPE_INT, 8);
     PRIM_LONG = PUT_TYPE("long", AST_TYPE_INT, 8);
     PRIM_FLOAT32 = PUT_TYPE("float", AST_TYPE_FLOAT, 4);

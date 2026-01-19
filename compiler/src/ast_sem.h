@@ -93,13 +93,25 @@ operator
     OP_PIPE,
     OP_CARET,
     OP_DOUBLE_AMP,
-    OP_DOUBLE_PIPE
+    OP_DOUBLE_PIPE,
+    OP_ASSIGN,
+    OP_MUL_ASSIGN,
+    OP_DIV_ASSIGN,
+    OP_MOD_ASSIGN,
+    OP_PLUS_ASSIGN,
+    OP_MINUS_ASSIGN,
+    OP_LSHIFT_ASSIGN,
+    OP_RSHIFT_ASSIGN,
+    OP_AND_ASSIGN,
+    OP_XOR_ASSIGN,
+    OP_OR_ASSIGN
 } operator;
 
 typedef enum expr_kind
 {
     EXPR_DISCRETE_SET,
     EXPR_EXPRESSION,
+    EXPR_NONE,
     EXPR_RANGED_DEFINITION,
     EXPR_QUANTUM_MEASUREMENT,
 
@@ -234,17 +246,7 @@ typedef enum
 typedef struct
 {
     type_kind kind;
-    union
-    {
-        int_type *int_type;
-        uint_type *uint_type;
-        float_type *float_type;
-        angle_type *angle_type;
-        duration_type *duration_type;
-        bit_type *bit_type;
-        bool_type *bool_type;
-        complex_type *complex_type;
-    } base_type;
+    struct type *base_type;
 
     dimension_kind dimension_kind;
 
@@ -295,12 +297,13 @@ typedef struct type
         struct quantum_type *quantum_type;
     };
 
-    char *type_name;
 } type;
 
 typedef struct classical_type
 {
     type_kind kind;
+
+    char *type_name;
     union
     {
         int_type *int_type;
@@ -443,6 +446,11 @@ DEFINE_LIST(classical_argument);
 
 typedef struct cls_or_quantum_args
 {
+    enum arg_kind
+    {
+        CLASSICAL_ARGUMENT,
+        QUANTUM_ARGUMENT
+    } kind;
     union
     {
         classical_argument *classical_argument;

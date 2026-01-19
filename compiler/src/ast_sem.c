@@ -40,6 +40,20 @@ type *convert_scalar_type(const type_t *t);
 type *convert_type(const type_t *t);
 type *convert_declarator(const sqz_declarator *declarator);
 
+static inline type_t *find_first_type(sqz_declarator *decl)
+{
+    while (decl)
+    {
+        if (decl->type)
+        {
+            return decl->type;
+        }
+        decl = decl->next;
+    }
+
+    return NULL;
+}
+
 static inline statement *wrap_expr_to_stmt(expression *expr)
 {
     statement *s = IALLOC(statement);
@@ -118,8 +132,30 @@ static inline operator to_operator(ast_node_type node_type)
         return OP_DOUBLE_AMP;
     case AST_EXPR_LOR:
         return OP_DOUBLE_PIPE;
+    case AST_EXPR_ASSIGN:
+        return OP_ASSIGN;
+    case AST_EXPR_MUL_ASSIGN:
+        return OP_MUL_ASSIGN;
+    case AST_EXPR_DIV_ASSIGN:
+        return OP_DIV_ASSIGN;
+    case AST_EXPR_MOD_ASSIGN:
+        return OP_MOD_ASSIGN;
+    case AST_EXPR_ADD_ASSIGN:
+        return OP_PLUS_ASSIGN;
+    case AST_EXPR_SUB_ASSIGN:
+        return OP_MINUS_ASSIGN;
+    case AST_EXPR_LEFT_ASSIGN:
+        return OP_LSHIFT_ASSIGN;
+    case AST_EXPR_RIGHT_ASSIGN:
+        return OP_RSHIFT_ASSIGN;
+    case AST_EXPR_AND_ASSIGN:
+        return OP_AND_ASSIGN;
+    case AST_EXPR_XOR_ASSIGN:
+        return OP_XOR_ASSIGN;
+    case AST_EXPR_OR_ASSIGN:
+        return OP_OR_ASSIGN;
     default:
-        P_ERROR("Unknown operator");
+        P_ERROR("Unknown operator %d", node_type);
     }
 }
 
@@ -142,8 +178,7 @@ static inline expression *new_int_literal(int value)
     expression *expr = IALLOC(expression);
     expr->as.literal.data.i = value;
     expr->as.literal.literal_kind = LIT_DEC_INT;
-    expr->kind = EXPR_EXPRESSION;
-
+    expr->kind = EXPR_LITERAL;
     return expr;
 }
 
@@ -208,7 +243,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
         initializer = decl_list->init;
 
         stmt = IALLOC(statement);
-
+        stmt->classical.declaration.init_expression_kind = EXPR_NONE;
         if (initializer)
         {
             convert_assign_expression(initializer->expr, &init_expr);
@@ -224,6 +259,9 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
         // classical declaration
         else
         {
+            var_type = clone_type(var_type);
+            var_type->next = find_first_type(declarator);
+            t = convert_type(var_type);
             if (var->spec->qualifier & QAL_CONST)
             {
                 stmt->classical.constant_declaration.identifier = id;
@@ -231,12 +269,11 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
                 if (init_expr)
                 {
                     stmt->classical.constant_declaration.expression = init_expr;
-                    t = convert_type(var_type);
+
                     if (t->kind != CLASSICAL_TYPE)
                     {
                         P_ERROR("Only classical type applicable for constant declaration");
                     }
-                    stmt->classical.constant_declaration.type = t->classical_type;
                 }
             }
             else
@@ -250,6 +287,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
                     // FIXME: How to handle measure?
                 }
             }
+            stmt->classical.constant_declaration.type = t->classical_type;
         }
         statement_list *l = wrap_statement_list(stmt);
         if (!list)
@@ -286,6 +324,7 @@ void convert_function_declaration(const sqz_func_decl *func, statement **out)
     subroutine_def->classical.subroutine_definition.name = new_identifier(func->name->name->name);
 
     convert_compound_statement(func->body, &body);
+    list_goto_first(statement_list, body);
     subroutine_def->classical.subroutine_definition.body = body;
 
     convert_arguments(func->params, &args);
@@ -311,7 +350,17 @@ void convert_assign_expression(const sqz_assign_expr *expr, expression **expr_ou
     }
     else
     {
-        P_ERROR("Assignment expression not allowed for here!");
+        expression *lhs = NULL, *rhs = NULL;
+        convert_unary_expression(expr->left, &lhs);
+        convert_assign_expression(expr->right, &rhs);
+        operator op = to_operator(expr->assign_type);
+        expression *assign = IALLOC(expression);
+        assign->kind = EXPR_BINARY;
+        assign->as.binary.lhs = lhs;
+        assign->as.binary.rhs = rhs;
+        assign->as.binary.op = op;
+
+        *expr_out = assign;
     }
 }
 
@@ -435,6 +484,7 @@ void convert_postfix_expression(const sqz_expr_src *src, expression **out)
     expression *expr = IALLOC(expression);
     expression *id_expr = NULL;
     expression_list *arg_list = NULL;
+    expression *lhs, *rhs;
     switch (src->expr_type)
     {
     case AST_EXPR_FUNCTION_CALL:
@@ -446,13 +496,59 @@ void convert_postfix_expression(const sqz_expr_src *src, expression **out)
         }
         expr->as.function_call.name = id_expr->as.identifier;
         expr->as.function_call.arguments = arg_list;
+        expr->kind = EXPR_FUNC_CALL;
         free(id_expr);
         break;
     case AST_EXPR_ARRAY_ACCESS:
-        // convert_postfix_expression(src->expr.arr_access->array, &expr->as.index.collection);
-
+        expr->kind = EXPR_INDEX;
+        convert_postfix_expression(src->expr.arr_access->array, &expr->as.index.collection);
         break;
     default:
+        switch (src->expr.primary_expr->primary_type)
+        {
+        case AST_IDENTIFIER:
+            expr->kind = EXPR_IDENTIFIER;
+            expr->as.identifier = new_identifier(src->expr.primary_expr->value.identifier->name->name);
+            break;
+        case AST_LITERAL_INTEGER:
+            expr->kind = EXPR_LITERAL;
+            expr->as.literal.literal_kind = LIT_DEC_INT;
+            expr->as.literal.data.i = src->expr.primary_expr->value.i;
+        case AST_LITERAL_FLOAT:
+            expr->kind = EXPR_LITERAL;
+            expr->as.literal.literal_kind = LIT_FLOAT;
+            expr->as.literal.data.f = src->expr.primary_expr->value.f;
+            break;
+        case AST_LITERAL_STRING:
+            P_ERROR("String is not available in OpenQASM");
+            break;
+        case AST_EXPR_POST_DEC:
+            convert_postfix_expression(src->expr.post_inc_dec->operand, &lhs);
+            rhs = new_int_literal(1);
+            expr->kind = EXPR_BINARY;
+            expr->as.binary.lhs = lhs;
+            expr->as.binary.rhs = rhs;
+            expr->as.binary.op = OP_MINUS_ASSIGN;
+            break;
+        case AST_EXPR_POST_INC:
+            convert_postfix_expression(src->expr.post_inc_dec->operand, &lhs);
+            rhs = new_int_literal(1);
+            expr->kind = EXPR_BINARY;
+            expr->as.binary.lhs = lhs;
+            expr->as.binary.rhs = rhs;
+            expr->as.binary.op = OP_PLUS_ASSIGN;
+            break;
+        case AST_EXPR_MEMBER_ACCESS:
+        case AST_EXPR_POINTER_MEMBER_ACCESS:
+            P_ERROR("Pointer or member access are not implemented");
+            break;
+        default:
+            free(expr);
+            expression_list *sub = NULL;
+            convert_expression(src->expr.primary_expr->value.expr, &sub);
+            *out = sub->value;
+            return;
+        }
         break;
     }
 
@@ -462,6 +558,41 @@ void convert_postfix_expression(const sqz_expr_src *src, expression **out)
 void convert_arguments(const sqz_args *args, cls_or_quantum_args_list **out)
 {
     // FIXME
+    cls_or_quantum_args_list *list = NULL;
+    cls_or_quantum_args *arg;
+    type *type;
+    while (args)
+    {
+        arg = IALLOC(cls_or_quantum_args);
+        if (IS_QUBIT(args->arg->type))
+        {
+            arg->kind = QUANTUM_ARGUMENT;
+            arg->quantum_argument = IALLOC(quantum_argument);
+            arg->quantum_argument->name = new_identifier(args->arg->decl->id->name->name);
+        }
+        else
+        {
+            arg->kind = CLASSICAL_ARGUMENT;
+            arg->classical_argument = IALLOC(classical_argument);
+            arg->classical_argument->name = new_identifier(args->arg->decl->id->name->name);
+            type = convert_type(args->arg->type);
+            arg->classical_argument->type = type->classical_type;
+            arg->classical_argument->access = MUTABLE;
+        }
+
+        if (!list)
+        {
+            list = wrap_cls_or_quantum_args_list(arg);
+        }
+        else
+        {
+            list_add(cls_or_quantum_args_list, wrap_cls_or_quantum_args_list(arg), list);
+        }
+
+        args = args->next;
+    }
+
+    *out = list;
 }
 
 void convert_expression_arguments(const sqz_args *args, expression_list **out)
@@ -491,7 +622,6 @@ void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_
 {
     struct _sqz_block_item *block = comp->block_list;
     statement_list *list = NULL;
-    statement_list *head = list;
     while (block)
     {
         switch (block->decl_or_stmt)
@@ -499,14 +629,34 @@ void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_
         case AST_VARIABLE_DECLARATION:
             statement_list *var_decl;
             convert_variable_declaration(block->item.decl, &var_decl);
-            list_add_all(statement_list, var_decl, head);
+            if (!list)
+            {
+                list = var_decl;
+            }
+            else
+            {
+                list_add_all(statement_list, var_decl, list);
+            }
+
             break;
         default:
-
+            statement *general_stmt;
+            convert_statement(block->item.stmt, &general_stmt);
+            if (!list)
+            {
+                list = wrap_statement_list(general_stmt);
+            }
+            else
+            {
+                list_add(statement_list, wrap_statement_list(general_stmt), list);
+            }
             break;
         }
         block = block->next;
     }
+
+    list_goto_first(statement_list, list);
+    *out = list;
 }
 
 void convert_statement(const sqz_stmt *stmt, statement **out)
@@ -717,6 +867,9 @@ void convert_expression(const sqz_expr *_expr, expression_list **out)
         }
         _expr = _expr->next;
     }
+
+    list_goto_first(expression_list, expr_list);
+    *out = expr_list;
 }
 
 void convert_case_statement(const sqz_stmt *_case_stmt, case_stmt_list **out, statement **deflt)
@@ -803,7 +956,7 @@ identifier *new_identifier(char *name)
     return id;
 }
 
-static int is_array_type(const type_t *t, array_type **out)
+static BOOL is_array_type(const type_t *t, array_type **out)
 {
     typemeta_t *meta;
     array_type *result = NULL;
@@ -812,48 +965,19 @@ static int is_array_type(const type_t *t, array_type **out)
     type_t *root_type = t;
     expression *index_expr = NULL;
     expression_list *indices = NULL, *indices_head;
-
+    BOOL is_array = FALSE;
     while (t)
     {
         meta = t->meta;
 
-        if (meta->node_type == AST_ARRAY_ACCESS)
+        if (meta->node_type == AST_TYPE_ARRAY)
         {
             if (!result)
             {
                 result = IALLOC(array_type);
                 base_type = convert_scalar_type(root_type);
                 result->kind = base_type->classical_type->kind;
-
-                switch (base_type->classical_type->kind)
-                {
-                case TYPE_INT:
-                    result->base_type.int_type = base_type->classical_type->int_type;
-                    break;
-                case TYPE_UINT:
-                    result->base_type.uint_type = base_type->classical_type->uint_type;
-                    break;
-                case TYPE_FLOAT:
-                    result->base_type.float_type = base_type->classical_type->float_type;
-                    break;
-                case TYPE_COMPLEX:
-                    result->base_type.complex_type = base_type->classical_type->complex_type;
-                    break;
-                case TYPE_ANGLE:
-                    result->base_type.angle_type = base_type->classical_type->angle_type;
-                    break;
-                case TYPE_BIT:
-                    result->base_type.bit_type = base_type->classical_type->bit_type;
-                    break;
-                case TYPE_BOOL:
-                    result->base_type.bool_type = base_type->classical_type->bool_type;
-                    break;
-                case TYPE_DURATION:
-                    result->base_type.duration_type = base_type->classical_type->duration_type;
-                    break;
-                default:
-                    break;
-                }
+                result->base_type = base_type;
 
                 convert_assign_expression(meta->index, &index_expr);
 
@@ -871,6 +995,7 @@ static int is_array_type(const type_t *t, array_type **out)
                 expression_list *head = wrap_expression_list(index_expr);
                 list_add(expression_list, head, indices_head);
             }
+            is_array = TRUE;
         }
         t = t->next;
     }
@@ -887,6 +1012,7 @@ static int is_array_type(const type_t *t, array_type **out)
     }
 
     *out = result;
+    return is_array;
 }
 
 type *convert_type(const type_t *t)
@@ -895,9 +1021,9 @@ type *convert_type(const type_t *t)
     if (is_array_type(t, &type_array))
     {
         type *result = IALLOC(type);
-        result->type_name = "array";
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
+        result->classical_type->type_name = "array";
         result->classical_type->kind = TYPE_ARRAY;
         result->classical_type->array_type = type_array;
         return result;
@@ -927,15 +1053,16 @@ type *convert_scalar_type(const type_t *t)
         index_expr = new_int_literal(IS_INT32(t) ? 32 : 64);
         if (is_unsigned(t))
         {
-            result->type_name = "uint";
+
             result->classical_type->kind = TYPE_UINT;
+            result->classical_type->type_name = "uint";
             init_size_type(type_uint, uint_type, index_expr);
             result->classical_type->uint_type = type_uint;
             return result;
         }
         else
         {
-            result->type_name = "int";
+            result->classical_type->type_name = "int";
             result->classical_type->kind = TYPE_INT;
             init_size_type(type_int, int_type, index_expr);
             result->classical_type->int_type = type_int;
@@ -946,7 +1073,7 @@ type *convert_scalar_type(const type_t *t)
     if (IS_FLOAT(t))
     {
         result->kind = CLASSICAL_TYPE;
-        result->type_name = "float";
+        result->classical_type->type_name = "float";
         result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(IS_FLOAT32(t) ? 32 : 64);
         result->classical_type->kind = TYPE_FLOAT;
@@ -958,7 +1085,7 @@ type *convert_scalar_type(const type_t *t)
     if (IS_ANGLE(t))
     {
         result->kind = CLASSICAL_TYPE;
-        result->type_name = "angle";
+        result->classical_type->type_name = "angle";
         result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(8); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_ANGLE;
@@ -970,7 +1097,7 @@ type *convert_scalar_type(const type_t *t)
     if (IS_DURATION(t))
     {
         type_duration = IALLOC(duration_type);
-        result->type_name = "duration";
+        result->classical_type->type_name = "duration";
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
         result->classical_type->kind = TYPE_DURATION;
@@ -981,7 +1108,7 @@ type *convert_scalar_type(const type_t *t)
     if (IS_BIT(t))
     {
         result->kind = CLASSICAL_TYPE;
-        result->type_name = "bit";
+        result->classical_type->type_name = "bit";
         result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_BIT;
@@ -993,7 +1120,7 @@ type *convert_scalar_type(const type_t *t)
     if (IS_BOOL(t))
     {
         result->kind = CLASSICAL_TYPE;
-        result->type_name = "bool";
+        result->classical_type->type_name = "bool";
         result->classical_type = IALLOC(classical_type);
         index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
         result->classical_type->kind = TYPE_BOOL;
@@ -1001,6 +1128,9 @@ type *convert_scalar_type(const type_t *t)
         result->classical_type->bool_type = type_bool;
         return result;
     }
+
+    P_ERROR("Unknown type");
+    return NULL;
 }
 
 type *convert_declarator(const sqz_declarator *declarator)

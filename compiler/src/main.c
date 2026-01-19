@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
     }
 
     convert_program(squeezed, &sem_analysis);
+    set_codegen_output(stdout);
     gen_program(sem_analysis);
 
     print_sqz(squeezed);
