@@ -6,16 +6,18 @@
 #include <string.h>
 #include "stringlib.h"
 
-void yyerror(ast_node **root, char const *s);
+void yyerror(ast_node** root, char const *s);
 extern int yylex();
 extern int type_size; 
+extern int yylineno;
+extern char* lineptr;
 #include "c.parser.h"
 
 %}
 
 
 %parse-param { ast_node** root}
-
+%define parse.error detailed
 %union {
 	int i;
 	float f;
@@ -571,8 +573,11 @@ declaration_list
 
 extern int column;
 
-void yyerror(ast_node **root, char const *s)
+void yyerror(ast_node** root, const char *str)
 {
-	fflush(stdout);
-	printf("%*s\n%*s\n", column, "^", column, s);
+	fprintf(stderr,"error: %s in line %d, column %d\n", str, yylineno, column);
+    fprintf(stderr,"%s", lineptr);
+    for(int i = 0; i < column - 1; i++)
+        fprintf(stderr,"_");
+    fprintf(stderr,"^\n");
 }

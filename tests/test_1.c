@@ -1,28 +1,16 @@
-
-int func(int);
-int a, b[19], c;
-int main(int test)
+typedef unsigned int uint;
+uint8_t eight_qubit_bell_state()
 {
-    qubit19_t c;
-    c[10] = 1;
-    a[1][2][3] = 4;
-    for (int i = 0; i < 5; i++)
+    qubit q[8];
+
+    apply_H(q[0]);
+    for (int i = 0; i < 7; i++)
     {
+        apply_CX(q[i], q[i + 1]);
     }
 
-    switch (i)
-    {
-    case 1:
-        break;
-    case 3:
-        break;
-    }
+    uint8_t meas = measure(q);
 
-    return 0;
-}
-
-int func(float a)
-{
-
-    return 10;
+    // Expected to return 0b00000000 == 0 in 50% and 0b11111111 == 255 in 50%.
+    return meas;
 }

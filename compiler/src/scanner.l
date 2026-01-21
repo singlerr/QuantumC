@@ -16,15 +16,37 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 #include "c.parser.h"
 #include "symrec.h"
 
-int line_number = 0;
 void count(void);
 void comment(void);
 int check_type(void);
 int check_sized_type(void);
+void yyerror(ast_node** root, char const *s);
 int type_size = -1;
 
+static int next_column = 1;
+int column = 1;
+char *lineptr = NULL;
+size_t n = 0;
+size_t consumed = 0;
+size_t available = 0;
+size_t min(size_t a, size_t b);
+#define YY_INPUT(buf,result,max_size) {\
+	if(available <= 0) {\
+		consumed = 0;\
+		available = getline(&lineptr, &n, yyin);\
+		if (available < 0) {\
+			if (ferror(yyin)) { perror("read error:"); }\
+				available = 0;\
+			}\
+	}\
+	result = min(available, max_size);\
+	strncpy(buf, lineptr + consumed, result);\
+	consumed += result;\
+	available -= result;\
+}
 %}
 %option nounput
+%option yylineno
 %option noyywrap
 %%
 "/*"			{ comment(); }
@@ -83,7 +105,7 @@ L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
 0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
-"\n"	{ line_number++; }
+"\n"	{ next_column = 1; }
 L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
 
 "..."			{ count(); return(ELLIPSIS); }
@@ -134,7 +156,7 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITE
 "?"			{ count(); return('?'); }
 
 [ \t\v\n\f]		{ count(); }
-.			{ /* Add code to complain about unmatched characters */ }
+.			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); yyerror(NULL, msg); free(msg); }
 
 %%
 
@@ -152,21 +174,10 @@ void comment(void)
 	perror("unterminated comment");
 }
 
-
-int column = 0;
-
 void count(void)
 {
-	int i;
-
-	for (i = 0; yytext[i] != '\0'; i++)
-		if (yytext[i] == '\n')
-			column = 0;
-		else if (yytext[i] == '\t')
-			column += 8 - (column % 8);
-		else
-			column++;
-	
+	column = next_column; 
+	next_column += strlen(yytext);
 }
 
 int check_type(void)
@@ -203,4 +214,8 @@ int check_sized_type(void){
 	yylval.str = strdup(namebuf);
 	type_size = size;
 	return TYPE_NAME;
+}
+
+size_t min(size_t a, size_t b) {
+    return b < a ? b : a;
 }
