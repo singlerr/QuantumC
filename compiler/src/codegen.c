@@ -8,6 +8,15 @@
 #include "codegen.h"
 #include "ast_sem.h"
 #include "ast_typing.h"
+
+#define GEN_SIZE(type)        \
+    do                        \
+    {                         \
+        begin_bracket();      \
+        gen_expr(type->size); \
+        end_bracket();        \
+    } while (0)
+
 FILE *fout = NULL;
 
 int indent = 0;
@@ -18,6 +27,7 @@ void gen_array_type(const array_type *);
 void gen_scalar_type(const classical_type *);
 void gen_type(const type *);
 void gen_classical_type(const classical_type *);
+void gen_quantum_type(const quantum_type *);
 void gen_operator(const operator op_type);
 void gen_statement(const statement *stmt);
 void gen_identifier(const identifier *id);
@@ -41,7 +51,8 @@ static inline void gen_statement_list(statement_list *list)
     list_for_each_entry(s, list)
     {
         gen_statement(s->value);
-        newline();
+        if (s->next)
+            newline();
     }
 }
 
@@ -63,7 +74,6 @@ void gen_program(struct program *prog)
 
 void gen_statement(const statement *stmt)
 {
-    newline();
     switch (stmt->kind)
     {
     case STMT_CLASSICAL_DECLARATION:
@@ -76,10 +86,16 @@ void gen_statement(const statement *stmt)
             assign();
             gen_expr(stmt->classical.declaration.init_expression.expr);
         }
-
         end_stmt();
         break;
     case STMT_QUANTUM_DECLARATION:
+        gen("qubit");
+        begin_bracket();
+        gen_expr(stmt->classical.qubit_declaration.size);
+        end_bracket();
+        space();
+        gen_identifier(stmt->classical.qubit_declaration.qubit);
+        end_stmt();
         break;
     case STMT_DEF:
         cls_or_quantum_args_list *arg_list;
@@ -113,6 +129,7 @@ void gen_statement(const statement *stmt)
         gen_classical_type(stmt->classical.subroutine_definition.return_type);
         space();
         begin_brace();
+        newline();
         gen_statement_list(stmt->classical.subroutine_definition.body);
         end_brace();
         break;
@@ -125,15 +142,23 @@ void gen_statement(const statement *stmt)
         space();
         begin_brace();
         newline();
-        gen("case");
-        space();
+
         case_stmt_list *case_stmt;
         list_for_each_entry(case_stmt, stmt->classical.swtch.cases)
         {
+            gen("case");
+            space();
             gen_expr_list(case_stmt->value->expr);
             space();
-            gen_statement(case_stmt->value->statmenet);
+            begin_brace();
             newline();
+            gen_statement(case_stmt->value->statmenet);
+            end_brace();
+
+            if (case_stmt->next)
+            {
+                newline();
+            }
         }
         end_brace();
         break;
@@ -208,6 +233,8 @@ void gen_statement(const statement *stmt)
         P_ERROR("Statement %d is not implemented", stmt->kind);
         break;
     }
+
+    newline();
 }
 
 void gen_type(const type *type)
@@ -216,8 +243,9 @@ void gen_type(const type *type)
     {
         gen_classical_type(type->classical_type);
     }
-    else
+    else if (type->kind == QUANTUM_TYPE)
     {
+        gen_quantum_type(type->quantum_type);
     }
 }
 
@@ -230,6 +258,20 @@ void gen_classical_type(const classical_type *cls_type)
     else
     {
         gen_scalar_type(cls_type);
+    }
+}
+
+void gen_quantum_type(const quantum_type *q_type)
+{
+    gen(q_type->type_name);
+    switch (q_type->kind)
+    {
+    case TYPE_QUBIT:
+        GEN_SIZE(q_type->qubit_type);
+        break;
+    default:
+        P_ERROR("Unknown type: %s", q_type->type_name);
+        break;
     }
 }
 
@@ -254,6 +296,36 @@ void gen_array_type(const array_type *type)
 void gen_scalar_type(const classical_type *type)
 {
     gen(type->type_name);
+    switch (type->kind)
+    {
+    case TYPE_INT:
+        GEN_SIZE(type->int_type);
+        break;
+    case TYPE_UINT:
+        GEN_SIZE(type->uint_type);
+        break;
+    case TYPE_FLOAT:
+        GEN_SIZE(type->float_type);
+        break;
+    case TYPE_ANGLE:
+        GEN_SIZE(type->angle_type);
+        break;
+    case TYPE_BIT:
+        GEN_SIZE(type->bit_type);
+        break;
+    case TYPE_BOOL:
+        GEN_SIZE(type->bool_type);
+        break;
+    case TYPE_DURATION:
+        break;
+    case TYPE_COMPLEX:
+        gen("float");
+        GEN_SIZE(type->complex_type->base_type);
+        break;
+    default:
+        P_ERROR("Unknown type: %s", type->type_name);
+        break;
+    }
 }
 
 void gen_identifier(const identifier *id)

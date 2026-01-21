@@ -8,6 +8,7 @@
 
 void yyerror(ast_node **root, char const *s);
 extern int yylex();
+extern int type_size; 
 #include "c.parser.h"
 
 %}
@@ -326,7 +327,7 @@ type_specifier
 	| IMAGINARY { $$ = AST_TYPE_NODE(AST_TYPE_IMAGINARY, PRIM_IMAGINARY, NULL, NULL, NULL); }
 	| struct_or_union_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_STRUCT_UNION, NULL, $1, NULL); }
 	| enum_specifier { $$ = AST_GENERAL_NODE(AST_TYPE_ENUM, NULL, $1, NULL); }
-	| TYPE_NAME { $$ = AST_TYPE_NODE(AST_TYPE_USER, gettype(yylval.str) ,NULL, NULL , NULL); }
+	| TYPE_NAME { $$ = AST_TYPE_NODE(AST_TYPE_USER, type_size > 0 ? getsizedtype(yylval.str, type_size) : gettype(yylval.str), NULL, NULL , NULL); }
 	;
 
 struct_or_union_specifier

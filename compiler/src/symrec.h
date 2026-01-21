@@ -34,6 +34,10 @@
 #define PUT_TYPE(name, type, size) puttype(name, type, mk_type(name, mk_type_meta(size), 0))
 #endif
 
+#ifndef PUT_SIZED_TYPE
+#define PUT_SIZED_TYPE(name, type, size) putsizedtype(name, type, mk_type(name, mk_type_meta(size), 0))
+#endif
+
 typedef struct _symrec
 {
     char *name;
@@ -76,7 +80,9 @@ symrec_t *getsym(const char *name);
 symrec_t *getorcreatesym(const char *name);
 
 typerec_t *puttype(const char *name, ast_node_type type_type, const type_t *type);
+typerec_t *putsizedtype(const char *name, ast_node_type type_type, const type_t *type);
 typerec_t *gettype(const char *name);
+typerec_t *getsizedtype(const char *name, int size);
 typerec_t *clone_type_rec(const typerec_t *o);
 
 void init_type();

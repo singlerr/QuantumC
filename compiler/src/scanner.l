@@ -20,7 +20,8 @@ int line_number = 0;
 void count(void);
 void comment(void);
 int check_type(void);
-int check_quantum_type(void);
+int check_sized_type(void);
+int type_size = -1;
 
 %}
 %option nounput
@@ -68,7 +69,8 @@ int check_quantum_type(void);
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
 
-{L}({L}|{D})*		{ count(); return(check_quantum_type()); }
+{L}({L}|{D})*({D})+"_t" { count(); return(check_sized_type()); }
+{L}({L}|{D})*		{ count(); return(check_type()); }
 0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
 0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
 [1-9]{D}*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
@@ -169,6 +171,7 @@ void count(void)
 
 int check_type(void)
 {
+	type_size = -1;
 	yylval.str = strdup(yytext);
 	
 	if(gettype(yytext)){
@@ -178,23 +181,26 @@ int check_type(void)
 	return IDENTIFIER;
 }
 
-int check_quantum_type(void){
+int check_sized_type(void){
 	char namebuf[64];
 	int size;
+	typerec_t* prim_type;
 
-
-	int ret = sscanf(yytext, "%[^_]_%d_t", namebuf, &size);
+	int ret = sscanf(yytext, "%[^0-9]%d_t", namebuf, &size);
 
 	if(ret < 2){
 		return check_type();
 	}
 
-	if(! gettype(namebuf)){
+	if(! (prim_type = gettype(namebuf))){
 		return check_type();
 	}
 
+	if(! getsizedtype(namebuf, size)){
+		PUT_SIZED_TYPE(namebuf, prim_type->type_type, size);
+	}
 
 	yylval.str = strdup(namebuf);
-	printf("%d\n", size);
+	type_size = size;
 	return TYPE_NAME;
 }

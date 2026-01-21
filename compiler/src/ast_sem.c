@@ -37,7 +37,6 @@ void convert_expression(const sqz_expr *expr, expression_list **out);
 void convert_case_statement(const sqz_stmt *case_stmt, case_stmt_list **out, statement **deflt);
 
 type *convert_scalar_type(const type_t *t);
-type *convert_quantum_type(const type_t *t);
 type *convert_type(const type_t *t);
 type *convert_declarator(const sqz_declarator *declarator);
 
@@ -257,6 +256,7 @@ void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
         if (IS_QUBIT(var_type))
         {
             stmt->classical.qubit_declaration.qubit = id;
+            stmt->classical.qubit_declaration.size = new_int_literal(var_type->meta->size);
             stmt->kind = STMT_QUANTUM_DECLARATION;
         }
         // classical declaration
@@ -711,7 +711,6 @@ void convert_statement(const sqz_stmt *stmt, statement **out)
         result->kind = STMT_SWITCH;
         break;
     case AST_STMT_WHILE:
-
         convert_expression(stmt->stmt.iter->iter.while_iter->expr, &condition);
         convert_statement(stmt->stmt.iter->iter.while_iter->body, &body);
         result->classical.while_loop.condition = condition->value;
@@ -974,6 +973,7 @@ void convert_case_statement(const sqz_stmt *_case_stmt, case_stmt_list **out, st
         item = item->next;
     }
 
+    list_goto_first(case_stmt_list, list);
     *out = list;
 }
 
@@ -1071,10 +1071,6 @@ type *convert_type(const type_t *t)
     return convert_scalar_type(t);
 }
 
-type *convert_quantum_type(const type_t *t)
-{
-}
-
 type *convert_scalar_type(const type_t *t)
 {
     // check array type
@@ -1087,13 +1083,14 @@ type *convert_scalar_type(const type_t *t)
     bit_type *type_bit;
     bool_type *type_bool;
     complex_type *type_complex;
+    qubit_type *type_qubit;
     expression *index_expr;
 
     if (IS_INT(t))
     {
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
-        index_expr = new_int_literal(IS_INT32(t) ? 32 : 64);
+        index_expr = new_int_literal(t->meta->size);
         if (is_unsigned(t))
         {
 
@@ -1119,7 +1116,7 @@ type *convert_scalar_type(const type_t *t)
         result->classical_type = IALLOC(classical_type);
         result->classical_type->type_name = "float";
 
-        index_expr = new_int_literal(IS_FLOAT32(t) ? 32 : 64);
+        index_expr = new_int_literal(t->meta->size);
         result->classical_type->kind = TYPE_FLOAT;
         init_size_type(type_float, float_type, index_expr);
         result->classical_type->float_type = type_float;
@@ -1131,7 +1128,7 @@ type *convert_scalar_type(const type_t *t)
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
         result->classical_type->type_name = "angle";
-        index_expr = new_int_literal(8); // TODO: How to specify type size in C grammar elegantly?
+        index_expr = new_int_literal(t->meta->size);
         result->classical_type->kind = TYPE_ANGLE;
         init_size_type(type_angle, angle_type, index_expr);
         result->classical_type->angle_type = type_angle;
@@ -1155,7 +1152,7 @@ type *convert_scalar_type(const type_t *t)
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
         result->classical_type->type_name = "bit";
-        index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
+        index_expr = new_int_literal(t->meta->size);
         result->classical_type->kind = TYPE_BIT;
         init_size_type(type_bit, bit_type, index_expr);
         result->classical_type->bit_type = type_bit;
@@ -1167,10 +1164,22 @@ type *convert_scalar_type(const type_t *t)
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);
         result->classical_type->type_name = "bool";
-        index_expr = new_int_literal(1); // TODO: How to specify type size in C grammar elegantly?
+        index_expr = new_int_literal(t->meta->size);
         result->classical_type->kind = TYPE_BOOL;
         init_size_type(type_bool, bool_type, index_expr);
         result->classical_type->bool_type = type_bool;
+        return result;
+    }
+
+    if (IS_QUBIT(t))
+    {
+        result->kind = QUANTUM_TYPE;
+        result->quantum_type = IALLOC(quantum_type);
+        result->quantum_type->type_name = "qubit";
+        index_expr = new_int_literal(t->meta->size);
+        result->quantum_type->kind = TYPE_QUBIT;
+        init_size_type(type_qubit, qubit_type, index_expr);
+        result->quantum_type->qubit_type = type_qubit;
         return result;
     }
 

@@ -185,6 +185,7 @@ typedef enum type_kind
     TYPE_ARRAY_REF,
     TYPE_DURATION,
     TYPE_STRETCH,
+    TYPE_QUBIT
 } type_kind;
 
 typedef struct symbol_t
@@ -283,6 +284,11 @@ typedef struct
 
 } array_ref_type;
 
+typedef struct qubit_type
+{
+    struct expression *size;
+} qubit_type;
+
 typedef struct type
 {
     enum
@@ -317,6 +323,17 @@ typedef struct classical_type
         array_type *array_type;
     };
 } classical_type;
+
+typedef struct quantum_type
+{
+    type_kind kind;
+    char *type_name;
+    union
+    {
+        qubit_type *qubit_type;
+    };
+
+} quantum_type;
 
 typedef struct identifier
 {

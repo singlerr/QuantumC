@@ -7,8 +7,6 @@
 #include "diagnostics.h"
 #include "symrec.h"
 
-#include <stdlib.h>
-
 #ifndef MK_TYPE
 #define MK_TYPE(name, size) mk_type(name, mk_type_meta(size), 0)
 #endif
@@ -2144,6 +2142,7 @@ int squeeze_labeled_stmt(ast_node *stmt, struct sqz_labeled **out)
     default:
         goto fail;
     }
+    *out = result;
     return VAL_OK;
 fail:
     SAFE_FREE(result);
