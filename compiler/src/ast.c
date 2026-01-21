@@ -145,6 +145,14 @@ ast_const_node *new_ast_str_const(const char *s)
     return n;
 }
 
+ast_const_node *new_ast_bool_const(int b)
+{
+    ast_const_node *n = IALLOC(ast_const_node);
+    n->data.i = b;
+
+    return n;
+}
+
 ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level)
 {
     ast_identifier_node *node = IALLOC(ast_identifier_node);

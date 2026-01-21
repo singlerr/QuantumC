@@ -72,6 +72,7 @@ ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_no
 ast_const_node *new_ast_int_const(int i);
 ast_const_node *new_ast_float_const(float f);
 ast_const_node *new_ast_str_const(const char *s);
+ast_const_node *new_ast_bool_const(int b);
 int register_type_if_required(ast_node *decl, ast_node *identifier);
 
 void append_left_child(ast_node *parent, const ast_node *child);

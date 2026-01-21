@@ -54,11 +54,11 @@ size_t min(size_t a, size_t b);
 
 
 "auto"			{ count(); return(AUTO); }
-"_Bool"			{ count(); return(BOOL); }
+"bool"			{ count(); return(BOOL); }
 "break"			{ count(); return(BREAK); }
 "case"			{ count(); return(CASE); }
 "char"			{ count(); return(CHAR); }
-"_Complex"		{ count(); return(COMPLEX); }
+"complex"		{ count(); return(COMPLEX); }
 "const"			{ count(); return(CONST); }
 "continue"		{ count(); return(CONTINUE); }
 "default"		{ count(); return(DEFAULT); }
@@ -71,7 +71,7 @@ size_t min(size_t a, size_t b);
 "for"			{ count(); return(FOR); }
 "goto"			{ count(); return(GOTO); }
 "if"			{ count(); return(IF); }
-"_Imaginary"	{ count(); return(IMAGINARY); }
+"imaginary"	{ count(); return(IMAGINARY); }
 "inline"		{ count(); return(INLINE); }
 "int"			{ count(); return(INT); }
 "long"			{ count(); return(LONG); }
@@ -96,7 +96,7 @@ size_t min(size_t a, size_t b);
 0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
 0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
 [1-9]{D}*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(CONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
 
 {D}+{E}{FS}?		{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
 {D}*"."{D}+{E}?{FS}?	{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
@@ -154,6 +154,8 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITE
 "^"			{ count(); return('^'); }
 "|"			{ count(); return('|'); }
 "?"			{ count(); return('?'); }
+"true"		{ count(); return(BOOL_TRUE); }
+"false"		{ count(); return(BOOL_FALSE); }
 
 [ \t\v\n\f]		{ count(); }
 .			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); yyerror(NULL, msg); free(msg); }

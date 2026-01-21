@@ -133,6 +133,7 @@ typedef enum _ast_node_type
     AST_LITERAL_STRING,
     AST_LITERAL_CHAR,
     AST_LITERAL_FLOAT,
+    AST_LITERAL_BOOL,
 
     AST_IDENTIFIER,
 
