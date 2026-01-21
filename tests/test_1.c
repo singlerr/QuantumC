@@ -3,7 +3,8 @@ int func(int);
 int a, b[19], c;
 int main(int test)
 {
-    qubit32_t c = 1;
+    qubit19_t c;
+    c[10] = 1;
     a[1][2][3] = 4;
     for (int i = 0; i < 5; i++)
     {

@@ -196,16 +196,19 @@ void convert_program(const struct _sqz_program *p, program **out)
         {
         case AST_VARIABLE_DECLARATION:
             sqz_var_decl *var_decl = list->decl.var;
-            convert_variable_declaration(var_decl, &var_decl_stmt);
+            if (!IS_FUNC(var_decl->type))
+            {
+                convert_variable_declaration(var_decl, &var_decl_stmt);
+                if (!stmts)
+                {
+                    stmts = var_decl_stmt;
+                }
+                else
+                {
+                    list_add_all(statement_list, var_decl_stmt, stmts);
+                }
+            }
 
-            if (!stmts)
-            {
-                stmts = var_decl_stmt;
-            }
-            else
-            {
-                list_add_all(statement_list, var_decl_stmt, stmts);
-            }
             break;
         case AST_FUNCTION_DECLARATION:
             sqz_func_decl *func_decl = list->decl.func;
@@ -662,14 +665,17 @@ void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_
         {
         case AST_VARIABLE_DECLARATION:
             statement_list *var_decl;
-            convert_variable_declaration(block->item.decl, &var_decl);
-            if (!list)
+            if (!IS_FUNC(block->item.decl->type))
             {
-                list = var_decl;
-            }
-            else
-            {
-                list_add_all(statement_list, var_decl, list);
+                convert_variable_declaration(block->item.decl, &var_decl);
+                if (!list)
+                {
+                    list = var_decl;
+                }
+                else
+                {
+                    list_add_all(statement_list, var_decl, list);
+                }
             }
 
             break;
@@ -751,15 +757,18 @@ void convert_statement(const sqz_stmt *stmt, statement **out)
             {
             case AST_VARIABLE_DECLARATION:
                 statement_list *var_stmt;
-                convert_variable_declaration(block_item->item.decl, &var_stmt);
+                if (!IS_FUNC(block_item->item.decl->type))
+                {
+                    convert_variable_declaration(block_item->item.decl, &var_stmt);
 
-                if (!compound)
-                {
-                    compound = var_stmt;
-                }
-                else
-                {
-                    list_add_all(statement_list, var_stmt, compound);
+                    if (!compound)
+                    {
+                        compound = var_stmt;
+                    }
+                    else
+                    {
+                        list_add_all(statement_list, var_stmt, compound);
+                    }
                 }
                 break;
             default:

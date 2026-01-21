@@ -33,6 +33,7 @@ void gen_statement(const statement *stmt);
 void gen_identifier(const identifier *id);
 void gen_expr(const expression *expr);
 void gen_expr_list(const expression_list *expr_list);
+void gen_indent();
 void begin_brace();
 void end_brace();
 void begin_bracket();
@@ -51,8 +52,6 @@ static inline void gen_statement_list(statement_list *list)
     list_for_each_entry(s, list)
     {
         gen_statement(s->value);
-        if (s->next)
-            newline();
     }
 }
 
@@ -74,6 +73,7 @@ void gen_program(struct program *prog)
 
 void gen_statement(const statement *stmt)
 {
+
     switch (stmt->kind)
     {
     case STMT_CLASSICAL_DECLARATION:
@@ -154,11 +154,7 @@ void gen_statement(const statement *stmt)
             newline();
             gen_statement(case_stmt->value->statmenet);
             end_brace();
-
-            if (case_stmt->next)
-            {
-                newline();
-            }
+            newline();
         }
         end_brace();
         break;
@@ -605,6 +601,14 @@ void end_stmt()
 void assign()
 {
     gen("=");
+}
+
+void gen_indent()
+{
+    for (int i = 0; i < indent; i++)
+    {
+        fprintf(stdout, "\t");
+    }
 }
 
 void gen(const char *msg, ...)
