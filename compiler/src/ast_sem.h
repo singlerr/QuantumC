@@ -711,12 +711,6 @@ typedef struct statement
 
         struct
         {
-            quantum_measurement measure;
-            qubit *target;
-        } quantum_measurement;
-
-        struct
-        {
             struct expression_list *qubits; /* Expression */
         } quantum_barrier;
 
@@ -809,6 +803,13 @@ typedef struct expression
             struct expression *lhs;
             struct expression *rhs;
         } concat;
+
+        struct
+        {
+            quantum_measurement measure;
+            qubit *target;
+        } quantum_measurement;
+
     } as;
 } expression;
 

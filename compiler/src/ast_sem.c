@@ -7,6 +7,7 @@
 #include "ast_sqz.h"
 #include "diagnostics.h"
 #include "ast_typing.h"
+#include "builtin_func.h"
 
 #define init_size_type(name, type, sz) \
     do                                 \
@@ -490,12 +491,23 @@ void convert_postfix_expression(const sqz_expr_src *src, expression **out)
     switch (src->expr_type)
     {
     case AST_EXPR_FUNCTION_CALL:
-        convert_expression_arguments(src->expr.func_call->args, &arg_list);
+        expression *builtin;
         convert_postfix_expression(src->expr.func_call->func, &id_expr);
+        if (convert_builtin_function(id_expr->as.identifier->name, src->expr.func_call, &builtin))
+        {
+            free(expr);
+            free(id_expr->as.identifier);
+            free(id_expr);
+            expr = builtin;
+            break;
+        }
+        convert_expression_arguments(src->expr.func_call->args, &arg_list);
+
         if (id_expr->kind != EXPR_IDENTIFIER)
         {
             P_ERROR("Only identifier can be a function name");
         }
+
         expr->as.function_call.name = id_expr->as.identifier;
         expr->as.function_call.arguments = arg_list;
         expr->kind = EXPR_FUNC_CALL;
@@ -635,7 +647,6 @@ void convert_arguments(const sqz_args *args, cls_or_quantum_args_list **out)
 void convert_expression_arguments(const sqz_args *args, expression_list **out)
 {
     expression_list *list = NULL;
-    expression_list *head = list;
     expression *expr;
     while (args)
     {
@@ -643,7 +654,7 @@ void convert_expression_arguments(const sqz_args *args, expression_list **out)
         expression_list *cur = wrap_expression_list(expr);
         if (list)
         {
-            list_add(expression_list, cur, head);
+            list_add(expression_list, cur, list);
         }
         else
         {
@@ -651,7 +662,7 @@ void convert_expression_arguments(const sqz_args *args, expression_list **out)
         }
         args = args->next;
     }
-
+    list_goto_first(expression_list, list);
     *out = list;
 }
 
@@ -1082,6 +1093,7 @@ type *convert_type(const type_t *t)
 
 type *convert_scalar_type(const type_t *t)
 {
+    typerec_t *user_type = NULL;
     // check array type
     type *result = IALLOC(type);
     int_type *type_int;
@@ -1192,7 +1204,12 @@ type *convert_scalar_type(const type_t *t)
         return result;
     }
 
-    P_ERROR("Unknown type");
+    if ((user_type = gettype(t->name)))
+    {
+        return convert_type(user_type->handle);
+    }
+
+    P_ERROR("Unknown type : %s", t->name);
     return NULL;
 }
 

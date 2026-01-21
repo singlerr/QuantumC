@@ -46,6 +46,27 @@ void space();
 void end_stmt();
 void assign();
 
+static inline void gen_indexed_identifier(indexed_identifier *id)
+{
+    gen_identifier(id->name);
+    begin_bracket();
+    gen_expr(id->index->index.expr_or_range->expr);
+    end_bracket();
+}
+
+static inline void gen_qubit(qubit *qubit)
+{
+    switch (qubit->kind)
+    {
+    case ID_INDEXED_IDENTIFIER:
+        gen_indexed_identifier(qubit->value.indexed_identifier);
+        break;
+    case ID_IDENTIFIER:
+        gen_identifier(qubit->value.identifier);
+        break;
+    }
+}
+
 static inline void gen_statement_list(statement_list *list)
 {
     statement_list *s;
@@ -165,6 +186,7 @@ void gen_statement(const statement *stmt)
         gen_expr(stmt->classical.while_loop.condition);
         end_paren();
         begin_brace();
+        newline();
         gen_statement_list(stmt->classical.while_loop.block);
         end_brace();
         break;
@@ -207,23 +229,19 @@ void gen_statement(const statement *stmt)
         gen_expr(stmt->classical.branching.condition);
         end_paren();
         begin_brace();
+        newline();
         gen_statement_list(stmt->classical.branching.if_block);
         end_brace();
-        break;
-    case AST_STMT_IF_ELSE:
-        gen("if");
-        space();
-        begin_paren();
-        gen_expr(stmt->classical.branching.condition);
-        end_paren();
-        begin_brace();
-        gen_statement_list(stmt->classical.branching.if_block);
-        end_brace();
-        gen("else");
-        space();
-        begin_brace();
-        gen_statement_list(stmt->classical.branching.else_block);
-        end_brace();
+        if (stmt->classical.branching.else_block)
+        {
+            space();
+            gen("else");
+            space();
+            begin_brace();
+            newline();
+            gen_statement_list(stmt->classical.branching.else_block);
+            end_brace();
+        }
         break;
     default:
         P_ERROR("Statement %d is not implemented", stmt->kind);
@@ -389,7 +407,6 @@ void gen_expr(const expression *expr)
         begin_paren();
         gen_expr_list(expr->as.function_call.arguments);
         end_paren();
-        end_stmt();
         break;
     case EXPR_CAST:
         begin_paren();
@@ -417,6 +434,11 @@ void gen_expr(const expression *expr)
             }
         }
         end_bracket();
+        break;
+    case EXPR_QUANTUM_MEASUREMENT:
+        gen("measure");
+        space();
+        gen_qubit(expr->as.quantum_measurement.measure.qubit);
         break;
     default:
         P_ERROR("Expression %d is not implemented", expr->kind);
