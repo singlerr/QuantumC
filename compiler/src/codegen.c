@@ -10,6 +10,7 @@
 #include "ast_typing.h"
 FILE *fout = NULL;
 
+int indent = 0;
 void gen(const char *msg, ...);
 void error(const char *msg, ...);
 
@@ -77,6 +78,8 @@ void gen_statement(const statement *stmt)
         }
 
         end_stmt();
+        break;
+    case STMT_QUANTUM_DECLARATION:
         break;
     case STMT_DEF:
         cls_or_quantum_args_list *arg_list;
@@ -330,7 +333,22 @@ void gen_expr(const expression *expr)
         gen_identifier(expr->as.identifier);
         break;
     case EXPR_INDEX:
+        expr_or_range_list *idx;
+        expr_or_range_list *index = expr->as.index.list;
+        list_goto_first(expr_or_range_list, index);
+        gen_expr(expr->as.index.collection);
+        begin_bracket();
+        list_for_each_entry(idx, index)
+        {
+            gen_expr(idx->value->expr);
 
+            if (idx->next)
+            {
+                comma();
+                space();
+            }
+        }
+        end_bracket();
         break;
     default:
         P_ERROR("Expression %d is not implemented", expr->kind);
@@ -485,10 +503,12 @@ void end_paren()
 void begin_brace()
 {
     gen("{");
+    indent++;
 }
 void end_brace()
 {
     gen("}");
+    indent--;
 }
 
 void begin_bracket()

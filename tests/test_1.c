@@ -3,7 +3,7 @@ int func(int);
 int a, b[19], c;
 int main(int test)
 {
-
+    qubit_32_t c = 1;
     a[1][2][3] = 4;
     for (int i = 0; i < 5; i++)
     {
@@ -12,8 +12,8 @@ int main(int test)
     return 0;
 }
 
-int func(int a)
+int func(float a)
 {
-    printf("aaa");
+
     return 10;
 }

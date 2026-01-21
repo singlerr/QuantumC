@@ -150,9 +150,9 @@ primary_expression
 
 postfix_expression
 	: primary_expression { $$ = $1; }
-	| postfix_expression '[' expression ']' { $$ = AST_GENERAL_NODE(AST_EXPR_ARRAY_ACCESS, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '(' ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, NULL, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
-	| postfix_expression '(' argument_expression_list ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $3, NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
+	| postfix_expression '[' expression ']' { $$ = AST_GENERAL_NODE(AST_EXPR_ARRAY_ACCESS, $1, $3, NULL); }
+	| postfix_expression '(' ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $1, NULL, NULL); }
+	| postfix_expression '(' argument_expression_list ')' { $$ = AST_GENERAL_NODE(AST_EXPR_FUNCTION_CALL, $1, $3, NULL); }
 	| postfix_expression '.' IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression PTR_OP IDENTIFIER { $$ = AST_GENERAL_NODE(AST_EXPR_POINTER_MEMBER_ACCESS, AST_IDENTIFIER_NODE(AST_IDENTIFIER, AST_ID_CURSCOPE(getorcreatesym(yylval.str), NULL), NULL, NULL, NULL), NULL, NULL); append_right_child((ast_node*) find_last_right_child($1), $$); $$ = $1; }
 	| postfix_expression INC_OP { $$ = AST_GENERAL_NODE(AST_EXPR_POST_INC, $1, NULL, NULL); }

@@ -1047,6 +1047,7 @@ int squeeze_expr_src(ast_node *expr_src, sqz_expr_src **out)
             {
                 goto fail;
             }
+
             primary->value.identifier = id;
         }
         else if (expr_src->constant)
