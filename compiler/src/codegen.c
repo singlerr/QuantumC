@@ -111,7 +111,7 @@ void gen_program(struct program *prog)
 
 void gen_statement(const statement *stmt, BOOL do_indent)
 {
-    if (do_indent)
+    if (do_indent && stmt->kind != STMT_COMPOUND)
     {
         gen_indent();
     }
@@ -214,7 +214,7 @@ void gen_statement(const statement *stmt, BOOL do_indent)
         end_brace();
         break;
     case STMT_COMPOUND:
-        gen_statement_list(stmt->classical.compound.statements, FALSE);
+        gen_statement_list(stmt->classical.compound.statements, TRUE);
         break;
     case STMT_EXPRESSION:
         gen_expr(stmt->classical.expression.expr);
