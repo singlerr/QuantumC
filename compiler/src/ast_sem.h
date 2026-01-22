@@ -114,7 +114,10 @@ typedef enum expr_kind
     EXPR_NONE,
     EXPR_RANGED_DEFINITION,
     EXPR_QUANTUM_MEASUREMENT,
-
+    EXPR_QUANTUM_RESET,
+    EXPR_QUANTUM_NOP,
+    EXPR_QUANTUM_GATE_CALL,
+    EXPR_QUANTUM_GATE,
     EXPR_UNARY,
     EXPR_BINARY,
     EXPR_LITERAL,
@@ -145,16 +148,12 @@ typedef enum stmt_kind
     STMT_EXPRESSION,
     STMT_EXTERN,
     STMT_FOR,
-    STMT_GATE_CALL,
-    STMT_GATE,
     STMT_IF,
     STMT_INCLUDE,
     STMT_IO_DECLARATION,
     STMT_MEASURE_ARROW_ASSIGNMENT,
-    STMT_NOP,
     STMT_OLD_STYLE_DECLARATION,
     STMT_QUANTUM_DECLARATION,
-    STMT_RESET,
     STMT_RETURN,
     STMT_SWITCH,
     STMT_WHILE
@@ -686,40 +685,6 @@ typedef struct statement
         } classical_assignment;
     } classical;
 
-    union
-    {
-        struct
-        {
-            quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
-            identifier *name;
-            struct expression_list *arguments; /* Expression */
-            qubit_list *qubits;                /* Qubit */
-            struct expression *duration;
-        } quantum_gate;
-
-        struct
-        {
-            quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
-            struct expression *argument;
-            qubit_list *qubits; /* Qubit */
-        } quantum_phase;
-
-        struct
-        {
-            qubit_list *operands; /* Qubit */
-        } quantum_nop;
-
-        struct
-        {
-            struct expression_list *qubits; /* Expression */
-        } quantum_barrier;
-
-        struct
-        {
-            qubit *qubits;
-        } quantum_reset;
-    } quantum;
-
 } statement;
 
 DEFINE_LIST(statement);
@@ -810,6 +775,39 @@ typedef struct expression
             qubit *target;
         } quantum_measurement;
 
+        union
+        {
+            struct
+            {
+                quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
+                identifier *name;
+                struct expression_list *arguments; /* Expression */
+                qubit_list *qubits;                /* Qubit */
+                struct expression *designator;
+            } quantum_gate;
+
+            struct
+            {
+                quantum_gate_modifier_list *modifiers; /* Quantum Gate Modifier */
+                struct expression *argument;
+                qubit_list *qubits; /* Qubit */
+            } quantum_phase;
+
+            struct
+            {
+                qubit_list *operands; /* Qubit */
+            } quantum_nop;
+
+            struct
+            {
+                struct expression_list *qubits; /* Expression */
+            } quantum_barrier;
+
+            struct
+            {
+                qubit *qubits;
+            } quantum_reset;
+        } quantum;
     } as;
 } expression;
 

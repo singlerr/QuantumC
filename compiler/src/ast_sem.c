@@ -1024,7 +1024,7 @@ static BOOL is_array_type(const type_t *t, array_type **out)
     array_type *result = NULL;
 
     type *base_type;
-    type_t *root_type = t;
+    type_t *root_type = (type_t *)t;
     expression *index_expr = NULL;
     expression_list *indices = NULL, *indices_head;
     BOOL is_array = FALSE;

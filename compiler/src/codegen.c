@@ -76,6 +76,21 @@ static inline void gen_statement_list(statement_list *list)
     }
 }
 
+static inline void gen_qubit_list(qubit_list *list)
+{
+    qubit_list *q;
+
+    list_for_each_entry(q, list)
+    {
+        gen_qubit(q->value);
+        if (q->next)
+        {
+            comma();
+            space();
+        }
+    }
+}
+
 void set_codegen_output(FILE *out)
 {
     fout = out;
@@ -440,6 +455,11 @@ void gen_expr(const expression *expr)
         space();
         gen_qubit(expr->as.quantum_measurement.measure.qubit);
         break;
+    case EXPR_QUANTUM_GATE:
+        gen_identifier(expr->as.quantum.quantum_gate.name);
+        space();
+        gen_qubit_list(expr->as.quantum.quantum_gate.qubits);
+        break;
     default:
         P_ERROR("Expression %d is not implemented", expr->kind);
         break;
@@ -450,7 +470,7 @@ void gen_expr_list(const expression_list *expr_list)
 {
     expression_list *expr;
 
-    list_for_each_entry(expr, expr_list)
+    list_for_each_entry(expr, (expression_list *)expr_list)
     {
         gen_expr(expr->value);
 

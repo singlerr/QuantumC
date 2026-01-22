@@ -26,6 +26,8 @@ struct builtin_func *func_registry = NULL;
         func_registry = func;                                                                            \
     } while (0)
 
+#define register_gate(gate) register_func(apply_##gate)
+
 int convert_builtin_function(const char *name, struct _sqz_expr_src_func_call *postfix, struct expression **out)
 {
     struct builtin_func *func;
@@ -45,4 +47,14 @@ int convert_builtin_function(const char *name, struct _sqz_expr_src_func_call *p
 void register_builtin_functions()
 {
     register_func(measure);
+    register_gate(X);
+    register_gate(Y);
+    register_gate(Z);
+    register_gate(S);
+    register_gate(V);
+    register_gate(H);
+    register_gate(CNOT);
+    register_gate(CZ);
+    register_gate(CX);
+    register_gate(DCNOT);
 }
