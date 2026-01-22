@@ -264,14 +264,14 @@ declaration
 	;
 
 declaration_specifiers
-	: storage_class_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| declaration_specifiers storage_class_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
-	| type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL);  }
-	| declaration_specifiers type_specifier { $$ = $1; append_right_child((ast_node*) find_last_middle_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL)); } 
-	| type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-	| declaration_specifiers type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_left_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
-	;
-
+    : storage_class_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+    | declaration_specifiers storage_class_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
+    | type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
+    | declaration_specifiers type_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL)); } 
+    | type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
+    | declaration_specifiers type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
+    ;
+	
 init_declarator_list
 	: init_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
 	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); }

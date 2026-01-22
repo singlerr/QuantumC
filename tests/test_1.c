@@ -1,5 +1,5 @@
 typedef unsigned int uint;
-int a;
+
 uint8_t eight_qubit_bell_state()
 {
     qubit q[8];

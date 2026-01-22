@@ -49,36 +49,44 @@ int register_type_if_required(ast_node *decl, ast_node *identifier)
     node = decl;
     while (node->right)
     {
-        if (node->node_type == AST_TYPE_SPECIFIER)
+        if (node->right->middle->type)
+        {
+            node = node->right;
             break;
-        node = node->right;
+        }
+
+        node = node->right->right;
     }
 
     int size = 0;
-    typerec_t *t = NULL;
-    while (node->node_type == AST_TYPE_SPECIFIER)
+    type_t *t = NULL, *root = NULL;
+    typerec_t *root_rec = NULL;
+    while (node && node->middle->type)
     {
-        ast_node *type_node = node->left;
+        ast_node *type_node = node->middle;
         if (!type_node->type)
         {
             perror("unknown type");
         }
 
-        typerec_t *sub = type_node->type;
+        type_t *sub = type_node->type->handle;
         if (!t)
         {
             t = sub;
+            root = sub;
+            root_rec = type_node->type;
         }
         else
         {
             t->next = sub;
+            t = sub;
         }
 
-        size = sub->handle->meta->size;
-        node = type_node->left;
+        size = sub->meta->size;
+        node = node->right;
     }
 
-    PUT_TYPE(identifier->middle->identifier->sym->name, AST_TYPE_USER, size);
+    puttype(identifier->middle->identifier->sym->name, root_rec->type_type, root);
     return VAL_OK;
 }
 

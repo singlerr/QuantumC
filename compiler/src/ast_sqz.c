@@ -455,6 +455,8 @@ int squeeze_var_declaration(ast_node *var_decl, sqz_var_decl **out)
         }
 
         reg_type->handle = type;
+        *out = NULL;
+        return VAL_OK;
     }
 
     var = IALLOC(sqz_var_decl);

@@ -966,7 +966,7 @@ void convert_case_statement(const sqz_stmt *_case_stmt, case_stmt_list **out, st
 
             stmt = IALLOC(case_stmt);
             stmt->expr = wrap_expression_list(case_expr);
-            stmt->statmenet = case_body;
+            stmt->statement = case_body;
 
             if (!list)
             {
@@ -1107,7 +1107,7 @@ type *convert_scalar_type(const type_t *t)
     qubit_type *type_qubit;
     expression *index_expr;
 
-    if (IS_INT(t))
+    if (IS_INT(t) || (is_unsigned(t) && (t->next && IS_INT(t->next))))
     {
         result->kind = CLASSICAL_TYPE;
         result->classical_type = IALLOC(classical_type);

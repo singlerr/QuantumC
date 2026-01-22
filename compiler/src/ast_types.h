@@ -107,6 +107,7 @@ typedef enum _ast_node_type
 
     AST_EXPR_LAND,
     AST_EXPR_LOR,
+    AST_EXPR_CONCAT,
 
     AST_EXPR_COND,
 

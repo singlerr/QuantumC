@@ -29,7 +29,7 @@ void gen_type(const type *);
 void gen_classical_type(const classical_type *);
 void gen_quantum_type(const quantum_type *);
 void gen_operator(const operator op_type);
-void gen_statement(const statement *stmt);
+void gen_statement(const statement *stmt, BOOL indent);
 void gen_identifier(const identifier *id);
 void gen_expr(const expression *expr);
 void gen_expr_list(const expression_list *expr_list);
@@ -67,12 +67,12 @@ static inline void gen_qubit(qubit *qubit)
     }
 }
 
-static inline void gen_statement_list(statement_list *list)
+static inline void gen_statement_list(statement_list *list, BOOL indent)
 {
     statement_list *s;
     list_for_each_entry(s, list)
     {
-        gen_statement(s->value);
+        gen_statement(s->value, indent);
     }
 }
 
@@ -103,12 +103,16 @@ void gen_program(struct program *prog)
     statement_list *cur;
     list_for_each_entry(cur, list)
     {
-        gen_statement(cur->value);
+        gen_statement(cur->value, TRUE);
     }
 }
 
-void gen_statement(const statement *stmt)
+void gen_statement(const statement *stmt, BOOL indent)
 {
+    if (indent)
+    {
+        gen_indent();
+    }
 
     switch (stmt->kind)
     {
@@ -166,7 +170,7 @@ void gen_statement(const statement *stmt)
         space();
         begin_brace();
         newline();
-        gen_statement_list(stmt->classical.subroutine_definition.body);
+        gen_statement_list(stmt->classical.subroutine_definition.body, TRUE);
         end_brace();
         break;
     case STMT_SWITCH:
@@ -188,7 +192,7 @@ void gen_statement(const statement *stmt)
             space();
             begin_brace();
             newline();
-            gen_statement(case_stmt->value->statmenet);
+            gen_statement(case_stmt->value->statement, TRUE);
             end_brace();
             newline();
         }
@@ -202,11 +206,11 @@ void gen_statement(const statement *stmt)
         end_paren();
         begin_brace();
         newline();
-        gen_statement_list(stmt->classical.while_loop.block);
+        gen_statement_list(stmt->classical.while_loop.block, TRUE);
         end_brace();
         break;
     case STMT_COMPOUND:
-        gen_statement_list(stmt->classical.compound.statements);
+        gen_statement_list(stmt->classical.compound.statements, FALSE);
         break;
     case STMT_EXPRESSION:
         gen_expr(stmt->classical.expression.expr);
@@ -245,7 +249,7 @@ void gen_statement(const statement *stmt)
         end_paren();
         begin_brace();
         newline();
-        gen_statement_list(stmt->classical.branching.if_block);
+        gen_statement_list(stmt->classical.branching.if_block, TRUE);
         end_brace();
         if (stmt->classical.branching.else_block)
         {
@@ -254,7 +258,7 @@ void gen_statement(const statement *stmt)
             space();
             begin_brace();
             newline();
-            gen_statement_list(stmt->classical.branching.else_block);
+            gen_statement_list(stmt->classical.branching.else_block, TRUE);
             end_brace();
         }
         break;

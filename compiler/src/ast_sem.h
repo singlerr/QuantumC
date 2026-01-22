@@ -480,7 +480,7 @@ DEFINE_LIST(cls_or_quantum_args);
 typedef struct case_stmt
 {
     struct expression_list *expr;
-    struct statement *statmenet;
+    struct statement *statement;
 } case_stmt;
 
 DEFINE_LIST(case_stmt);
