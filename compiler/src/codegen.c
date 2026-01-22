@@ -1,5 +1,3 @@
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -29,7 +27,7 @@ void gen_type(const type *);
 void gen_classical_type(const classical_type *);
 void gen_quantum_type(const quantum_type *);
 void gen_operator(const operator op_type);
-void gen_statement(const statement *stmt, BOOL indent);
+void gen_statement(const statement *stmt, BOOL do_indent);
 void gen_identifier(const identifier *id);
 void gen_expr(const expression *expr);
 void gen_expr_list(const expression_list *expr_list);
@@ -67,12 +65,16 @@ static inline void gen_qubit(qubit *qubit)
     }
 }
 
-static inline void gen_statement_list(statement_list *list, BOOL indent)
+static inline void gen_statement_list(statement_list *list, BOOL do_indent)
 {
     statement_list *s;
     list_for_each_entry(s, list)
     {
-        gen_statement(s->value, indent);
+        gen_statement(s->value, do_indent);
+        if (s->next)
+        {
+            newline();
+        }
     }
 }
 
@@ -107,9 +109,9 @@ void gen_program(struct program *prog)
     }
 }
 
-void gen_statement(const statement *stmt, BOOL indent)
+void gen_statement(const statement *stmt, BOOL do_indent)
 {
-    if (indent)
+    if (do_indent)
     {
         gen_indent();
     }
@@ -120,10 +122,11 @@ void gen_statement(const statement *stmt, BOOL indent)
         gen_classical_type(stmt->classical.declaration.type);
         space();
         gen_identifier(stmt->classical.declaration.identifier);
-
         if (stmt->classical.declaration.init_expression_kind == EXPR_EXPRESSION)
         {
+            space();
             assign();
+            space();
             gen_expr(stmt->classical.declaration.init_expression.expr);
         }
         end_stmt();
@@ -171,6 +174,7 @@ void gen_statement(const statement *stmt, BOOL indent)
         begin_brace();
         newline();
         gen_statement_list(stmt->classical.subroutine_definition.body, TRUE);
+        newline();
         end_brace();
         break;
     case STMT_SWITCH:
@@ -182,7 +186,6 @@ void gen_statement(const statement *stmt, BOOL indent)
         space();
         begin_brace();
         newline();
-
         case_stmt_list *case_stmt;
         list_for_each_entry(case_stmt, stmt->classical.swtch.cases)
         {
@@ -207,6 +210,7 @@ void gen_statement(const statement *stmt, BOOL indent)
         begin_brace();
         newline();
         gen_statement_list(stmt->classical.while_loop.block, TRUE);
+        newline();
         end_brace();
         break;
     case STMT_COMPOUND:
@@ -250,6 +254,7 @@ void gen_statement(const statement *stmt, BOOL indent)
         begin_brace();
         newline();
         gen_statement_list(stmt->classical.branching.if_block, TRUE);
+        newline();
         end_brace();
         if (stmt->classical.branching.else_block)
         {
@@ -259,6 +264,7 @@ void gen_statement(const statement *stmt, BOOL indent)
             begin_brace();
             newline();
             gen_statement_list(stmt->classical.branching.else_block, TRUE);
+            newline();
             end_brace();
         }
         break;
@@ -266,8 +272,6 @@ void gen_statement(const statement *stmt, BOOL indent)
         P_ERROR("Statement %d is not implemented", stmt->kind);
         break;
     }
-
-    newline();
 }
 
 void gen_type(const type *type)
@@ -621,8 +625,9 @@ void begin_brace()
 }
 void end_brace()
 {
-    gen("}");
     indent--;
+    gen_indent();
+    gen("}");
 }
 
 void begin_bracket()
@@ -653,7 +658,7 @@ void gen_indent()
 {
     for (int i = 0; i < indent; i++)
     {
-        fprintf(stdout, "\t");
+        fprintf(fout, "\t");
     }
 }
 
