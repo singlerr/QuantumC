@@ -31,21 +31,21 @@ size_t consumed = 0;
 size_t available = 0;
 size_t min(size_t a, size_t b);
 
-// #define YY_INPUT(buf,result,max_size) {\
-// 	if(available <= 0) {\
-// 		consumed = 0;\
-// 		available = getline(&lineptr, &n, yyin);\
-// 		if (available < 0) {\
-// 			if (ferror(yyin)) { perror("read error:"); }\
-// 				available = 0;\
-// 		}\
-// 	}\
-// 	result = min(available, max_size);\
-// 	strncpy(buf, lineptr + consumed, result);\
-// 	printf("%s %d\n",buf, result); \
-// 	consumed += result;\
-// 	available -= result;\
-// }
+#define YY_INPUT(buf,result,max_size) {\
+	if(available <= 0) {\
+		consumed = 0;\
+		available = prep_readline(&lineptr, &n, yyin);\
+		if (available < 0) {\
+			if (ferror(yyin)) { perror("read error:"); }\
+				available = 0;\
+		}\
+	}\
+	result = min(available, max_size);\
+	strncpy(buf, lineptr + consumed, result);\
+	printf("%s %d\n",buf, result); \
+	consumed += result;\
+	available -= result;\
+}
 %}
 %option nounput
 %option yylineno
