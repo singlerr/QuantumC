@@ -1,9 +1,10 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
 LEX = flex
 YACC = bison
+LIB = libtranspiler.a
 
 .PHONY: all
-all: transpiler
+all: $(LIB)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -20,8 +21,8 @@ c.lexer.o: c.parser.c ast.h
 
 transpiler.o: main.c ast.h
 
-transpiler: $(OBJS)
-	gcc $(CFLAGS) $(OBJS) -o $@
+$(LIB): $(OBJS)
+	ar rcs $(LIB) $(OBJS) -o $@
 
 clean:
 	@-rm -f c.parser.c

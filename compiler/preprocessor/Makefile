@@ -1,13 +1,14 @@
 OBJS = preprocessor.o filebuf.o
+LIB = libpreprocessor.a
 
 .PHONY: all
-all: preprocessor
+all: $(LIB)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-preprocessor: $(OBJS)
-	gcc $(CFLAGS) $(OBJS) -o $@
+$(LIB): $(OBJS)
+	ar rcs $(LIB) $(OBJS) -o $@
 
 clean:
-	@-rm -f *.o
+	@-rm -f *.o $(LIB)

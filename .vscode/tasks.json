@@ -8,10 +8,10 @@
             "label": "make",
             "command": "make",
             "options": {
-                "cwd": "${workspaceFolder}/compiler/src"
+                "cwd": "${workspaceFolder}/compiler/"
             },
             "args": [
-                "debug=1 all"
+                "DEBUG=1"
             ],
             "problemMatcher": [],
         }
