@@ -34,6 +34,7 @@
         *out = gate_expr;                                           \
     }
 
+// BASIC
 BUILTIN_GATE(X)
 BUILTIN_GATE(Y)
 BUILTIN_GATE(Z)
@@ -44,3 +45,8 @@ BUILTIN_GATE(CNOT)
 BUILTIN_GATE(CZ)
 BUILTIN_GATE(CX)
 BUILTIN_GATE(CCX)
+
+// ROTATIONAL
+BUILTIN_GATE(RX)
+BUILTIN_GATE(RY)
+BUILTIN_GATE(RZ)

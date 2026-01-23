@@ -1,13 +1,9 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
-CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
 LEX = flex
 YACC = bison
 
-ifeq ($(prod), 1)
-CFLAGS += -Werror -Wall
-endif
-
-all: main
+.PHONY: all
+all: transpiler
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -22,11 +18,10 @@ c.parser.o: ast.h c.lexer.c c.parser.c
 
 c.lexer.o: c.parser.c ast.h
 
-main.o: main.c ast.h
+transpiler.o: main.c ast.h
 
-main: $(OBJS)
+transpiler: $(OBJS)
 	gcc $(CFLAGS) $(OBJS) -o $@
-
 
 clean:
 	@-rm -f c.parser.c

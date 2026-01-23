@@ -29,14 +29,6 @@
         }                       \
     } while (0)
 #endif
-#ifndef SAFE_FREE
-#define SAFE_FREE(ptr) \
-    do                 \
-    {                  \
-        if (ptr)       \
-            free(ptr); \
-    } while (0)
-#endif
 
 int squeeze_program(ast_node *program, sqz_program *out);
 int squeeze_translation_unit(ast_node *translation_unit, sqz_decl **out);

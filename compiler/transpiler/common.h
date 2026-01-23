@@ -27,4 +27,11 @@ typedef int BOOL;
 #define ALLOC(type) ((type *)malloc(sizeof(type)))
 #define IALLOC(type) ((type *)calloc(1, sizeof(type)))
 
+#define SAFE_FREE(ptr) \
+    do                 \
+    {                  \
+        if (ptr)       \
+            free(ptr); \
+    } while (0)
+
 #endif

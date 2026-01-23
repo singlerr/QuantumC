@@ -51,10 +51,13 @@ void register_builtin_functions()
     register_gate(Y);
     register_gate(Z);
     register_gate(S);
-    register_gate(V);
+    register_gate(T);
     register_gate(H);
     register_gate(CNOT);
     register_gate(CZ);
     register_gate(CX);
-    register_gate(DCNOT);
+    register_gate(CCX);
+    register_gate(RX);
+    register_gate(RY);
+    register_gate(RZ);
 }

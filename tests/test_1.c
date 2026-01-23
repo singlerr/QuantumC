@@ -8,6 +8,8 @@ uint8_t eight_qubit_bell_state()
     for (int i = 0; i < 7; i++)
     {
         apply_CX(q[i], q[i + 1]);
+        apply_RX(q[1], PI);
+        i = 1;
     }
 
     uint8_t meas = measure(q[10]);

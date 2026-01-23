@@ -799,6 +799,7 @@ void convert_statement(const sqz_stmt *stmt, statement **out)
             block_item = block_item->next;
         }
         result->kind = STMT_COMPOUND;
+        list_goto_first(statement_list, compound);
         result->classical.compound.statements = compound;
         break;
     case AST_STMT_EXPRESSION:
