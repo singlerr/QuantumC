@@ -5,6 +5,10 @@
 We have not yet established an official contact method or project workflow, but we welcome your feedback and contributions.
 Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug reports or suggestions, or submit a pull request via the [Pull Requests](https://github.com/singlerr/QuantumC/pulls) tab.
 
+## Notes
+
+### Networking and Jobs
+
 ## Task Queue
 
 * [ ] Write QuantumC specifications.
@@ -16,11 +20,17 @@ Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug
 * [ ] Implement printing functions for the main compilers with better graphics.
     * [ ] `print_ast`
     * [ ] `print_sqz`
-* [ ] Implement testing cases in C, QuantumC, Q#, and OpenQASM.
+* [ ] Implement testing cases.
 * [ ] Verify the OpenQASM workflow.
     * [ ] Q# Documentation
     * [ ] OpenQASM Documentation
     * [ ] Qiskit Documentation
+* [ ] Implement networking component of the compiler for job dispatching.
+    * [ ] Making Requests
+    * [ ] Authentication
+    * [ ] Qiskit Transpiler Service
+    * [ ] Qiskit Runtime
+    * [ ] Result Parsing
 * [ ] Finish implementing main compilers (classical/quantum).
     * [x] Parser
     * [x] AST Generation
