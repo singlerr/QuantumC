@@ -17,27 +17,27 @@ Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug
     * [ ] [Lexical Structures](./specs/lexical.md)
     * [ ] [Syntax](./specs/syntax.md)
     * [ ] [Semantics](./specs/semantics.md)
-* [ ] Implement printing functions for the main compilers with better graphics.
-    * [ ] `print_ast`
-    * [ ] `print_sqz`
-* [ ] Implement testing cases.
 * [ ] Verify the OpenQASM workflow.
     * [ ] Q# Documentation
     * [ ] OpenQASM Documentation
     * [ ] Qiskit Documentation
-* [ ] Implement networking component of the compiler for job dispatching.
-    * [ ] Making Requests
-    * [ ] Authentication
-    * [ ] Qiskit Transpiler Service
-    * [ ] Qiskit Runtime
-    * [ ] Result Parsing
-* [ ] Finish implementing main compilers (classical/quantum).
+* [ ] Implement printing functions for the main compilers with better graphics.
+    * [ ] `print_ast`
+    * [ ] `print_sqz`
+* [ ] Finish implementing main compilers.
     * [x] Parser
     * [x] AST Generation
     * [x] AST Squeezing
     * [ ] Semantic Analysis
     * [ ] Optimization (optional)
     * [ ] Code Generation
+* [ ] Implement networking component of the compiler for job dispatching.
+    * [ ] Making Requests
+    * [ ] Authentication
+    * [ ] Qiskit Transpiler Service
+    * [ ] Qiskit Runtime
+    * [ ] Result Parsing
+* [ ] Implement testing cases.
 * [ ] Debug memory leaks.
 * [ ] Build demonstration programs.
     * [ ] Quantum Random Number Generator
