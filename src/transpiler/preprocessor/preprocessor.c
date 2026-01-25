@@ -9,7 +9,7 @@
 int getch(FILE *in);
 int parse(FILE *in);
 
-int prep_readline(char **buf, int *len, FILE *in)
+int prep_readline(char **buf, size_t *len, FILE *in)
 {
     int c = getch(in);
     if (c == EOF)
@@ -21,8 +21,8 @@ int prep_readline(char **buf, int *len, FILE *in)
 
     if (!parse(in))
     {
-        *len = getbuf(buf);
-        return *len;
+        *len = (size_t)getbuf(buf);
+        return (int)*len;
     }
 }
 

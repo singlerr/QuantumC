@@ -1,10 +1,19 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
 LEX = flex
 YACC = bison
-LIB = libtranspiler.a
+SUBDIRS := preprocessor
+LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 
-.PHONY: all
-all: $(LIB)
+CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
+ifeq ($(PROD), 1)
+CFLAGS += -Werror -Wall
+endif
+
+export CFLAGS
+
+.PHONY: all clean
+
+all: $(SUBDIRS) program
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -21,8 +30,13 @@ c.lexer.o: c.parser.c ast.h
 
 transpiler.o: main.c ast.h
 
-$(LIB): $(OBJS)
-	ar rcs $(LIB) $(OBJS) -o $@
+program: $(SUBDIRS) $(LIBS) $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) $(LIBS)  -o program
+
+$(LIBS): | $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -C $@
 
 clean:
 	@-rm -f c.parser.c
