@@ -2,8 +2,12 @@
 #include "filebuf.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define NAMELEN 2048
+
+#define TRUE 1
+#define FALSE 0
 
 #define PARSE_SUCCESS 1
 #define PARSE_PASS 0
@@ -17,10 +21,15 @@ enum macro_chnk_type
     PLACEHOLDER
 };
 
+struct macro_arg
+{
+    char name[NAMELEN + 1];
+};
+
 struct macro_args
 {
     int count;
-    char *name[NAMELEN];
+    struct macro_arg *names;
 };
 
 struct macro_body_chnk
@@ -35,7 +44,7 @@ struct macro
 {
     int require_args;
     struct macro_args *args;
-    char name[NAMELEN];
+    char name[NAMELEN + 1];
 
     struct macro *prev;
 };
@@ -54,6 +63,23 @@ static struct macro *find_macro(char *name)
     }
 
     return NULL;
+}
+
+static void append_body(struct macro_body_chnk **prev, enum macro_chnk_type type, char *content)
+{
+    struct macro_body_chnk *chnk = (struct macro_body_chnk *)malloc(sizeof(struct macro_body_chnk));
+    chnk->content = content;
+    chnk->chnk_type = type;
+
+    if (!*prev)
+    {
+        *prev = chnk;
+    }
+    else
+    {
+        (*prev)->next = chnk;
+        chnk->prev = (*prev);
+    }
 }
 
 static void add_macro(struct macro *macro)
@@ -99,15 +125,48 @@ int getch(FILE *in)
     return c;
 }
 
-static int dir_define_body(FILE *in)
+static int dir_define_body(FILE *in, struct macro *macro)
 {
+
+    char *line;
+    int len;
+    int c;
+    c = peekchar();
+    while (1)
+    {
+
+        if (c == '\\')
+        {
+            // goto next line
+            while (c != '\n')
+            {
+                c = readchar(in);
+            }
+
+            continue;
+        }
+
+        if (c == '\n')
+        {
+            break;
+        }
+
+        // split token
+        if (isspace(c))
+        {
+            len = getbuf(&line);
+        }
+
+        c = readchar(in);
+    }
 }
 
-static int dir_define_args(FILE *in, struct macro_args **out_args)
+static int dir_define_args(FILE *in, struct macro_args **out_args, struct macro *macro)
 {
     char *line;
     int len;
     int c;
+    int arg_count;
     struct macro_args *args;
 
     skip_whitespace(in);
@@ -116,35 +175,95 @@ static int dir_define_args(FILE *in, struct macro_args **out_args)
     // no paren, which means this macro does not have any args
     if (c != '(')
     {
-        return dir_define_body(in);
+        *out_args = NULL;
+        macro->require_args = FALSE;
+        return dir_define_body(in, macro);
     }
+
+    args = (struct macro_args *)malloc(sizeof(struct macro_args));
+    args->count = 0;
+    args->names = NULL;
 
     // next search args
     c = readchar(in);
     skip_whitespace(in);
-    c = peekchar();
 
+    arg_count = 0;
     // read up to end of paren
     while (1)
     {
+        c = readchar();
+        skip_whitespace(in);
+        // identifier
+        while (isdigit(c) || isalpha(c) || c == '_')
+        {
+            c = readchar(in);
+        }
+        skip_whitespace(in);
+        if (c == ',' || c == ')')
+        {
+            // consume current arg
+            // and resume
+            len = getbuf(&line);
 
+            if (len < 1)
+            {
+                // empty args
+                break;
+            }
+
+            if (len >= NAMELEN)
+            {
+                fprintf(stderr, "Name defined in macro must not be longer than", NAMELEN);
+                exit(1);
+            }
+
+            if (!args->names)
+            {
+                args->names = (struct macro_arg *)malloc(sizeof(struct macro_arg));
+                args->count++;
+                strncpy(args->names->name, line, len);
+            }
+            else
+            {
+                args->names = (struct macro_arg *)realloc(sizeof(struct macro_arg) * (args->count + 1));
+                strncpy(args->names[args->count++].name, line, len);
+            }
+            continue;
+        }
+
+        // end of args
         if (c == ')')
         {
+            readchar(in);
+            // begin body
             break;
         }
     }
+
+    *out_args = args;
+    return dir_define_body(in, macro);
 }
 static int dir_define(FILE *in)
 {
     char *line;
-    int len = peekbuf(&line);
+    int len;
+    struct macro_args *args;
+    struct macro *macro;
+
+    len = peekbuf(&line);
 
     while (!strncmp(line, "define", len))
     {
         if (!strcmp(line, "define"))
         {
+            macro = (struct macro *)malloc(sizeof(struct macro));
             resetbuf();
-            return dir_define_args();
+            int ret = dir_define_args(in, &args, macro);
+            macro->args = args;
+
+            add_macro(macro);
+            return ret;
         }
 
         readchar(in);
