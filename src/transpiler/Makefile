@@ -11,9 +11,9 @@ endif
 
 export CFLAGS
 
-.PHONY: all clean
+.PHONY: all clean $(SUBDIRS)
 
-all: $(SUBDIRS) program
+all: program
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -30,10 +30,10 @@ c.lexer.o: c.parser.c ast.h
 
 transpiler.o: main.c ast.h
 
-program: $(SUBDIRS) $(LIBS) $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) $(LIBS)  -o program
+program: $(LIBS) $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o program
 
-$(LIBS): | $(SUBDIRS)
+$(LIBS): $(SUBDIRS)
 
 $(SUBDIRS):
 	$(MAKE) -C $@
@@ -48,3 +48,7 @@ clean:
 	@-rm -f *.o
 	@-rm -f main
 	@-rm -f *.yy.c
+	@for dir in $(SUBDIRS); do \
+	$(MAKE) clean -C $$dir; \
+	done
+	@-rm -f program

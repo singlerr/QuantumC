@@ -1,6 +1,7 @@
 #include "filebuf.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 FILEBUF *curbuf = NULL;
 
@@ -12,6 +13,46 @@ FILEBUF *curbuf = NULL;
         if (ptr)       \
             free(ptr); \
     } while (0)
+
+int buf_initialized()
+{
+    return AVAILABLE(curbuf);
+}
+
+void skip_whitespace(FILE *fin)
+{
+    if (!AVAILABLE(curbuf))
+    {
+        perror("skip_whitespace() called even if current buffer is not allocated");
+    }
+
+    int c = *curbuf->buf;
+    while (!isspace(c))
+    {
+        c = readchar(fin);
+    }
+
+    resetbuf();
+
+    curbuf->buf[curbuf->pos++] = c;
+    curbuf->buf[curbuf->pos] = '\0';
+}
+
+void resetbuf()
+{
+    if (curbuf->bufsize == BUFCHNK)
+    {
+        curbuf->pos = 0;
+        curbuf->buf[0] = '\0';
+    }
+    else
+    {
+        free(curbuf->buf);
+        curbuf->pos = 0;
+        curbuf->bufsize = BUFCHNK;
+        curbuf->buf = ALLOCBUF(BUFCHNK);
+    }
+}
 
 void init_buf()
 {
@@ -48,6 +89,16 @@ int readchar(FILE *fin)
     return c;
 }
 
+int peekchar()
+{
+    if (!AVAILABLE(curbuf))
+    {
+        perror("peekchar() called even if current buffer is not allocated");
+    }
+
+    return *curbuf->buf;
+}
+
 int getbuf(char **buf)
 {
     if (!AVAILABLE(curbuf))
@@ -62,17 +113,7 @@ int getbuf(char **buf)
 
     *buf = b;
 
-    if (curbuf->bufsize == BUFCHNK)
-    {
-        curbuf->pos = 0;
-    }
-    else
-    {
-        free(curbuf->buf);
-        curbuf->pos = 0;
-        curbuf->bufsize = BUFCHNK;
-        curbuf->buf = ALLOCBUF(BUFCHNK);
-    }
+    resetbuf();
 
     return len;
 }

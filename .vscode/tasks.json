@@ -8,7 +8,7 @@
             "label": "make",
             "command": "make",
             "options": {
-                "cwd": "${workspaceFolder}/compiler/"
+                "cwd": "${workspaceFolder}/src/transpiler/"
             },
             "args": [
                 "DEBUG=1"
