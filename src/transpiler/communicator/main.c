@@ -5,9 +5,7 @@
 
 int main(void)
 {
-    // TODO: Add direct OpenQASM I/O.
-    // This is a testing OpenQASM code.
-    const char *qasm =
+    const char* qasm = 
         "OPENQASM 3.0; "
         "include \\\"stdgates.inc\\\"; "
         "bit[2] c; "
@@ -18,7 +16,7 @@ int main(void)
 
     fprintf(stdout, "=== QuantumC Runtime ===\n");
 
-    char *result = run_quantum_circuit(qasm);
+    char* result = run_quantum_circuit(qasm);
 
     fprintf(stdout, "=== Final Result ===\n");
 
@@ -26,5 +24,3 @@ int main(void)
 
     return 0;
 }
-
-// TODO: Attach communicator source to the main compiler.

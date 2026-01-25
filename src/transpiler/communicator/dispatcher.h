@@ -7,10 +7,10 @@
 
 typedef struct responsebuf
 {
-    char *data;
+    char* memory;
     size_t size;
 } RESPONSEBUF;
 
-char *run_quantum_circuit(const char *qasm_code);
+char* run_quantum_circuit(const char* qasm_code);
 
 #endif

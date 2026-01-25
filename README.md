@@ -91,10 +91,10 @@ The bottom path of the diagram illustrates the typical steps when targeting a pr
 
 ## Directory Structure
 
-* [`compiler/`](./compiler/): Contains the source code for the QuantumC compiler.
 * [`demos/`](./demos/): Contains the source code for demonstration.
 * [`figures/`](./figures/): Contains the figures for the QuantumC documentation.
 * [`specs/`](./specs/): Contains the specifications for the QuantumC language.
+* [`src/`](./src/): Contains the source code for the QuantumC compiler.
 * [`tests/`](./tests/): Contains the testing cases for the QuantumC compiler.
 * [`utils/`](./utils/): Contains the utility scripts.
 
@@ -106,21 +106,22 @@ This project is built with GCC and make and uses flex and bison to generate the 
 You will need a POSIX-like environment (Linux or Windows Subsystem for Linux) with the following tools installed:
 * `gcc` (C compiler), 
 * `make` (building tool), 
-* `flex` (lexer generator), and
-* `bison` (parser generator).
+* `flex` (lexer generator), 
+* `bison` (parser generator), and 
+* `libcurl4-openssl-dev` ().
 
 ### Recommended Installation Commands by Platforms
 
 * Debian / Ubuntu:
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y build-essential flex bison
+sudo apt install -y build-essential flex bison libcurl4-openssl-dev
 ```
 Note: The package `build-essential` includes `gcc`, `make`, and other basic build tools.
 
 * Fedora / RHEL (DNF):
 ```bash
-sudo dnf install -y gcc make flex bison
+sudo dnf install -y gcc make flex bison libcurl4-openssl-dev
 ```
 * Windows: use WSL (recommended) or an MSYS2 environment. In WSL (Ubuntu) run the Debian/Ubuntu commands above. If using native Windows toolchains, ensure `flex`/`bison` are available (MSYS2 packages or binaries).
 
