@@ -1,7 +1,8 @@
 #ifndef _DISPATCHER_H_
 #define _DISPATCHER_H_
 
-#define IBM_AUTH_URL "https://auth.quantum-computing.ibm.com/api/users/loginWithToken"
+// FIXME: Wrong addresses?
+#define IBM_AUTH_URL "https://api.quantum-computing.ibm.com"
 #define IBM_JOBS_URL "https://api.quantum-computing.ibm.com/runtime/jobs"
 #define BACKEND_NAME "ibmq_qasm_simulator"
 
