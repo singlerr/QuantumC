@@ -8,7 +8,7 @@
 
 void yyerror(ast_node** root, char const *s);
 extern int yylex();
-extern int type_size; 
+extern int type_size;
 extern int yylineno;
 extern char* lineptr;
 #include "c.parser.h"
@@ -26,7 +26,7 @@ extern char* lineptr;
 	ast_identifier_node* id_node;
 }
 
-%token <id_node> IDENTIFIER 
+%token <id_node> IDENTIFIER
 %token STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
@@ -141,7 +141,7 @@ postfix_expression
 
 argument_expression_list
 	: assignment_expression { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); } 
+	| argument_expression_list ',' assignment_expression { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); }
 	;
 
 unary_expression
@@ -265,13 +265,13 @@ declaration
 
 declaration_specifiers
     : storage_class_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-    | declaration_specifiers storage_class_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
+    | declaration_specifiers storage_class_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); }
     | type_specifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
-    | declaration_specifiers type_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL)); } 
+    | declaration_specifiers type_specifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $2, NULL)); }
     | type_qualifier { $$ = AST_GENERAL_NODE(AST_NODE_LIST, $1, NULL, NULL); }
-    | declaration_specifiers type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); } 
+    | declaration_specifiers type_qualifier { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, $2, NULL, NULL)); }
     ;
-	
+
 init_declarator_list
 	: init_declarator { $$ = AST_GENERAL_NODE(AST_NODE_LIST, NULL, $1, NULL); }
 	| init_declarator_list ',' init_declarator { $$ = $1; append_right_child((ast_node*) find_last_right_child($1), AST_GENERAL_NODE(AST_NODE_LIST, NULL, $3, NULL)); }
@@ -296,7 +296,7 @@ type_specifier
 	| SHORT { $$ = AST_TYPE_NODE(AST_TYPE_SHORT, PRIM_SHORT, NULL, NULL, NULL); }
 	| INT { $$ = AST_TYPE_NODE(AST_TYPE_INT, PRIM_INT, NULL, NULL, NULL); }
 	| LONG { $$ = AST_TYPE_NODE(AST_TYPE_LONG, PRIM_LONG, NULL, NULL, NULL); }
-	| FLOAT { $$ = AST_TYPE_NODE(AST_TYPE_FLOAT, PRIM_FLOAT, NULL, NULL, NULL); } 
+	| FLOAT { $$ = AST_TYPE_NODE(AST_TYPE_FLOAT, PRIM_FLOAT, NULL, NULL, NULL); }
 	| DOUBLE { $$ = AST_TYPE_NODE(AST_TYPE_DOUBLE, PRIM_DOUBLE, NULL, NULL, NULL); }
 	| SIGNED { $$ = AST_TYPE_NODE(AST_TYPE_SIGNED, PRIM_SIGNED, NULL, NULL, NULL); }
 	| UNSIGNED { $$ = AST_TYPE_NODE(AST_TYPE_UNSIGNED, PRIM_UNSIGNED, NULL, NULL, NULL); }
@@ -367,7 +367,7 @@ enumerator
 type_qualifier
 	: CONST { $$ = AST_SIMPLE_NODE(AST_QAL_CONST); }
 	| RESTRICT { $$ = AST_SIMPLE_NODE(AST_QAL_RESTRICT); }
-	| VOLATILE { $$ = AST_SIMPLE_NODE(AST_QAL_VOLATILE); } 
+	| VOLATILE { $$ = AST_SIMPLE_NODE(AST_QAL_VOLATILE); }
 	;
 
 declarator

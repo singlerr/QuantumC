@@ -38,7 +38,7 @@ struct macro_body_chnk
     char *content;
     struct macro_body_chnk *next;
     struct macro_body_chnk *prev;
-}
+};
 
 struct macro
 {

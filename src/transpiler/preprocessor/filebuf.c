@@ -128,3 +128,28 @@ int peekbuf(char **buf)
     *buf = curbuf->buf;
     return curbuf->pos;
 }
+
+int step_backward()
+{
+    if (!AVAILABLE(curbuf))
+    {
+        perror("step_backward() called even if current buffer is not allocated");
+    }
+
+    if (curbuf->pos == 0)
+    {
+        return EOF;
+    }
+
+    int c = curbuf->buf[--(curbuf->pos)];
+
+    // if one buffer chunk dwindled
+    // then resize
+    if (curbuf->pos + 1 == curbuf->bufsize - BUFCHNK)
+    {
+        curbuf->bufsize -= BUFCHNK;
+        curbuf->buf = (char *)realloc(curbuf->buf, curbuf->bufsize);
+    }
+
+    return c;
+}

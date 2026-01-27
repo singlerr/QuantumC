@@ -1,8 +1,12 @@
 #ifndef _PREPROCESSOR_H_
 #define _PREPROCESSOR_H_
 
-#include <stdio.h>
+struct directive_define
+{
+};
 
-int prep_readline(char **buf, size_t *len, FILE *in);
+void begin_if(int val);
+void begin_ifdef(int val);
+void begin_ifndef(int val);
 
 #endif

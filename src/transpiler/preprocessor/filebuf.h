@@ -40,4 +40,7 @@ void resetbuf();
 // skip whitespaces
 void skip_whitespace(FILE *fin);
 
+// remove one last character(which read last) from the buffer
+int step_backward();
+
 #endif
