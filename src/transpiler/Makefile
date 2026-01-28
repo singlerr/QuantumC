@@ -10,6 +10,8 @@ CFLAGS += -Werror -Wall
 endif
 
 export CFLAGS
+export LEX
+export YACC
 
 .PHONY: all clean $(SUBDIRS)
 

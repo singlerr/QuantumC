@@ -1,28 +1,80 @@
 %{
 
+#include "preprocessor.h"
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef NEW_OPERAND
+#define NEW_OPERAND(__kind, __value, __ret)                                       \
+    do                                                                           \
+    {                                                                            \
+        struct operand *__op = (struct operand *)malloc(sizeof(struct operand)); \
+        __op->kind = __kind;                                                      \
+        switch (__kind)                                                            \
+        {                                                                        \
+        case OP_INTEGER:                                                         \
+            __op->value.i = __value;                                             \
+            break;                                                               \
+        case OP_FLOAT:                                                           \
+            __op->value.f = __value;                                             \
+            break;                                                               \
+        default:                                                                 \
+            perror("Error!");                                                    \
+            break;                                                               \
+        }                                                                        \
+        __ret = __op;                                                            \
+    } while (0);
+#endif
+
+extern int yylex();
+void yyerror(const char *str);
 %}
 
 %define parse.error detailed
 
 %union {
-
+    char* str;
+    int i;
+    float f;
+    int b;
+    struct dir_openqasm* openqasm;
+    struct dir_define* define;
+    struct macro_args* macro_args;
+    struct placeholder* placeholder;
+    struct operand* operand;
 }
-
 
 %token IDENTIFIER;
 %token DEFINE
-%token IF ELIF IFDEF IFNDEF ENDIF
+%token IF ELIF IFDEF IFNDEF ENDIF UNDEF
 %token DEFINED
-%token EXTEND
-%token INCLUDE OPENQASM
-%token LPAREN, RPAREN
+%token OPENQASM
+%token LPAREN RPAREN
 %token COMMA
 %token NUM
-%token INCLUDE_TARGET
 %token PLACEHOLDER STRINGIFIED
 %token TEXT
-
 %token AND_OP OR_OP EQ_OP NE_OP GE_OP LE_OP G_OP L_OP
+
+%token INTEGER FLOAT
+
+%type<openqasm> openqasm;
+%type<define> define;
+%type<define> define_id;
+%type<macro_args> define_args;
+%type<placeholder> define_body;
+%type<operand> primary_expression;
+%type<operand> relational_expression;
+%type<operand> equality_expression;
+%type<operand> logical_and_expression;
+%type<operand> logical_or_expression;
+%type<operand> if_expression;
 
 %%
 
@@ -30,15 +82,19 @@ program
     : if
     | ifdef
     | ifndef
-    | endif
+    | undef
+    | elif
     | define
-    | include
     | openqasm
     | body
     ;
 
 if
-    : IF if_args
+    : IF if_args if_body ENDIF {  } 
+    ;
+
+if_body
+    : program
     ;
 
 if_args
@@ -53,34 +109,39 @@ ifdef
     : IFDEF IDENTIFIER  
     ;
 
-endif
-    :
+elif
+    : ELIF
     ;
 
-elif
-    :
+undef
+    : UNDEF IDENTIFIER
     ;
 
 define
-    : DEFINE IDENTIFIER TEXT
-    | DEFINE IDENTIFIER LPAREN define_args RPAREN define_body  
+    : define_id { push_define($1); } define_body { $1->content = $3; $$ = $1; }
+    | define_id { push_define($1); } LPAREN define_args RPAREN define_body { $1->args = $4; $1->content = $6; $$ = $1; }  
     ;
+
+define_id
+    : DEFINE IDENTIFIER { $$ = new_define((const char*) yylval.str); }
 
 define_args
-    : define_args COMMA IDENTIFIER
-    | IDENTIFIER
+    : define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) yylval.str); }
+    | IDENTIFIER { $$ = args_builder_begin((const char*) yylval.str); } 
     ;
 
-include
-    : INCLUDE INCLUDE_TARGET
-    ;
 
 openqasm
-    : OPENQASM NUM
+    : OPENQASM NUM { $$ = openqasm_new(yylval.i); } 
     ;
 
 define_body
-    : program
+    : define_body TEXT { $$ = ph_builder_append($1, is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
+    | define_body PLACEHOLDER { $$ = ph_builder_append($1, PH_PLACEHOLDER, yylval.str); }
+    | define_body STRINGIFIED { $$ = ph_builder_append($1, PH_STRINGIFIED, yylval.str); }
+    | TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
+    | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, yylval.str); }
+    | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, yylval.str); }
     ;
 
 body
@@ -89,35 +150,42 @@ body
     ;
 
 primary_expression
-    : IDENTIFIER
-    | DEFINED LPAREN IDENTIFIER RPAREN
-    | DEFINE IDENTIFIER
+    : INTEGER { NEW_OPERAND(OP_INTEGER, yylval.i, $$); }
+    | FLOAT { NEW_OPERAND(OP_FLOAT, yylval.f, $$); }
+    | DEFINED LPAREN IDENTIFIER RPAREN { NEW_OPERAND(OP_INTEGER,find_macro(yylval.str) != NULL, $$); }
     ;
 
 relational_expression
 	: primary_expression { $$ = $1; }
-	| relational_expression L_OP primary_expression { $$  = AST_GENERAL_NODE(AST_EXPR_LT, $1, $3, NULL); }
-	| relational_expression G_OP primary_expression { $$ = AST_GENERAL_NODE(AST_EXPR_GT, $1, $3, NULL); }
-	| relational_expression LE_OP primary_expression { $$ = AST_GENERAL_NODE(AST_EXPR_LEQ, $1, $3, NULL); }
-	| relational_expression GE_OP primary_expression { $$ = AST_GENERAL_NODE(AST_EXPR_GEQ, $1, $3, NULL); }
+	| relational_expression L_OP primary_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_L, $1, $3), $$); }
+	| relational_expression G_OP primary_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_G, $1, $3), $$); }
+	| relational_expression LE_OP primary_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_LE, $1, $3), $$); }
+	| relational_expression GE_OP primary_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_GE, $1, $3), $$); }
 	;
 
 equality_expression
 	: relational_expression { $$ = $1; }
-	| equality_expression EQ_OP relational_expression { $$ = AST_GENERAL_NODE(AST_EXPR_EQ, $1, $3, NULL); }
-	| equality_expression NE_OP relational_expression { $$ = AST_GENERAL_NODE(AST_EXPR_NEQ, $1, $3, NULL); }
+	| equality_expression EQ_OP relational_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_EQ, $1, $3), $$); }
+	| equality_expression NE_OP relational_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_NE, $1, $3), $$); }
 	;
 
 logical_and_expression
 	: equality_expression { $$ = $1; }
-	| logical_and_expression AND_OP equality_expression { $$ = AST_GENERAL_NODE(AST_EXPR_LAND, $1, $3, NULL); }
+	| logical_and_expression AND_OP equality_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_AND, $1, $3), $$); }
 	;
 
 logical_or_expression
 	: logical_and_expression { $$ = $1; }
-	| logical_or_expression OR_OP logical_and_expression { $$ = AST_GENERAL_NODE(AST_EXPR_LOR, $1, $3, NULL); }
+	| logical_or_expression OR_OP logical_and_expression { NEW_OPERAND(OP_INTEGER, validate_expr(IF_OR, $1, $3), $$); }
 	;
 
 if_expression
-    : logical_or_expression
+    : logical_or_expression { $$ = $1; }
     ;
+
+%%
+
+void yyerror(const char *str)
+{
+    fprintf(stderr, "%s\n", str);
+}

@@ -15,7 +15,6 @@ extern char* lineptr;
 
 %}
 
-
 %parse-param { ast_node** root}
 %define parse.error detailed
 %union {
