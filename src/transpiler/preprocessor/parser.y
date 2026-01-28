@@ -1,6 +1,7 @@
 %{
 
 #include "preprocessor.h"
+#include "../preprocessor_link.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -11,12 +12,12 @@
 #endif
 
 #ifndef NEW_OPERAND
-#define NEW_OPERAND(__kind, __value, __ret)                                       \
+#define NEW_OPERAND(__kind, __value, __ret)                                      \
     do                                                                           \
     {                                                                            \
         struct operand *__op = (struct operand *)malloc(sizeof(struct operand)); \
-        __op->kind = __kind;                                                      \
-        switch (__kind)                                                            \
+        __op->kind = __kind;                                                     \
+        switch (__kind)                                                          \
         {                                                                        \
         case OP_INTEGER:                                                         \
             __op->value.i = __value;                                             \
@@ -37,7 +38,7 @@ void yyerror(const char *str);
 %}
 
 %define parse.error detailed
-
+%define api.prefix pr
 %union {
     char* str;
     int i;
@@ -86,16 +87,12 @@ program
     | elif
     | define
     | openqasm
-    | body
     ;
 
 if
-    : IF if_args if_body ENDIF {  } 
+    : IF if_args ENDIF {  } // body is passed in flex
     ;
 
-if_body
-    : program
-    ;
 
 if_args
     : if_expression
@@ -123,36 +120,32 @@ define
     ;
 
 define_id
-    : DEFINE IDENTIFIER { $$ = new_define((const char*) yylval.str); }
+    : DEFINE IDENTIFIER { $$ = new_define((const char*) prlval.str); }
 
 define_args
-    : define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) yylval.str); }
-    | IDENTIFIER { $$ = args_builder_begin((const char*) yylval.str); } 
+    : define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) prlval.str); }
+    | IDENTIFIER { $$ = args_builder_begin((const char*) prlval.str); } 
     ;
 
 
 openqasm
-    : OPENQASM NUM { $$ = openqasm_new(yylval.i); } 
+    : OPENQASM NUM { $$ = openqasm_new(prlval.i); } 
     ;
 
 define_body
-    : define_body TEXT { $$ = ph_builder_append($1, is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
-    | define_body PLACEHOLDER { $$ = ph_builder_append($1, PH_PLACEHOLDER, yylval.str); }
-    | define_body STRINGIFIED { $$ = ph_builder_append($1, PH_STRINGIFIED, yylval.str); }
-    | TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
-    | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, yylval.str); }
-    | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, yylval.str); }
+    : define_body TEXT { $$ = ph_builder_append($1, is_define_arg(top_define()->args, (const char*) prlval.str) ? PH_PLACEHOLDER : PH_TEXT, prlval.str); }
+    | define_body PLACEHOLDER { $$ = ph_builder_append($1, PH_PLACEHOLDER, prlval.str); }
+    | define_body STRINGIFIED { $$ = ph_builder_append($1, PH_STRINGIFIED, prlval.str); }
+    | TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) prlval.str) ? PH_PLACEHOLDER : PH_TEXT, prlval.str); }
+    | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, prlval.str); }
+    | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, prlval.str); }
     ;
 
-body
-    : TEXT
-    | PLACEHOLDER
-    ;
 
 primary_expression
-    : INTEGER { NEW_OPERAND(OP_INTEGER, yylval.i, $$); }
-    | FLOAT { NEW_OPERAND(OP_FLOAT, yylval.f, $$); }
-    | DEFINED LPAREN IDENTIFIER RPAREN { NEW_OPERAND(OP_INTEGER,find_macro(yylval.str) != NULL, $$); }
+    : INTEGER { NEW_OPERAND(OP_INTEGER, prlval.i, $$); }
+    | FLOAT { NEW_OPERAND(OP_FLOAT, prlval.f, $$); }
+    | DEFINED LPAREN IDENTIFIER RPAREN { NEW_OPERAND(OP_INTEGER,find_macro(prlval.str) != NULL, $$); }
     ;
 
 relational_expression
@@ -184,6 +177,8 @@ if_expression
     ;
 
 %%
+
+
 
 void yyerror(const char *str)
 {

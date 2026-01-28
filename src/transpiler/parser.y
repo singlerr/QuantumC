@@ -16,6 +16,7 @@ extern char* lineptr;
 %}
 
 %parse-param { ast_node** root}
+%define api.prefix tr
 %define parse.error detailed
 %union {
 	int i;

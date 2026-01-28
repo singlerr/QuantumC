@@ -15,9 +15,9 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "../preprocessor_link.h"
 #include "preprocessor.parser.h"
 #include "preprocessor.h"
-
 
 #define MAX_INCLUDE_DEPTH 10
 int include_stack_ptr = 0;
@@ -26,7 +26,9 @@ int expand_stack_ptr = 0;
 YY_BUFFER_STATE include_stack[MAX_INCLUDE_DEPTH];
 YY_BUFFER_STATE expand_stack[MAX_INCLUDE_DEPTH];
 
-void expand_macro(const char* name);
+int expand_macro(const char* name, char** out);
+void expand_expression(const char* name);
+char* try_expand(const char* text);
 
 %}
 
@@ -58,15 +60,15 @@ ID                            { return(IDENTIFIER); }
 ^"#""endif"                   { return(ENDIF); }
 ^"#""undef"                   { yy_push_state(STATE_UNDEF); return(UNDEF); }
 
-0[xX]{H}+{IS}?		{ yylval.i = strtol(yytext, NULL, 16); return(INTEGER); }
-0[0-7]*{IS}?		{ yylval.i = strtol(yytext, NULL, 8); return(INTEGER); }
-[1-9]{D}*{IS}?		{ yylval.i = strtol(yytext, NULL, 10); return(INTEGER); }
-{D}+{E}{FS}?		{ yylval.f = atof(yytext); return(FLOAT); }
-{D}*"."{D}+{E}?{FS}?	{ yylval.f = atof(yytext); return(FLOAT); }
-{D}+"."{D}*{E}?{FS}?	{ yylval.f = atof(yytext); return(FLOAT); }
-0[xX]{H}+{P}{FS}?	{ yylval.f = strtof(yytext, NULL); return(INTEGER); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+0[xX]{H}+{IS}?		{ prlval.i = strtol(yytext, NULL, 16); return(INTEGER); }
+0[0-7]*{IS}?		{ prlval.i = strtol(yytext, NULL, 8); return(INTEGER); }
+[1-9]{D}*{IS}?		{ prlval.i = strtol(yytext, NULL, 10); return(INTEGER); }
+{D}+{E}{FS}?		{ prlval.f = atof(yytext); return(FLOAT); }
+{D}*"."{D}+{E}?{FS}?	{ prlval.f = atof(yytext); return(FLOAT); }
+{D}+"."{D}*{E}?{FS}?	{ prlval.f = atof(yytext); return(FLOAT); }
+0[xX]{H}+{P}{FS}?	{ prlval.f = strtof(yytext, NULL); return(INTEGER); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { prlval.f = strtof(yytext, NULL); return(FLOAT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { prlval.f = strtof(yytext, NULL); return(FLOAT); }
 
 <STATE_OPENQASM>D+                    { return(NUM); }
 <STATE_OPENQASM>NL                    { yy_pop_state(); }
@@ -144,31 +146,48 @@ ID                            { return(IDENTIFIER); }
 <STATE_IF>")"                         { return(RPAREN); }
 <STATE_IF>"&&"                        { return(AND_OP); }
 <STATE_IF>"||"                        { return(OR_OP);}
-<STATE_IF>ID                          { expand_macro(yytext); }
+<STATE_IF>ID                          { expand_expression(yytext); }
 <STATE_IFDEF>ID                       { return(IDENTIFIER); }
 <STATE_IFDEF>NL                       { yy_pop_state(); }
 <STATE_IFNDEF>ID                      { return(IDENTIFIER); }
 <STATE_IFNDEF>NL                      { yy_pop_state(); }
 <STATE_UNDEF>ID                       { return(IDENTIFIER); }
 <STATE_UNDEF>NL                       { yy_pop_state(); }
-[ \t\n]+                            { ; }
-.                                   { return(TEXT); }
+[ \t\n]+                              { transpiler_enqueue(yytext); }
+.                                     { try_expand(yytext); }
 
 %%
 
-void expand_macro(const char* name)
+char* try_expand(const char* text){
+    char* content;
+    if(! expand_macro(text, &content)){
+        return (char*) text;
+    }
+
+    return content;
+}
+
+int expand_macro(const char* name, char** out)
 {
     struct dir_define* macro = find_macro(name);
     char* content;
     if(! macro)
     {
-        fprintf(stderr, "Could not find macro: %s.\n", name);
-        return;
+        return 0;
     }
 
     if(! expand_placeholder(&content, macro->content))
     {
         fprintf(stderr, "Could not expand macro: %s.\n", name);
+        return 0;
+    }
+
+    *out = content;
+}
+
+void expand_expression(const char* name){
+    char* content;
+    if(! expand_macro(name, &content)){
         return;
     }
 

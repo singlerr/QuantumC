@@ -16,6 +16,12 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 #include "c.parser.h"
 #include "symrec.h"
 #include "preprocessor/preprocessor.h"
+#include "preprocessor_link.h"
+
+#define MAX_PREP_DEPTH 1024
+int prep_stack_ptr = 0;
+
+YY_BUFFER_STATE prep_stack[MAX_PREP_DEPTH];
 
 void count(void);
 void comment(void);
@@ -32,20 +38,20 @@ size_t consumed = 0;
 size_t available = 0;
 size_t min(size_t a, size_t b);
 
-#define YY_INPUT(buf,result,max_size) {\
-	if(available <= 0) {\
-		consumed = 0;\
-		available = prep_readline(&lineptr, &n, yyin);\
-		if (available < 0) {\
-			if (ferror(yyin)) { perror("read error:"); }\
-				available = 0;\
-		}\
-	}\
-	result = min(available, max_size);\
-	strncpy(buf, lineptr + consumed, result);\
-	consumed += result;\
-	available -= result;\
-}
+// #define YY_INPUT(buf,result,max_size) {\
+// 	if(available <= 0) {\
+// 		consumed = 0;\
+// 		available = prep_readline(&lineptr, &n, yyin);\
+// 		if (available < 0) {\
+// 			if (ferror(yyin)) { perror("read error:"); }\
+// 				available = 0;\
+// 		}\
+// 	}\
+// 	result = min(available, max_size);\
+// 	strncpy(buf, lineptr + consumed, result);\
+// 	consumed += result;\
+// 	available -= result;\
+// }
 %}
 %option nounput
 %option yylineno
@@ -95,20 +101,20 @@ size_t min(size_t a, size_t b);
 
 {L}({L}|{D})*({D})+"_t" { count(); return(check_sized_type()); }
 {L}({L}|{D})*		{ count(); return(check_type()); }
-0[xX]{H}+{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
-0[0-7]*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
-[1-9]{D}*{IS}?		{ count(); yylval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
+0[xX]{H}+{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
+0[0-7]*{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
+[1-9]{D}*{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); trlval.str = strdup(yytext); return(STRING_LITERAL); }
 
-{D}+{E}{FS}?		{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); yylval.f = atof(yytext); return(FLOATCONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); yylval.f = strtof(yytext, NULL); return(INTCONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
+{D}+{E}{FS}?		{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(); trlval.f = strtof(yytext, NULL); return(INTCONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(); trlval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(); trlval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
 "\n"	{ next_column = 1; }
-L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITERAL); }
+L?\"(\\.|[^\\"\n])*\"	{ count(); trlval.str = strdup(yytext); return(STRING_LITERAL); }
 
 "..."			{ count(); return(ELLIPSIS); }
 ">>="			{ count(); return(RIGHT_ASSIGN); }
@@ -162,6 +168,19 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); yylval.str = strdup(yytext); return(STRING_LITE
 [ \t\v\n\f]		{ count(); }
 .			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); yyerror(NULL, msg); free(msg); }
 
+<<EOF>> {
+
+	if(--prep_stack_ptr < 0)
+    {
+        yyterminate();  
+    }
+    else
+    {
+        yy_delete_buffer(YY_CURRENT_BUFFER);
+        yy_switch_to_buffer(prep_stack[prep_stack_ptr]);
+    }
+}
+
 %%
 
 
@@ -187,7 +206,7 @@ void count(void)
 int check_type(void)
 {
 	type_size = -1;
-	yylval.str = strdup(yytext);
+	trlval.str = strdup(yytext);
 	
 	if(gettype(yytext)){
 		return TYPE_NAME;
@@ -215,11 +234,17 @@ int check_sized_type(void){
 		PUT_SIZED_TYPE(namebuf, prim_type->type_type, size);
 	}
 
-	yylval.str = strdup(namebuf);
+	trlval.str = strdup(namebuf);
 	type_size = size;
 	return TYPE_NAME;
 }
 
 size_t min(size_t a, size_t b) {
     return b < a ? b : a;
+}
+
+void transpiler_enqueue(const char *text){
+	YY_BUFFER_STATE buffer = yy_scan_string(text);
+    prep_stack[prep_stack_ptr++] = YY_CURRENT_BUFFER;
+    yy_switch_to_buffer(buffer);
 }

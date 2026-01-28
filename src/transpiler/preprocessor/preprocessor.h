@@ -119,4 +119,6 @@ struct placeholder *ph_builder_end(struct placeholder *chain, enum placeholder_k
 
 struct dir_openqasm *openqasm_new(int version);
 
+void call_transpiler(const char *text);
+
 #endif

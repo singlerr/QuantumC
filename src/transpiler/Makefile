@@ -54,3 +54,4 @@ clean:
 	$(MAKE) clean -C $$dir; \
 	done
 	@-rm -f program
+	@-rm -f *.a
