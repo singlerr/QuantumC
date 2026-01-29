@@ -92,7 +92,7 @@ struct operand
 
 struct dir_define *find_macro(const char *name);
 
-int validate_expr(enum if_op operator, struct operand * l, struct operand *r);
+int validate_expr(enum if_op op, struct operand * l, struct operand *r);
 
 int expand_placeholder(char **out, struct placeholder *body);
 
@@ -107,8 +107,6 @@ int is_define_arg(struct macro_args *arg_list, const char *name);
 void push_define(struct dir_define *define);
 void pop_define();
 
-void include_file(const char *filename);
-
 struct macro_args *args_builder_end(struct macro_args *chain, const char *name);
 struct macro_args *args_builder_append(struct macro_args *chain, const char *name);
 struct macro_args *args_builder_begin(const char *name);
@@ -118,7 +116,5 @@ struct placeholder *ph_builder_begin(enum placeholder_kind kind, const char *nam
 struct placeholder *ph_builder_end(struct placeholder *chain, enum placeholder_kind kind, const char *name);
 
 struct dir_openqasm *openqasm_new(int version);
-
-void call_transpiler(const char *text);
 
 #endif

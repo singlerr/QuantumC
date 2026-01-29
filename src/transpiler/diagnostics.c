@@ -4,7 +4,7 @@
 #include <stdarg.h>
 
 extern char *yyfilename;
-extern int yylineno;
+extern int trlineno;
 extern int column;
 
 const char *log_names[] = {
@@ -14,7 +14,7 @@ const char *log_names[] = {
 
 static void __log(log_level level, const char *msg, va_list args)
 {
-    printf("[%s] %s:%d : ", log_names[level], yyfilename, yylineno);
+    printf("[%s] %s:%d : ", log_names[level], yyfilename, trlineno);
     vprintf(msg, args);
     printf("\n");
 }

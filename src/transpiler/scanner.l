@@ -27,7 +27,7 @@ void count(void);
 void comment(void);
 int check_type(void);
 int check_sized_type(void);
-void yyerror(ast_node** root, char const *s);
+void trerror(ast_node** root, char const *s);
 int type_size = -1;
 
 static int next_column = 1;
@@ -53,9 +53,11 @@ size_t min(size_t a, size_t b);
 // 	available -= result;\
 // }
 %}
+%option prefix="tr"
 %option nounput
 %option yylineno
 %option noyywrap
+
 %%
 "/*"			{ comment(); }
 "//"[^\n]*              { /* consume //-comment */ }
@@ -166,7 +168,7 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); trlval.str = strdup(yytext); return(STRING_LITE
 "false"		{ count(); return(BOOL_FALSE); }
 
 [ \t\v\n\f]		{ count(); }
-.			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); yyerror(NULL, msg); free(msg); }
+.			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); trerror(NULL, msg); free(msg); }
 
 <<EOF>> {
 

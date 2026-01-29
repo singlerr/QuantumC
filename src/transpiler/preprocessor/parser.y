@@ -34,7 +34,8 @@
 #endif
 
 extern int yylex();
-void yyerror(const char *str);
+void prerror(const char *str);
+
 %}
 
 %define parse.error detailed
@@ -180,7 +181,7 @@ if_expression
 
 
 
-void yyerror(const char *str)
+void prerror(const char *str)
 {
-    fprintf(stderr, "%s\n", str);
+    fprintf(stderr, "[preprocessor] %s\n", str);
 }

@@ -1,4 +1,4 @@
-OBJS = filebuf.o preprocessor.lexer.o preprocessor.parser.o preprocessor.o
+OBJS = filebuf.o preprocessor.lexer.o preprocessor.parser.o preprocessor.o stringbuilder.o
 LIB = libpreprocessor.a
 
 .PHONY: all

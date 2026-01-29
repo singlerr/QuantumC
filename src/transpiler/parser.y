@@ -6,10 +6,10 @@
 #include <string.h>
 #include "stringlib.h"
 
-void yyerror(ast_node** root, char const *s);
-extern int yylex();
+void trerror(ast_node** root, char const *s);
+extern int trlex();
 extern int type_size;
-extern int yylineno;
+extern int trlineno;
 extern char* lineptr;
 #include "c.parser.h"
 
@@ -549,9 +549,9 @@ declaration_list
 
 extern int column;
 
-void yyerror(ast_node** root, const char *str)
+void trerror(ast_node** root, const char *str)
 {
-	fprintf(stderr,"error: %s in line %d, column %d\n", str, yylineno, column);
+	fprintf(stderr,"error: %s in line %d, column %d\n", str, trlineno, column);
     fprintf(stderr,"%s", lineptr);
     for(int i = 0; i < column - 1; i++)
         fprintf(stderr,"_");

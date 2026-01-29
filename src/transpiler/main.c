@@ -8,8 +8,8 @@
 #include "codegen.h"
 #include "builtin_func.h"
 
-extern FILE *yyin;
-extern int yyparse(ast_node **root);
+extern FILE *prin;
+extern int prparse(ast_node **root);
 extern int squeeze_ast(ast_node *program, sqz_program **out);
 
 static void print_indent(int depth);
@@ -43,14 +43,14 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        yyin = f;
+        prin = f;
         yyfilename = argv[1];
     }
 
     init_type();
     register_builtin_functions();
 
-    ret = yyparse(&root);
+    ret = prparse(&root);
     if (ret)
     {
         exit(0);

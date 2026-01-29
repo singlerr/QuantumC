@@ -31,7 +31,7 @@ void expand_expression(const char* name);
 char* try_expand(const char* text);
 
 %}
-
+%option prefix="pr"
 %option nounput
 %option yylineno
 %option noyywrap
