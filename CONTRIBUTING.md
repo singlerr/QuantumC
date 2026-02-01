@@ -56,8 +56,8 @@ We prefer using [libcurl](https://curl.se/libcurl/) for backend communication ra
     * [ ] [Syntax](./specs/syntax.md)
     * [ ] [Semantics](./specs/semantics.md)
 * [ ] Verify the OpenQASM workflow.
-    * [ ] Qiskit Documentation
     * [ ] Qiskit C API Documentation
+    * [ ] Qiskit Runtime REST API Documentation
     * [ ] OpenQASM Documentation
     * [ ] Q# Documentation
 * [ ] Implement printing functions for the main compilers with better graphics.
