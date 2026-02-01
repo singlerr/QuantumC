@@ -41,7 +41,7 @@ The project aims to support various quantum backend hosts, not limited to IBM.
 #### libcurl vs. Qiskit C API
 
 Using libcurl may require more low-level code, but it keeps the networking code self-contained and easier to integrate into different environments while minimizing external dependencies.
-We prefer using [libcurl](https://curl.se/libcurl/) for backend communication rather than the prebuilt Qiskit C API for the following reasons:
+We prefer using [libcurl](https://curl.se/libcurl/) for backend communication rather than the prebuilt [Qiskit C](https://quantum.cloud.ibm.com/docs/en/api/qiskit-c) API for the following reasons:
 
 * **Minimal Runtime Dependencies**: libcurl is a portable C library that does not require Python or Rust configured on the host machine.
 * **Provider-Agnostic REST Access**: Direct HTTP calls make it easier to support multiple backend hosts and custom provider APIs.
@@ -55,15 +55,16 @@ We prefer using [libcurl](https://curl.se/libcurl/) for backend communication ra
     * [ ] [Lexical Structures](./specs/lexical.md)
     * [ ] [Syntax](./specs/syntax.md)
     * [ ] [Semantics](./specs/semantics.md)
-* [ ] Verify the OpenQASM workflow.
+* [ ] Verify the QuantumC workflow.
     * [ ] Qiskit C API Documentation
     * [ ] Qiskit Runtime REST API Documentation
     * [ ] OpenQASM Documentation
+    * [ ] Cirq Documentation
     * [ ] Q# Documentation
 * [ ] Implement printing functions for the main compilers with better graphics.
     * [ ] `print_ast`
     * [ ] `print_sqz`
-* [ ] Finish implementing main compilers.
+* [ ] Implement main compilers.
     * [x] Parser
     * [x] AST Generation
     * [x] AST Squeezing
