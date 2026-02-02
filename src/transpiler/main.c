@@ -2,257 +2,263 @@
 #include <stdlib.h>
 
 #include "ast.h"
-#include "symrec.h"
-#include "ast_sqz.h"
 #include "ast_sem.h"
-#include "codegen.h"
+#include "ast_sqz.h"
 #include "builtin_func.h"
+#include "codegen.h"
+#include "symrec.h"
 
-extern FILE *prin;
-extern int prparse(ast_node **root);
-extern int squeeze_ast(ast_node *program, sqz_program **out);
+extern ast_node *compile (FILE *);
+extern int squeeze_ast (ast_node *program, sqz_program **out);
 
-static void print_indent(int depth);
+static void print_indent (int depth);
 
-static void print_ast_rec(ast_node *node, int depth);
-void print_ast(ast_node *node);
+static void print_ast_rec (ast_node *node, int depth);
+void print_ast (ast_node *node);
 
-static void print_sqz_var_decl(sqz_var_decl *v);
-static void print_sqz_func_decl(sqz_func_decl *f);
-static void print_sqz_decl_list(sqz_decl *decl, int depth);
-void print_sqz(sqz_program *program);
+static void print_sqz_var_decl (sqz_var_decl *v);
+static void print_sqz_func_decl (sqz_func_decl *f);
+static void print_sqz_decl_list (sqz_decl *decl, int depth);
+void print_sqz (sqz_program *program);
 
-void free_ast(ast_node *root);
-void free_sqz(sqz_program *program);
+void free_ast (ast_node *root);
+void free_sqz (sqz_program *program);
 
 char *yyfilename;
 
-int main(int argc, char *argv[])
+int
+main (int argc, char *argv[])
 {
-    ast_node *root;
-    sqz_program *squeezed;
-    program *sem_analysis;
-    FILE *f;
-    int ret;
-
-    if (argc > 1)
+  ast_node *root;
+  sqz_program *squeezed;
+  program *sem_analysis;
+  FILE *f;
+  if (argc > 1)
     {
-        if ((f = fopen(argv[1], "r")) == 0)
+      if ((f = fopen (argv[1], "r")) == 0)
         {
-            fprintf(stderr, "file open error for %s\n", argv[1]);
-            exit(1);
+          fprintf (stderr, "file open error for %s\n", argv[1]);
+          exit (1);
+        }
+      yyfilename = argv[1];
+    }
+
+  init_type ();
+  register_builtin_functions ();
+
+  root = (ast_node *)compile (f);
+  if (!root)
+    {
+      exit (0);
+    }
+
+  if (FAILED (squeeze_ast (root, &squeezed)))
+    {
+      exit (1);
+    }
+
+  convert_program (squeezed, &sem_analysis);
+  set_codegen_output (stdout);
+  gen_program (sem_analysis);
+
+  print_sqz (squeezed);
+
+  free_ast (root);
+  free_sqz (squeezed);
+
+  exit (0);
+}
+
+static void
+print_indent (int depth)
+{
+  for (int i = 0; i < depth; i++)
+    {
+      fprintf (stdout, "    ");
+    }
+
+  return;
+}
+
+static void
+print_ast_rec (ast_node *node, int depth)
+{
+  const char *name = "N/A";
+  const char *type = "N/A";
+
+  if (node->identifier && node->identifier->type)
+    {
+      name = node->identifier->type->name;
+    }
+  if (node->type)
+    {
+      type = node->type->name;
+    }
+
+  print_indent (depth);
+  fprintf (stdout, "ID: %s (TYPE: %s)\n", name, type);
+
+  if (node->left)
+    {
+      print_ast_rec (node->left, depth + 1);
+    }
+  if (node->middle)
+    {
+      print_ast_rec (node->middle, depth + 1);
+    }
+  if (node->right != NULL)
+    {
+      print_ast_rec (node->right, depth + 1);
+    }
+
+  return;
+}
+
+void
+print_ast (ast_node *node)
+{
+  if (node == NULL)
+    {
+      fprintf (stdout, "ERROR: The given AST is empty.\n");
+    }
+  else
+    {
+      print_ast_rec (node, 0);
+    }
+
+  return;
+}
+
+static void
+print_sqz_var_decl (sqz_var_decl *v)
+{
+  if (!v)
+    {
+      return;
+    }
+
+  for (sqz_init_decl *id = v->decl_list; id; id = id->next)
+    {
+      const char *name = "N/A";
+      const char *type = "N/A";
+
+      if (id->decl && id->decl->id && id->decl->id->name)
+        {
+          name = id->decl->id->name->name;
+        }
+      if (id->decl && id->decl->type && id->decl->type->name)
+        {
+          type = id->decl->type->name;
         }
 
-        prin = f;
-        yyfilename = argv[1];
+      printf ("VAR: %s (type: %s)\n", name, type);
     }
 
-    init_type();
-    register_builtin_functions();
-
-    ret = prparse(&root);
-    if (ret)
-    {
-        exit(0);
-    }
-
-    if (FAILED(squeeze_ast(root, &squeezed)))
-    {
-        exit(1);
-    }
-
-    convert_program(squeezed, &sem_analysis);
-    set_codegen_output(stdout);
-    gen_program(sem_analysis);
-
-    print_sqz(squeezed);
-
-    free_ast(root);
-    free_sqz(squeezed);
-
-    exit(0);
+  return;
 }
 
-static void print_indent(int depth)
+static void
+print_sqz_func_decl (sqz_func_decl *f)
 {
-    for (int i = 0; i < depth; i++)
+  if (!f)
     {
-        fprintf(stdout, "    ");
+      return;
     }
 
-    return;
+  const char *type = "N/A";
+
+  if (f->return_type && f->return_type->name)
+    {
+      type = f->return_type->name;
+    }
+
+  printf ("FUNC (return type: %s)\n", type);
+
+  return;
 }
 
-static void print_ast_rec(ast_node *node, int depth)
+static void
+print_sqz_decl_list (sqz_decl *decl, int depth)
 {
-    const char *name = "N/A";
-    const char *type = "N/A";
-
-    if (node->identifier && node->identifier->type)
+  for (sqz_decl *d = decl; d != NULL; d = d->next)
     {
-        name = node->identifier->type->name;
-    }
-    if (node->type)
-    {
-        type = node->type->name;
-    }
+      print_indent (depth);
 
-    print_indent(depth);
-    fprintf(stdout, "ID: %s (TYPE: %s)\n", name, type);
-
-    if (node->left)
-    {
-        print_ast_rec(node->left, depth + 1);
-    }
-    if (node->middle)
-    {
-        print_ast_rec(node->middle, depth + 1);
-    }
-    if (node->right != NULL)
-    {
-        print_ast_rec(node->right, depth + 1);
-    }
-
-    return;
-}
-
-void print_ast(ast_node *node)
-{
-    if (node == NULL)
-    {
-        fprintf(stdout, "ERROR: The given AST is empty.\n");
-    }
-    else
-    {
-        print_ast_rec(node, 0);
-    }
-
-    return;
-}
-
-static void print_sqz_var_decl(sqz_var_decl *v)
-{
-    if (!v)
-    {
-        return;
-    }
-
-    for (sqz_init_decl *id = v->decl_list; id; id = id->next)
-    {
-        const char *name = "N/A";
-        const char *type = "N/A";
-
-        if (id->decl && id->decl->id && id->decl->id->name)
+      if (d->decl_type == AST_VARIABLE_DECLARATION)
         {
-            name = id->decl->id->name->name;
+          print_sqz_var_decl (d->decl.var);
         }
-        if (id->decl && id->decl->type && id->decl->type->name)
+      else if (d->decl_type == AST_FUNCTION_DECLARATION)
         {
-            type = id->decl->type->name;
+          print_sqz_func_decl (d->decl.func);
         }
-
-        printf("VAR: %s (type: %s)\n", name, type);
-    }
-
-    return;
-}
-
-static void print_sqz_func_decl(sqz_func_decl *f)
-{
-    if (!f)
-    {
-        return;
-    }
-
-    const char *type = "N/A";
-
-    if (f->return_type && f->return_type->name)
-    {
-        type = f->return_type->name;
-    }
-
-    printf("FUNC (return type: %s)\n", type);
-
-    return;
-}
-
-static void print_sqz_decl_list(sqz_decl *decl, int depth)
-{
-    for (sqz_decl *d = decl; d != NULL; d = d->next)
-    {
-        print_indent(depth);
-
-        if (d->decl_type == AST_VARIABLE_DECLARATION)
+      else
         {
-            print_sqz_var_decl(d->decl.var);
-        }
-        else if (d->decl_type == AST_FUNCTION_DECLARATION)
-        {
-            print_sqz_func_decl(d->decl.func);
-        }
-        else
-        {
-            printf("DECL (type = %d)\n", d->decl_type);
+          printf ("DECL (type = %d)\n", d->decl_type);
         }
     }
 
-    return;
+  return;
 }
 
-void print_sqz(sqz_program *program)
+void
+print_sqz (sqz_program *program)
 {
-    if (program == NULL || program->decl == NULL)
+  if (program == NULL || program->decl == NULL)
     {
-        fprintf(stdout, "ERROR: The given program is empty.\n");
-        return;
+      fprintf (stdout, "ERROR: The given program is empty.\n");
+      return;
     }
 
-    print_sqz_decl_list(program->decl, 0);
+  print_sqz_decl_list (program->decl, 0);
 
-    return;
+  return;
 }
 
-void free_ast(ast_node *root)
+void
+free_ast (ast_node *root)
 {
-    if (!root)
+  if (!root)
     {
-        fprintf(stderr, "ERROR: The given AST pointer is invalid.\n");
-        return;
+      fprintf (stderr, "ERROR: The given AST pointer is invalid.\n");
+      return;
     }
 
-    if (root->left)
+  if (root->left)
     {
-        free_ast(root->left);
+      free_ast (root->left);
     }
-    if (root->middle)
+  if (root->middle)
     {
-        free_ast(root->middle);
+      free_ast (root->middle);
     }
-    if (root->right)
+  if (root->right)
     {
-        free_ast(root->right);
+      free_ast (root->right);
     }
 
-    free(root);
+  free (root);
 
-    return;
+  return;
 }
 
-void free_sqz(sqz_program *program)
+void
+free_sqz (sqz_program *program)
 {
-    if (!program)
+  if (!program)
     {
-        fprintf(stderr, "ERROR: The given squeezed program pointer is invalid.\n");
-        return;
+      fprintf (stderr,
+               "ERROR: The given squeezed program pointer is invalid.\n");
+      return;
     }
 
-    sqz_decl *curr = program->decl;
-    while (!curr)
+  sqz_decl *curr = program->decl;
+  while (!curr)
     {
-        sqz_decl *temp = curr->next;
-        free(curr);
-        curr = temp;
+      sqz_decl *temp = curr->next;
+      free (curr);
+      curr = temp;
     }
 
-    return;
+  return;
 }

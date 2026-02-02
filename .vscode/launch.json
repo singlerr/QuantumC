@@ -9,9 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/src/transpiler/program",
-            "args": [
-                "${workspaceFolder}/tests/test_1.c"
-            ],
+            "args": ["${workspaceFolder}/tests/test_1.c"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

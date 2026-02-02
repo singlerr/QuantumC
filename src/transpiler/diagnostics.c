@@ -1,38 +1,38 @@
 #include "diagnostics.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 
 extern char *yyfilename;
-extern int trlineno;
 extern int column;
 
-const char *log_names[] = {
-    [INFO] = "info",
-    [WARN] = "warn",
-    [ERROR] = "error"};
+const char *log_names[]
+    = { [INFO] = "info", [WARN] = "warn", [ERROR] = "error" };
 
-static void __log(log_level level, const char *msg, va_list args)
+static void
+__log (log_level level, int lineno, const char *msg, va_list args)
 {
-    printf("[%s] %s:%d : ", log_names[level], yyfilename, trlineno);
-    vprintf(msg, args);
-    printf("\n");
+  printf ("[%s] %s:%d : ", log_names[level], yyfilename, lineno);
+  vprintf (msg, args);
+  printf ("\n");
 }
 
-void _log(log_level level, const char *msg, ...)
+void
+_log (log_level level, int lineno, const char *msg, ...)
 {
-    va_list args;
-    va_start(args, msg);
-    __log(level, msg, args);
-    va_end(args);
+  va_list args;
+  va_start (args, msg);
+  __log (level, lineno, msg, args);
+  va_end (args);
 }
 
-void _log_and_kill(log_level level, const char *msg, ...)
+void
+_log_and_kill (log_level level, int lineno, const char *msg, ...)
 {
-    va_list args;
-    va_start(args, msg);
-    __log(level, msg, args);
-    va_end(args);
+  va_list args;
+  va_start (args, msg);
+  __log (level, lineno, msg, args);
+  va_end (args);
 
-    exit(1);
+  exit (1);
 }

@@ -33,8 +33,11 @@
     } while (0);
 #endif
 
-extern int yylex();
+extern int prlex();
 void prerror(const char *str);
+
+extern FILE* prin;
+struct string_builder* ctx = NULL;
 
 %}
 
@@ -54,7 +57,7 @@ void prerror(const char *str);
 
 %token IDENTIFIER;
 %token DEFINE
-%token IF ELIF IFDEF IFNDEF ENDIF UNDEF
+%token IF ELIF IFDEF IFNDEF ENDIF UNDEF ELSE
 %token DEFINED
 %token OPENQASM
 %token LPAREN RPAREN
@@ -78,6 +81,7 @@ void prerror(const char *str);
 %type<operand> logical_or_expression;
 %type<operand> if_expression;
 
+%start program
 %%
 
 program
@@ -88,10 +92,12 @@ program
     | elif
     | define
     | openqasm
+    | %empty
     ;
 
 if
-    : IF if_args ENDIF {  } // body is passed in flex
+    : IF if_args program ENDIF {  } // body is passed in flex
+    | IF if_args program ELSE { }
     ;
 
 
@@ -104,7 +110,7 @@ ifndef
     ;
 
 ifdef
-    : IFDEF IDENTIFIER  
+    : IFDEF IDENTIFIER
     ;
 
 elif
@@ -117,20 +123,21 @@ undef
 
 define
     : define_id { push_define($1); } define_body { $1->content = $3; $$ = $1; }
-    | define_id { push_define($1); } LPAREN define_args RPAREN define_body { $1->args = $4; $1->content = $6; $$ = $1; }  
+    | define_id { push_define($1); } LPAREN define_args RPAREN define_body { $1->args = $4; $1->content = $6; $$ = $1; }
     ;
 
 define_id
     : DEFINE IDENTIFIER { $$ = new_define((const char*) prlval.str); }
+    ;
 
 define_args
     : define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) prlval.str); }
-    | IDENTIFIER { $$ = args_builder_begin((const char*) prlval.str); } 
+    | IDENTIFIER { $$ = args_builder_begin((const char*) prlval.str); }
     ;
 
 
 openqasm
-    : OPENQASM NUM { $$ = openqasm_new(prlval.i); } 
+    : OPENQASM NUM { $$ = openqasm_new(prlval.i); }
     ;
 
 define_body
@@ -179,9 +186,16 @@ if_expression
 
 %%
 
-
+int init_ctx(struct string_builder* sb, FILE* in){
+    ctx = sb;
+    prin = in;
+}
 
 void prerror(const char *str)
 {
     fprintf(stderr, "[preprocessor] %s\n", str);
+}
+
+int preprocessor_lex(){
+    return prparse();
 }

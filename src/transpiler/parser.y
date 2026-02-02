@@ -1,23 +1,45 @@
 %{
-#include "ast.h"
-#include "symrec.h"
-#include <stdio.h>
-#include <stdlib.h> // For free()
-#include <string.h>
-#include "stringlib.h"
-
-void trerror(ast_node** root, char const *s);
-extern int trlex();
-extern int type_size;
-extern int trlineno;
-extern char* lineptr;
-#include "c.parser.h"
-
 %}
-
-%parse-param { ast_node** root}
+%define api.pure full
 %define api.prefix tr
 %define parse.error detailed
+%define parse.trace
+%locations
+
+%param { 
+	yyscan_t scanner
+}
+
+%parse-param {
+	ast_node** root
+}
+
+%code top {
+	#include <stdio.h>
+	#include <stdlib.h> 
+	#include <string.h>
+	#include "stringlib.h"
+	#include "ast.h"
+	#include "symrec.h"
+	#include "preprocessor_link.h"
+	#include "c.parser.h"
+}
+
+%code requires {
+	typedef void* yyscan_t;
+}
+
+%code {
+	void yyerror(YYLTYPE* yyllocp, yyscan_t unused, ast_node** root, char const *msg);
+	int yylex(YYSTYPE* yylvalp, YYLTYPE* yyllocp, yyscan_t scanner);
+}
+
+%code {
+	extern int type_size;
+	ast_node* compile(FILE* input);
+	int feed_and_parse(const char* content,  ast_node** out);
+}
+
 %union {
 	int i;
 	float f;
@@ -25,6 +47,7 @@ extern char* lineptr;
 	ast_node* node;
 	ast_identifier_node* id_node;
 }
+
 
 %token <id_node> IDENTIFIER
 %token STRING_LITERAL SIZEOF
@@ -547,13 +570,31 @@ declaration_list
 
 #include <stdio.h>
 
-extern int column;
-
-void trerror(ast_node** root, const char *str)
+void yyerror(YYLTYPE* yyllocp, yyscan_t unused, ast_node** root, const char* msg)
 {
-	fprintf(stderr,"error: %s in line %d, column %d\n", str, trlineno, column);
-    fprintf(stderr,"%s", lineptr);
-    for(int i = 0; i < column - 1; i++)
+	fprintf(stderr,"error: %s in line %d, column %d\n", msg, yyllocp->first_line, yyllocp->first_column);
+    for(int i = 0; i < yyllocp->last_column - 1; i++)
         fprintf(stderr,"_");
     fprintf(stderr,"^\n");
+}
+
+ast_node* compile(FILE* in)
+{
+    ast_node* root;
+    struct string_builder sb;
+    char* content;
+    init_str_builder(&sb);
+    init_ctx(&sb, in);
+    preprocessor_lex();
+    content = end_str_builder(&sb);
+    if(! feed_and_parse(content, &root)){
+        free(content);
+        return NULL;
+    }
+    free(content);
+    return root;
+}
+
+int feed_and_parse(const char* content, ast_node **out){
+    return tr_process(content, out);
 }

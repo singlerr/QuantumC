@@ -39,6 +39,10 @@ enum operand_kind
     OP_FLOAT
 };
 
+struct if_state {
+
+};
+
 struct placeholder
 {
     enum placeholder_kind kind;

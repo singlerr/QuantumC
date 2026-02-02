@@ -1,6 +1,6 @@
 D			[0-9]
 L			[a-zA-Z_]
-ID          L(L|D)*
+ID          {L}({L}|{D})*
 NL          "\n"
 S           [ \t]
 STR         \"(\\.|[^\\"\n])*\"
@@ -15,11 +15,17 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "../ast.h"
 #include "../preprocessor_link.h"
 #include "preprocessor.parser.h"
 #include "preprocessor.h"
 
+extern struct string_builder *ctx;
+
 #define MAX_INCLUDE_DEPTH 10
+#define SKIP_INITIAL if(YYSTATE == INITIAL) { forward(try_expand(yytext)); } else 
+
+// preprocessor sections
 int include_stack_ptr = 0;
 int expand_stack_ptr = 0;
 
@@ -29,6 +35,8 @@ YY_BUFFER_STATE expand_stack[MAX_INCLUDE_DEPTH];
 int expand_macro(const char* name, char** out);
 void expand_expression(const char* name);
 char* try_expand(const char* text);
+int forward(const char* str);
+
 
 %}
 %option prefix="pr"
@@ -49,28 +57,122 @@ char* try_expand(const char* text);
 %x STATE_EXPAND
 %%
 
-ID                            { return(IDENTIFIER); }
 ^"#""openqasm"                { yy_push_state(STATE_OPENQASM); return(OPENQASM); }
 ^"#""include"                 { yy_push_state(STATE_INCLUDE); }
-^"#""define"                  { yy_push_state(STATE_DEFINE); return(DEFINE); }     
+^"#""define"                  { yy_push_state(STATE_DEFINE); return(DEFINE); }
 ^"#""ifdef"                   { yy_push_state(STATE_IFDEF); return(IFDEF); }
+^"#""else"                    { return(ELSE); }
 ^"#""if"                      { yy_push_state(STATE_IF); return(IF); }
 ^"#""elif"                    { return(ELIF); }
 ^"#""ifndef"                  { yy_push_state(STATE_IFNDEF); return(IFNDEF); }
 ^"#""endif"                   { return(ENDIF); }
 ^"#""undef"                   { yy_push_state(STATE_UNDEF); return(UNDEF); }
 
-0[xX]{H}+{IS}?		{ prlval.i = strtol(yytext, NULL, 16); return(INTEGER); }
-0[0-7]*{IS}?		{ prlval.i = strtol(yytext, NULL, 8); return(INTEGER); }
-[1-9]{D}*{IS}?		{ prlval.i = strtol(yytext, NULL, 10); return(INTEGER); }
-{D}+{E}{FS}?		{ prlval.f = atof(yytext); return(FLOAT); }
-{D}*"."{D}+{E}?{FS}?	{ prlval.f = atof(yytext); return(FLOAT); }
-{D}+"."{D}*{E}?{FS}?	{ prlval.f = atof(yytext); return(FLOAT); }
-0[xX]{H}+{P}{FS}?	{ prlval.f = strtof(yytext, NULL); return(INTEGER); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { prlval.f = strtof(yytext, NULL); return(FLOAT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { prlval.f = strtof(yytext, NULL); return(FLOAT); }
+"auto"			{ forward(yytext); }
+"bool"			{ forward(yytext); }
+"break"			{ forward(yytext); }
+"case"			{ forward(yytext); }
+"char"			{ forward(yytext); }
+"complex"		{ forward(yytext); }
+"const"			{ forward(yytext); }
+"continue"		{ forward(yytext); }
+"default"		{ forward(yytext); }
+"do"			{ forward(yytext); }
+"double"		{ forward(yytext); }
+"else"			{ forward(yytext); }
+"enum"			{ forward(yytext); }
+"extern"		{ forward(yytext); }
+"float"			{ forward(yytext); }
+"for"			{ forward(yytext); }
+"goto"			{ forward(yytext); }
+"if"			{ forward(yytext); }
+"imaginary"	    { forward(yytext); }
+"inline"		{ forward(yytext); }
+"int"			{ forward(yytext); }
+"long"			{ forward(yytext); }
+"register"		{ forward(yytext); }
+"restrict"		{ forward(yytext); }
+"return"		{ forward(yytext); }
+"short"			{ forward(yytext); }
+"signed"		{ forward(yytext); }
+"sizeof"		{ forward(yytext); }
+"static"		{ forward(yytext); }
+"struct"		{ forward(yytext); }
+"switch"		{ forward(yytext); }
+"typedef"		{ forward(yytext); }
+"union"			{ forward(yytext); }
+"unsigned"		{ forward(yytext); }
+"void"			{ forward(yytext); }
+"volatile"		{ forward(yytext); }
+"while"			{ forward(yytext); }
 
-<STATE_OPENQASM>D+                    { return(NUM); }
+
+{L}({L}|{D})*		{ forward(try_expand(yytext)); }
+0[xX]{H}+{IS}?		{ forward(yytext); }
+0[0-7]*{IS}?		{ forward(yytext); }
+[1-9]{D}*{IS}?		{ forward(yytext); }
+L?'(\\.|[^\\'\n])+'	{ forward(yytext); }
+
+{D}+{E}{FS}?		{ forward(yytext); }
+{D}*"."{D}+{E}?{FS}?	{ forward(yytext); }
+{D}+"."{D}*{E}?{FS}?	{ forward(yytext); }
+0[xX]{H}+{P}{FS}?	{ }
+0[xX]{H}*"."{H}+{P}?{FS}?     { forward(yytext); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { forward(yytext); }
+
+"\n"	{ forward(yytext); }
+L?\"(\\.|[^\\"\n])*\"	{ forward(yytext); }
+
+"..."			{ forward(yytext); }
+">>="			{ forward(yytext); }
+"<<="			{ forward(yytext); }
+"+="			{ forward(yytext); }
+"-="			{ forward(yytext); }
+"*="			{ forward(yytext); }
+"/="			{ forward(yytext); }
+"%="			{ forward(yytext); }
+"&="			{ forward(yytext); }
+"^="			{ forward(yytext); }
+"|="			{ forward(yytext); }
+">>"			{ forward(yytext); }
+"<<"			{ forward(yytext); }
+"++"			{ forward(yytext); }
+"--"			{ forward(yytext); }
+"->"			{ forward(yytext); }
+"&&"			{ forward(yytext); }
+"||"			{ forward(yytext); }
+"<="			{ forward(yytext); }
+">="			{ forward(yytext); }
+"=="			{ forward(yytext); }
+"!="			{ forward(yytext); }
+";"			{ forward(yytext); }
+("{"|"<%")		{ forward(yytext); }
+("}"|"%>")		{ forward(yytext); }
+","			{ forward(yytext); }
+":"			{ forward(yytext); }
+"="			{ forward(yytext); }
+"("			{ forward(yytext); }
+")"			{ forward(yytext); }
+("["|"<:")		{ forward(yytext); }
+("]"|":>")		{ forward(yytext); }
+"."			{ forward(yytext); }
+"&"			{ forward(yytext); }
+"!"			{ forward(yytext); }
+"~"			{ forward(yytext); }
+"-"			{ forward(yytext); }
+"+"			{ forward(yytext); }
+"*"			{ forward(yytext); }
+"/"			{ forward(yytext); }
+"%"			{ forward(yytext); }
+"<"			{ forward(yytext); }
+">"			{ forward(yytext); }
+"^"			{ forward(yytext); }
+"|"			{ forward(yytext); }
+"?"			{ forward(yytext); }
+"true"		{ forward(yytext); }
+"false"		{ forward(yytext); }
+
+<STATE_OPENQASM>{D}+                    { return(NUM); }
 <STATE_OPENQASM>NL                    { yy_pop_state(); }
 <STATE_DEFINE>"("                     { return(LPAREN); }
 <STATE_DEFINE>")"                     { return(RPAREN); }
@@ -79,7 +181,7 @@ ID                            { return(IDENTIFIER); }
 <STATE_DEFINE>"\\"                    { yy_push_state(STATE_BODY); }
 <STATE_BODY>"\\"                      { yy_pop_state(); yy_push_state(STATE_BODY_EXT); }
 <STATE_BODY>NL                        { yy_pop_state(); yy_pop_state(); }
-<STATE_BODY_EXT>NL                    { yy_pop_state(); yy_push_state(STATE_BODY); } 
+<STATE_BODY_EXT>NL                    { yy_pop_state(); yy_push_state(STATE_BODY); }
 <STATE_BODY>ID                        { return(PLACEHOLDER); }
 <STATE_BODY>^"##"ID                   { return(PLACEHOLDER); }
 <STATE_BODY>^"#"ID                    { return(STRINGIFIED); }
@@ -88,7 +190,7 @@ ID                            { return(IDENTIFIER); }
 <STATE_BODY_EXT>^"##"ID               { return(PLACEHOLDER); }
 <STATE_BODY_EXT>^"#"ID                { return(STRINGIFIED); }
 <STATE_BODY_EXT>[^:ID:]               { return(TEXT); }
-<STATE_INCLUDE>STR                    { 
+<STATE_INCLUDE>STR                    {
     if (include_stack_ptr >= MAX_INCLUDE_DEPTH)
     {
         fprintf( stderr, "Includes nested too deeply" );
@@ -110,7 +212,7 @@ ID                            { return(IDENTIFIER); }
 <STATE_INCLUDE><<EOF>> {
     if(--include_stack_ptr < 0)
     {
-        yyterminate();  
+        yyterminate();
     }
     else
     {
@@ -123,7 +225,7 @@ ID                            { return(IDENTIFIER); }
 <STATE_EXPAND><<EOF>> {
     if(--expand_stack_ptr < 0)
     {
-        yyterminate();  
+        yyterminate();
     }
     else
     {
@@ -153,10 +255,10 @@ ID                            { return(IDENTIFIER); }
 <STATE_IFNDEF>NL                      { yy_pop_state(); }
 <STATE_UNDEF>ID                       { return(IDENTIFIER); }
 <STATE_UNDEF>NL                       { yy_pop_state(); }
-[ \t\n]+                              { transpiler_enqueue(yytext); }
-.                                     { try_expand(yytext); }
-
+[ \t\v\n\f\r]                           { forward(yytext); }
+[^ \t\v\n\f\r]*                         { forward(try_expand(yytext)); }
 %%
+
 
 char* try_expand(const char* text){
     char* content;
@@ -183,6 +285,7 @@ int expand_macro(const char* name, char** out)
     }
 
     *out = content;
+    return 1;
 }
 
 void expand_expression(const char* name){
@@ -198,7 +301,12 @@ void expand_expression(const char* name){
     }
 
     yy_push_state(STATE_EXPAND);
-    YY_BUFFER_STATE buffer = yy_scan_string(content);
+    YY_BUFFER_STATE buffer = pr_scan_string(content);
     expand_stack[expand_stack_ptr++] = YY_CURRENT_BUFFER;
-    yy_switch_to_buffer(buffer);
+    pr_switch_to_buffer(buffer);
+}
+
+int forward(const char* str){
+    str_append(ctx, str);
+    return 0;
 }

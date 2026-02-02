@@ -19,6 +19,10 @@ init_str_builder (struct string_builder *builder)
 void
 str_append (struct string_builder *builder, const char *str)
 {
+  if (!builder)
+    {
+      return;
+    }
   if (!str)
     {
       return;
@@ -27,11 +31,12 @@ str_append (struct string_builder *builder, const char *str)
   if (!builder->buffer || builder->size == 0)
     {
       builder->buffer = (char *)malloc (len + 1);
+      strncpy (builder->buffer + (builder->size), str, len);
       builder->size = len + 1;
     }
   else
     {
-      int newsz = builder->size + len + 1;
+      int newsz = builder->size + len;
       builder->buffer = (char *)realloc (builder->buffer, newsz);
       strncpy (builder->buffer + (builder->size - 1), str, len);
       builder->size = newsz;

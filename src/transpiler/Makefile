@@ -4,9 +4,12 @@ YACC = bison
 SUBDIRS := preprocessor
 LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 
-CFLAGS = -g -std=c99 -D_XOPEN_SOURCE=700
+CFLAGS = -std=c99 -D_XOPEN_SOURCE=700
+
 ifeq ($(PROD), 1)
 CFLAGS += -Werror -Wall
+else
+CFLAGS += -g 
 endif
 
 export CFLAGS
@@ -24,7 +27,7 @@ c.parser.c: parser.y
 	$(YACC) --debug --defines=c.parser.h $< -o $@
 
 c.lexer.c: scanner.l
-	$(LEX) --header-file=c.lexer.h -o $@ $<
+	$(LEX) -d --header-file=c.lexer.h -o $@ $<
 
 c.parser.o: ast.h c.lexer.c c.parser.c
 

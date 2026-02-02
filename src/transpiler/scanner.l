@@ -6,191 +6,186 @@ P                       ([Pp][+-]?{D}+)
 FS			(f|F|l|L)
 IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
-%{
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "stringlib.h"
-#include "ast.h"
-#include "c.parser.h"
-#include "symrec.h"
-#include "preprocessor/preprocessor.h"
-#include "preprocessor_link.h"
-
-#define MAX_PREP_DEPTH 1024
-int prep_stack_ptr = 0;
-
-YY_BUFFER_STATE prep_stack[MAX_PREP_DEPTH];
-
-void count(void);
-void comment(void);
-int check_type(void);
-int check_sized_type(void);
-void trerror(ast_node** root, char const *s);
-int type_size = -1;
-
-static int next_column = 1;
-int column = 1;
-char *lineptr = NULL;
-size_t n = 0;
-size_t consumed = 0;
-size_t available = 0;
-size_t min(size_t a, size_t b);
-
-// #define YY_INPUT(buf,result,max_size) {\
-// 	if(available <= 0) {\
-// 		consumed = 0;\
-// 		available = prep_readline(&lineptr, &n, yyin);\
-// 		if (available < 0) {\
-// 			if (ferror(yyin)) { perror("read error:"); }\
-// 				available = 0;\
-// 		}\
-// 	}\
-// 	result = min(available, max_size);\
-// 	strncpy(buf, lineptr + consumed, result);\
-// 	consumed += result;\
-// 	available -= result;\
-// }
-%}
 %option prefix="tr"
-%option nounput
-%option yylineno
-%option noyywrap
+%option nounput noyywrap nodefault reentrant yylineno
+%option bison-bridge bison-locations
+
+%{
+	#include <stdio.h>
+	#include <stdlib.h>
+	#include <string.h>
+	#include "stringlib.h"
+	#include "symrec.h"
+	#include "ast.h"
+	#include "preprocessor/preprocessor.h"
+	#include "preprocessor_link.h"
+	#include "c.parser.h"
+	#define MAX_PREP_DEPTH 1024
+	#define YYSTYPE TRSTYPE
+	#define YYLTYPE TRLTYPE	
+	#define yyparse trparse
+	int prep_stack_ptr = 0;
+	YY_BUFFER_STATE prep_stack[MAX_PREP_DEPTH];
+
+	void count(yyscan_t);
+	void comment(yyscan_t);
+	int check_type(yyscan_t, YYSTYPE*);
+	int check_sized_type(yyscan_t, YYSTYPE*);
+	int type_size = -1;
+	int lineno = 0;
+	static int next_column = 1;
+	int column = 1;
+	char *lineptr = NULL;
+	size_t n = 0;
+	size_t consumed = 0;
+	size_t available = 0;
+	size_t min(size_t a, size_t b);
+	static yyscan_t scanner;
+	#define YY_USER_ACTION                                                        \
+		yylloc->first_line = yylloc->last_line;                                     \
+		yylloc->first_column = yylloc->last_column;                                 \
+		if (yylloc->last_line == yylineno)                                          \
+			yylloc->last_column += yyleng;                                            \
+		else                                                                        \
+		{                                                                         \
+			yylloc->last_line = yylineno;                                           \
+			yylloc->last_column = yytext + yyleng - strrchr (yytext, '\n');         \
+		}
+%}
 
 %%
-"/*"			{ comment(); }
+"/*"			{ comment(yyscanner); }
 "//"[^\n]*              { /* consume //-comment */ }
 
 
-"auto"			{ count(); return(AUTO); }
-"bool"			{ count(); return(BOOL); }
-"break"			{ count(); return(BREAK); }
-"case"			{ count(); return(CASE); }
-"char"			{ count(); return(CHAR); }
-"complex"		{ count(); return(COMPLEX); }
-"const"			{ count(); return(CONST); }
-"continue"		{ count(); return(CONTINUE); }
-"default"		{ count(); return(DEFAULT); }
-"do"			{ count(); return(DO); }
-"double"		{ count(); return(DOUBLE); }
-"else"			{ count(); return(ELSE); }
-"enum"			{ count(); return(ENUM); }
-"extern"		{ count(); return(EXTERN); }
-"float"			{ count(); return(FLOAT); }
-"for"			{ count(); return(FOR); }
-"goto"			{ count(); return(GOTO); }
-"if"			{ count(); return(IF); }
-"imaginary"	{ count(); return(IMAGINARY); }
-"inline"		{ count(); return(INLINE); }
-"int"			{ count(); return(INT); }
-"long"			{ count(); return(LONG); }
-"register"		{ count(); return(REGISTER); }
-"restrict"		{ count(); return(RESTRICT); }
-"return"		{ count(); return(RETURN); }
-"short"			{ count(); return(SHORT); }
-"signed"		{ count(); return(SIGNED); }
-"sizeof"		{ count(); return(SIZEOF); }
-"static"		{ count(); return(STATIC); }
-"struct"		{ count(); return(STRUCT); }
-"switch"		{ count(); return(SWITCH); }
-"typedef"		{ count(); return(TYPEDEF); }
-"union"			{ count(); return(UNION); }
-"unsigned"		{ count(); return(UNSIGNED); }
-"void"			{ count(); return(VOID); }
-"volatile"		{ count(); return(VOLATILE); }
-"while"			{ count(); return(WHILE); }
+"auto"			{ count(yyscanner); return(AUTO); }
+"bool"			{ count(yyscanner); return(BOOL); }
+"break"			{ count(yyscanner); return(BREAK); }
+"case"			{ count(yyscanner); return(CASE); }
+"char"			{ count(yyscanner); return(CHAR); }
+"complex"		{ count(yyscanner); return(COMPLEX); }
+"const"			{ count(yyscanner); return(CONST); }
+"continue"		{ count(yyscanner); return(CONTINUE); }
+"default"		{ count(yyscanner); return(DEFAULT); }
+"do"			{ count(yyscanner); return(DO); }
+"double"		{ count(yyscanner); return(DOUBLE); }
+"else"			{ count(yyscanner); return(ELSE); }
+"enum"			{ count(yyscanner); return(ENUM); }
+"extern"		{ count(yyscanner); return(EXTERN); }
+"float"			{ count(yyscanner); return(FLOAT); }
+"for"			{ count(yyscanner); return(FOR); }
+"goto"			{ count(yyscanner); return(GOTO); }
+"if"			{ count(yyscanner); return(IF); }
+"imaginary"	{ count(yyscanner); return(IMAGINARY); }
+"inline"		{ count(yyscanner); return(INLINE); }
+"int"			{ count(yyscanner); return(INT); }
+"long"			{ count(yyscanner); return(LONG); }
+"register"		{ count(yyscanner); return(REGISTER); }
+"restrict"		{ count(yyscanner); return(RESTRICT); }
+"return"		{ count(yyscanner); return(RETURN); }
+"short"			{ count(yyscanner); return(SHORT); }
+"signed"		{ count(yyscanner); return(SIGNED); }
+"sizeof"		{ count(yyscanner); return(SIZEOF); }
+"static"		{ count(yyscanner); return(STATIC); }
+"struct"		{ count(yyscanner); return(STRUCT); }
+"switch"		{ count(yyscanner); return(SWITCH); }
+"typedef"		{ count(yyscanner); return(TYPEDEF); }
+"union"			{ count(yyscanner); return(UNION); }
+"unsigned"		{ count(yyscanner); return(UNSIGNED); }
+"void"			{ count(yyscanner); return(VOID); }
+"volatile"		{ count(yyscanner); return(VOLATILE); }
+"while"			{ count(yyscanner); return(WHILE); }
 
-{L}({L}|{D})*({D})+"_t" { count(); return(check_sized_type()); }
-{L}({L}|{D})*		{ count(); return(check_type()); }
-0[xX]{H}+{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
-0[0-7]*{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
-[1-9]{D}*{IS}?		{ count(); trlval.i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); trlval.str = strdup(yytext); return(STRING_LITERAL); }
+{L}({L}|{D})*({D})+"_t" { count(yyscanner); return(check_sized_type(yyscanner, yylval)); }
+{L}({L}|{D})*		{ count(yyscanner); return(check_type(yyscanner, yylval)); }
+0[xX]{H}+{IS}?		{ count(yyscanner); yylval->i = strtol(yytext, NULL, 16); return(INTCONSTANT); }
+0[0-7]*{IS}?		{ count(yyscanner); yylval->i = strtol(yytext, NULL, 8); return(INTCONSTANT); }
+[1-9]{D}*{IS}?		{ count(yyscanner); yylval->i = strtol(yytext, NULL, 10); return(INTCONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(yyscanner); yylval->str = strdup(yytext); return(STRING_LITERAL); }
 
-{D}+{E}{FS}?		{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); trlval.f = atof(yytext); return(FLOATCONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); trlval.f = strtof(yytext, NULL); return(INTCONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); trlval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); trlval.f = strtof(yytext, NULL); return(FLOATCONSTANT); }
+{D}+{E}{FS}?		{ count(yyscanner); yylval->f = atof(yytext); return(FLOATCONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(yyscanner); yylval->f = atof(yytext); return(FLOATCONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(yyscanner); yylval->f = atof(yytext); return(FLOATCONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(yyscanner); yylval->f = strtof(yytext, NULL); return(INTCONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(yyscanner); yylval->f = strtof(yytext, NULL); return(FLOATCONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(yyscanner); yylval->f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
 "\n"	{ next_column = 1; }
-L?\"(\\.|[^\\"\n])*\"	{ count(); trlval.str = strdup(yytext); return(STRING_LITERAL); }
+L?\"(\\.|[^\\"\n])*\"	{ count(yyscanner); yylval->str = strdup(yytext); return(STRING_LITERAL); }
 
-"..."			{ count(); return(ELLIPSIS); }
-">>="			{ count(); return(RIGHT_ASSIGN); }
-"<<="			{ count(); return(LEFT_ASSIGN); }
-"+="			{ count(); return(ADD_ASSIGN); }
-"-="			{ count(); return(SUB_ASSIGN); }
-"*="			{ count(); return(MUL_ASSIGN); }
-"/="			{ count(); return(DIV_ASSIGN); }
-"%="			{ count(); return(MOD_ASSIGN); }
-"&="			{ count(); return(AND_ASSIGN); }
-"^="			{ count(); return(XOR_ASSIGN); }
-"|="			{ count(); return(OR_ASSIGN); }
-">>"			{ count(); return(RIGHT_OP); }
-"<<"			{ count(); return(LEFT_OP); }
-"++"			{ count(); return(INC_OP); }
-"--"			{ count(); return(DEC_OP); }
-"->"			{ count(); return(PTR_OP); }
-"&&"			{ count(); return(AND_OP); }
-"||"			{ count(); return(OR_OP); }
-"<="			{ count(); return(LE_OP); }
-">="			{ count(); return(GE_OP); }
-"=="			{ count(); return(EQ_OP); }
-"!="			{ count(); return(NE_OP); }
-";"			{ count(); return(';'); }
-("{"|"<%")		{ count(); return('{'); }
-("}"|"%>")		{ count(); return('}'); }
-","			{ count(); return(','); }
-":"			{ count(); return(':'); }
-"="			{ count(); return('='); }
-"("			{ count(); return('('); }
-")"			{ count(); return(')'); }
-("["|"<:")		{ count(); return('['); }
-("]"|":>")		{ count(); return(']'); }
-"."			{ count(); return('.'); }
-"&"			{ count(); return('&'); }
-"!"			{ count(); return('!'); }
-"~"			{ count(); return('~'); }
-"-"			{ count(); return('-'); }
-"+"			{ count(); return('+'); }
-"*"			{ count(); return('*'); }
-"/"			{ count(); return('/'); }
-"%"			{ count(); return('%'); }
-"<"			{ count(); return('<'); }
-">"			{ count(); return('>'); }
-"^"			{ count(); return('^'); }
-"|"			{ count(); return('|'); }
-"?"			{ count(); return('?'); }
-"true"		{ count(); return(BOOL_TRUE); }
-"false"		{ count(); return(BOOL_FALSE); }
+"..."			{ count(yyscanner); return(ELLIPSIS); }
+">>="			{ count(yyscanner); return(RIGHT_ASSIGN); }
+"<<="			{ count(yyscanner); return(LEFT_ASSIGN); }
+"+="			{ count(yyscanner); return(ADD_ASSIGN); }
+"-="			{ count(yyscanner); return(SUB_ASSIGN); }
+"*="			{ count(yyscanner); return(MUL_ASSIGN); }
+"/="			{ count(yyscanner); return(DIV_ASSIGN); }
+"%="			{ count(yyscanner); return(MOD_ASSIGN); }
+"&="			{ count(yyscanner); return(AND_ASSIGN); }
+"^="			{ count(yyscanner); return(XOR_ASSIGN); }
+"|="			{ count(yyscanner); return(OR_ASSIGN); }
+">>"			{ count(yyscanner); return(RIGHT_OP); }
+"<<"			{ count(yyscanner); return(LEFT_OP); }
+"++"			{ count(yyscanner); return(INC_OP); }
+"--"			{ count(yyscanner); return(DEC_OP); }
+"->"			{ count(yyscanner); return(PTR_OP); }
+"&&"			{ count(yyscanner); return(AND_OP); }
+"||"			{ count(yyscanner); return(OR_OP); }
+"<="			{ count(yyscanner); return(LE_OP); }
+">="			{ count(yyscanner); return(GE_OP); }
+"=="			{ count(yyscanner); return(EQ_OP); }
+"!="			{ count(yyscanner); return(NE_OP); }
+";"			{ count(yyscanner); return(';'); }
+("{"|"<%")		{ count(yyscanner); return('{'); }
+("}"|"%>")		{ count(yyscanner); return('}'); }
+","			{ count(yyscanner); return(','); }
+":"			{ count(yyscanner); return(':'); }
+"="			{ count(yyscanner); return('='); }
+"("			{ count(yyscanner); return('('); }
+")"			{ count(yyscanner); return(')'); }
+("["|"<:")		{ count(yyscanner); return('['); }
+("]"|":>")		{ count(yyscanner); return(']'); }
+"."			{ count(yyscanner); return('.'); }
+"&"			{ count(yyscanner); return('&'); }
+"!"			{ count(yyscanner); return('!'); }
+"~"			{ count(yyscanner); return('~'); }
+"-"			{ count(yyscanner); return('-'); }
+"+"			{ count(yyscanner); return('+'); }
+"*"			{ count(yyscanner); return('*'); }
+"/"			{ count(yyscanner); return('/'); }
+"%"			{ count(yyscanner); return('%'); }
+"<"			{ count(yyscanner); return('<'); }
+">"			{ count(yyscanner); return('>'); }
+"^"			{ count(yyscanner); return('^'); }
+"|"			{ count(yyscanner); return('|'); }
+"?"			{ count(yyscanner); return('?'); }
+"true"		{ count(yyscanner); return(BOOL_TRUE); }
+"false"		{ count(yyscanner); return(BOOL_FALSE); }
 
-[ \t\v\n\f]		{ count(); }
-.			{ count(); char* msg = (char*) malloc(yyleng + 1024); sprintf(msg, "Unknown symbol \"%s\"", yytext); trerror(NULL, msg); free(msg); }
+[ \t\v\n\f]		{ count(yyscanner); }
+.			{ count(yyscanner); char* msg = (char*) malloc(yyleng + 1024); fprintf(stderr,  "Unknown symbol \"%s\"", yytext); free(msg);  exit(1); }
 
 <<EOF>> {
 
 	if(--prep_stack_ptr < 0)
     {
-        yyterminate();  
+        yyterminate();
     }
     else
     {
-        yy_delete_buffer(YY_CURRENT_BUFFER);
-        yy_switch_to_buffer(prep_stack[prep_stack_ptr]);
+        yy_delete_buffer(YY_CURRENT_BUFFER, &yyscanner);
+        yy_switch_to_buffer(prep_stack[prep_stack_ptr], yyscanner);
     }
 }
 
 %%
 
 
-void comment(void)
+void comment(yyscan_t scanner)
 {
 	char c, prev = 0;
-  
-	while ((c = input()) != 0)      /* (EOF maps to 0) */
+
+	while ((c = input(scanner)) != 0)      /* (EOF maps to 0) */
 	{
 		if (c == '/' && prev == '*')
 			return;
@@ -199,44 +194,45 @@ void comment(void)
 	perror("unterminated comment");
 }
 
-void count(void)
+void count(yyscan_t scanner)
 {
-	column = next_column; 
-	next_column += strlen(yytext);
+	lineno = yyget_lineno(scanner);
+	column = next_column;
+	next_column += yyget_leng(scanner);
 }
 
-int check_type(void)
+int check_type(yyscan_t scanner, YYSTYPE* out)
 {
 	type_size = -1;
-	trlval.str = strdup(yytext);
-	
-	if(gettype(yytext)){
+	out->str = strdup(yyget_text(scanner));
+
+	if(gettype(yyget_text(scanner))){
 		return TYPE_NAME;
 	}
 
 	return IDENTIFIER;
 }
 
-int check_sized_type(void){
+int check_sized_type(yyscan_t scanner, YYSTYPE* out){
 	char namebuf[64];
 	int size;
 	typerec_t* prim_type;
 
-	int ret = sscanf(yytext, "%[^0-9]%d_t", namebuf, &size);
+	int ret = sscanf(yyget_text(scanner), "%[^0-9]%d_t", namebuf, &size);
 
 	if(ret < 2){
-		return check_type();
+		return check_type(scanner, out);
 	}
 
 	if(! (prim_type = gettype(namebuf))){
-		return check_type();
+		return check_type(scanner, out);
 	}
 
 	if(! getsizedtype(namebuf, size)){
 		PUT_SIZED_TYPE(namebuf, prim_type->type_type, size);
 	}
 
-	trlval.str = strdup(namebuf);
+	out->str = strdup(namebuf);
 	type_size = size;
 	return TYPE_NAME;
 }
@@ -245,8 +241,14 @@ size_t min(size_t a, size_t b) {
     return b < a ? b : a;
 }
 
-void transpiler_enqueue(const char *text){
-	YY_BUFFER_STATE buffer = yy_scan_string(text);
-    prep_stack[prep_stack_ptr++] = YY_CURRENT_BUFFER;
-    yy_switch_to_buffer(buffer);
+int tr_process(const char* content, ast_node** out){
+    yylex_init(&scanner);
+    YY_BUFFER_STATE buffer = yy_scan_string(content, scanner);
+	yy_switch_to_buffer(buffer, scanner);
+    if(! yyparse(scanner, out)){
+        yy_delete_buffer(buffer, scanner);
+        return 0;
+    }
+    yy_delete_buffer(buffer, scanner);
+	return 1;
 }
