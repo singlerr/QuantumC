@@ -3,24 +3,20 @@
 
 #include "dispatcher.h"
 
+
 int main(void)
 {
-    const char* qasm = 
-        "OPENQASM 3.0; "
-        "include \\\"stdgates.inc\\\"; "
-        "bit[2] c; "
-        "qreg q[2]; "
-        "h q[0]; "
-        "cx q[0], q[1]; "
-        "c = measure q;";
+    fprintf(stdout, "=== QuantumC Runtime ===\n\n");
 
-    fprintf(stdout, "=== QuantumC Runtime ===\n");
+    char* response = ibm_authentication("sghtM2r_uguGk2lspqyI0lIU42UxsaIrViZeZVwQ5gGn");
+    if (response) {
+        fprintf(stdout, "Obtaining the bearer token was successful!\n");
+        fprintf(stdout, "%s\n", response);
+    }
 
-    char* result = run_quantum_circuit(qasm);
+    free(response);
 
-    fprintf(stdout, "=== Final Result ===\n");
-
-    free(result);
+    // fprintf(stdout, "=== Final Result ===\n\n");
 
     return 0;
 }

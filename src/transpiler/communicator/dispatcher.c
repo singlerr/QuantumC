@@ -1,107 +1,82 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <curl/curl.h>
 
 #include "dispatcher.h"
 
 
-static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp) {
+size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
+    size_t real_size = size * nmemb;
+    RESPONSEBUFFER *rb = userp;
 
+    char *temp = realloc(rb->data, rb->size + real_size + 1);
+    if (!temp) return 0;
+
+    rb->data = temp;
+    memcpy(rb->data + rb->size, contents, real_size);
+    rb->size += real_size;
+    rb->data[rb->size] = '\0';
+
+    return real_size;
 }
 
-static char* send_http_request(const char* url, const char* method, const char* json_payload, const char* auth_token) {
-    CURL *curl;
-    CURLcode res;
-    RESPONSEBUF chunk;
-    chunk.memory = malloc(1); 
-    chunk.size = 0;
 
-    curl = curl_easy_init();
-    if (curl) {
-        struct curl_slist *headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        
-        if (auth_token) {
-            char auth_header[512];
-            snprintf(auth_header, sizeof(auth_header), "Authorization: Bearer %s", auth_token);
-            headers = curl_slist_append(headers, auth_header);
-        }
-
-        curl_easy_setopt(curl, CURLOPT_URL, url);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_memory_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-        
-        if (strcmp(method, "POST") == 0) {
-            curl_easy_setopt(curl, CURLOPT_POST, 1L);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_payload);
-        }
-
-        res = curl_easy_perform(curl);
-        if(res != CURLE_OK) {
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            free(chunk.memory);
-            chunk.memory = NULL;
-        }
-
-        curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
-    }
-    return chunk.memory;
-}
-
-static char* extract_json_value(const char* json, const char* key) {
-
-}
-
-static char* get_access_token() {
-    char* api_key = getenv("IBM_QUANTUM_KEY");
-    if (!api_key) {
-        fprintf(stderr, "ERROR: Environment variable IBM_QUANTUM_KEY not set.\n");
+char* ibm_authentication(const char* api_key) {
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        fprintf(stderr, "ERROR: cURL initialization failed!\n");
         return NULL;
     }
 
-    char payload[1024];
-    snprintf(payload, sizeof(payload), "{\"apiToken\": \"%s\"}", api_key);
-    
-    char* response = send_http_request(IBM_AUTH_URL, "POST", payload, NULL);
-    if (!response) return NULL;
-
-    char* token = extract_json_value(response, "id");
-    free(response);
-    return token;
-}
-
-static char* submit_job(const char* token, const char* qasm) {
-    
-}
-
-static char* wait_for_result(const char* token, const char* job_id) {
-    
-}
-
-
-char* run_quantum_circuit(const char* qasm_code) {
-    char* token = get_access_token();
-    if (!token) return strdup("Error: Auth Failed");
-
-    char* job_id = submit_job(token, qasm_code);
-    if (!job_id) {
-        free(token);
-        return strdup("Error: Submission Failed");
+    RESPONSEBUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
+    struct curl_slist* headers = curl_slist_append(NULL, "Content-Type: application/x-www-form-urlencoded");
+    if (!headers) {
+        fprintf(stderr, "ERROR - Content type appending failed!\n");
+        free(rb.data);
+        rb.data = NULL;
+        curl_easy_cleanup(curl);
+        return NULL;
     }
 
-    char* final_json = wait_for_result(token, job_id);
-    
-    free(token);
-    free(job_id);
-
-    if (final_json) {
-        // Just return raw JSON for now (or parse 'quasi_dists' here)
-        return final_json; 
+    char* escaped = curl_easy_escape(curl, api_key, 0);
+    if (!escaped) {
+        fprintf(stderr, "ERROR - API Key escaping failed!\n");
+        free(rb.data);
+        rb.data = NULL;
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        return NULL;
     }
 
-    return strdup("Error: No Result");
+    char payload[512];
+    snprintf(payload, sizeof(payload), "grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=%s", escaped);
+
+    curl_easy_setopt(curl, CURLOPT_URL, "https://iam.cloud.ibm.com/identity/token");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rb);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+
+    CURLcode response = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE, &http_code);
+    if (response != CURLE_OK || http_code >= 400) {
+        fprintf(stderr, "ERROR - Authentication request failed!\n");
+        fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
+        fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
+        free(rb.data);
+        rb.data = NULL;
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        curl_free(escaped);
+        return NULL;
+    }
+    
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+    curl_free(escaped);
+    
+    return rb.data;
 }

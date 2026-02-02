@@ -1,17 +1,13 @@
 #ifndef _DISPATCHER_H_
 #define _DISPATCHER_H_
 
-// FIXME: Wrong addresses?
-#define IBM_AUTH_URL "https://api.quantum-computing.ibm.com"
-#define IBM_JOBS_URL "https://api.quantum-computing.ibm.com/runtime/jobs"
-#define BACKEND_NAME "ibmq_qasm_simulator"
-
-typedef struct responsebuf
-{
-    char* memory;
+typedef struct ResponseBuffer {
+    char* data;
     size_t size;
-} RESPONSEBUF;
+} RESPONSEBUFFER;
 
-char* run_quantum_circuit(const char* qasm_code);
+size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp);
+
+char* ibm_authentication(const char* api_key);
 
 #endif
