@@ -9,7 +9,7 @@ CFLAGS = -std=c99 -D_XOPEN_SOURCE=700
 ifeq ($(PROD), 1)
 CFLAGS += -Werror -Wall
 else
-CFLAGS += -g 
+CFLAGS += -g
 endif
 
 export CFLAGS

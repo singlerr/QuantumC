@@ -14,6 +14,7 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 	#include <stdio.h>
 	#include <stdlib.h>
 	#include <string.h>
+	#include <errno.h>
 	#include "stringlib.h"
 	#include "symrec.h"
 	#include "ast.h"
@@ -242,7 +243,10 @@ size_t min(size_t a, size_t b) {
 }
 
 int tr_process(const char* content, ast_node** out){
-    yylex_init(&scanner);
+    if(yylex_init(&scanner)){
+		fprintf(stderr, "Failed to init lex: %d", errno);
+		exit(1);
+	}
     YY_BUFFER_STATE buffer = yy_scan_string(content, scanner);
 	yy_switch_to_buffer(buffer, scanner);
     if(! yyparse(scanner, out)){

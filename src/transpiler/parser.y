@@ -587,7 +587,7 @@ ast_node* compile(FILE* in)
     init_ctx(&sb, in);
     preprocessor_lex();
     content = end_str_builder(&sb);
-    if(! feed_and_parse(content, &root)){
+    if(feed_and_parse(content, &root)){
         free(content);
         return NULL;
     }
