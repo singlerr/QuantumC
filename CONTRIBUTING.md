@@ -72,7 +72,7 @@ We prefer using [libcurl](https://curl.se/libcurl/) for backend communication ra
     * [ ] Optimization (optional)
     * [ ] Code Generation
 * [ ] Implement networking component of the compiler for job dispatching.
-    * [ ] Making Requests
+    * [x] Making Requests
     * [ ] Authentication
     * [ ] Qiskit Transpiler Service
     * [ ] Qiskit Runtime
