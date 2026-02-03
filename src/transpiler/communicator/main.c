@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "dispatcher.h"
+#include "sender.h"
 
 
 int main(void)
 {
     fprintf(stdout, "=== QuantumC Runtime ===\n\n");
 
-    char* response = ibm_authentication("<IBM API KEY>");
+    char* response = authenticate("vT35YnA3brgOal9-xdWQ7-yEvUaWg7dTw4qaVD7gh1ae", "");
     if (response) {
         fprintf(stdout, "Obtaining the bearer token was successful!\n");
         fprintf(stdout, "%s\n", response);

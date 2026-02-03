@@ -2,27 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
+#include <cjson/cJSON.h>
 
-#include "dispatcher.h"
-
-
-size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
-    size_t real_size = size * nmemb;
-    RESPONSEBUFFER *rb = userp;
-
-    char *temp = realloc(rb->data, rb->size + real_size + 1);
-    if (!temp) return 0;
-
-    rb->data = temp;
-    memcpy(rb->data + rb->size, contents, real_size);
-    rb->size += real_size;
-    rb->data[rb->size] = '\0';
-
-    return real_size;
-}
+#include "comm.h"
+#include "sender.h"
 
 
-char* ibm_authentication(const char* api_key) {
+char* obtain_bearer_token(const char* api_key) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
@@ -61,7 +47,7 @@ char* ibm_authentication(const char* api_key) {
 
     CURLcode response = curl_easy_perform(curl);
     long http_code = 0;
-    curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE, &http_code);
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     if (response != CURLE_OK || http_code >= 400) {
         fprintf(stderr, "ERROR - Authentication request failed!\n");
         fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
@@ -79,4 +65,10 @@ char* ibm_authentication(const char* api_key) {
     curl_free(escaped);
     
     return rb.data;
+}
+
+char* authenticate(const char* api_key, const char* crn) {
+    char* bearer_token = obtain_bearer_token(api_key);
+
+    return NULL;
 }
