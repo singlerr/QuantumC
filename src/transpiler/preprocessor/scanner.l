@@ -45,6 +45,7 @@ int forward(const char* str);
 %option noyywrap
 %option stack
 
+
 %x STATE_DEFINE
 %x STATE_BODY
 %x STATE_BODY_EXT
@@ -107,6 +108,7 @@ int forward(const char* str);
 "while"			{ forward(yytext); }
 
 
+[[:space:]]+             { forward(yytext); }
 {L}({L}|{D})*		{ forward(try_expand(yytext)); }
 0[xX]{H}+{IS}?		{ forward(yytext); }
 0[0-7]*{IS}?		{ forward(yytext); }
@@ -173,24 +175,29 @@ L?\"(\\.|[^\\"\n])*\"	{ forward(yytext); }
 "false"		{ forward(yytext); }
 
 <STATE_OPENQASM>{D}+                    { return(NUM); }
-<STATE_OPENQASM>NL                    { yy_pop_state(); }
-<STATE_DEFINE>"("                     { return(LPAREN); }
-<STATE_DEFINE>")"                     { return(RPAREN); }
-<STATE_DEFINE>ID                      { return(IDENTIFIER); }
-<STATE_DEFINE>","                     { return(COMMA); }
-<STATE_DEFINE>"\\"                    { yy_push_state(STATE_BODY); }
-<STATE_BODY>"\\"                      { yy_pop_state(); yy_push_state(STATE_BODY_EXT); }
-<STATE_BODY>NL                        { yy_pop_state(); yy_pop_state(); }
-<STATE_BODY_EXT>NL                    { yy_pop_state(); yy_push_state(STATE_BODY); }
-<STATE_BODY>ID                        { return(PLACEHOLDER); }
-<STATE_BODY>^"##"ID                   { return(PLACEHOLDER); }
-<STATE_BODY>^"#"ID                    { return(STRINGIFIED); }
-<STATE_BODY>[^:ID:]                   { return(TEXT); }
-<STATE_BODY_EXT>ID                    { return(PLACEHOLDER); }
-<STATE_BODY_EXT>^"##"ID               { return(PLACEHOLDER); }
-<STATE_BODY_EXT>^"#"ID                { return(STRINGIFIED); }
-<STATE_BODY_EXT>[^:ID:]               { return(TEXT); }
-<STATE_INCLUDE>STR                    {
+<STATE_OPENQASM>{NL}                    { yy_pop_state(); }
+<STATE_DEFINE>{ID}                      { prlval.str = strdup(yytext); yy_push_state(STATE_BODY); return(IDENTIFIER); }
+<STATE_DEFINE>"("                       { return(LPAREN); }
+<STATE_DEFINE>")"                       { return(RPAREN); }
+<STATE_DEFINE>","                       { return(COMMA); }
+<STATE_DEFINE>{S}+                      { /* skip whitespace in define */ }
+<STATE_BODY>"("                         { return(LPAREN); }
+<STATE_BODY>")"                         { return(RPAREN); }
+<STATE_BODY>","                         { return(COMMA); }
+<STATE_BODY>{S}+                        { prlval.str = strdup(yytext); return(TEXT); }
+<STATE_BODY>"\\"                        { yy_pop_state(); yy_push_state(STATE_BODY_EXT); }
+<STATE_BODY>{NL}                        { yy_pop_state(); yy_pop_state(); return(NEWLINE); }
+<STATE_BODY_EXT>{S}+                    { /* skip leading whitespace after backslash */ }
+<STATE_BODY_EXT>{NL}                    { yy_pop_state(); yy_push_state(STATE_BODY); }
+<STATE_BODY>{ID}                        { prlval.str = strdup(yytext); return(PLACEHOLDER); }
+<STATE_BODY>"##"{ID}                    { prlval.str = strdup(yytext + 2); return(PLACEHOLDER); }
+<STATE_BODY>"#"{ID}                     { prlval.str = strdup(yytext + 1); return(STRINGIFIED); }
+<STATE_BODY>[^ \t\v\n\f\r(),"]+         { prlval.str = strdup(yytext); return(TEXT); }
+<STATE_BODY_EXT>{ID}                    { prlval.str = strdup(yytext); return(PLACEHOLDER); }
+<STATE_BODY_EXT>"##"{ID}                { prlval.str = strdup(yytext + 2); return(PLACEHOLDER); }
+<STATE_BODY_EXT>"#"{ID}                 { prlval.str = strdup(yytext + 1); return(STRINGIFIED); }
+<STATE_BODY_EXT>[^ \t\v\n\f\r(),"]+     { prlval.str = strdup(yytext); return(TEXT); }
+<STATE_INCLUDE>{STR}                    {
     if (include_stack_ptr >= MAX_INCLUDE_DEPTH)
     {
         fprintf( stderr, "Includes nested too deeply" );
@@ -237,31 +244,30 @@ L?\"(\\.|[^\\"\n])*\"	{ forward(yytext); }
 }
 
 <STATE_INCLUDE>\<(\\.|[^\\>\n])*\>    { yy_pop_state(); }
-<STATE_INCLUDE>NL                     { yy_pop_state(); }
+<STATE_INCLUDE>{NL}                     { yy_pop_state(); }
 <STATE_IF>"defined"                   { return(DEFINED); }
 <STATE_IF>"<"                         { return(L_OP); }
 <STATE_IF>">"                         { return(G_OP); }
 <STATE_IF>"<="                        { return(LE_OP); }
 <STATE_IF>">="                        { return(GE_OP); }
-<STATE_IF>NL                          { yy_pop_state(); }
+<STATE_IF>{NL}                          { yy_pop_state(); }
 <STATE_IF>"("                         { return(LPAREN); }
 <STATE_IF>")"                         { return(RPAREN); }
 <STATE_IF>"&&"                        { return(AND_OP); }
 <STATE_IF>"||"                        { return(OR_OP);}
-<STATE_IF>ID                          { expand_expression(yytext); }
-<STATE_IFDEF>ID                       { return(IDENTIFIER); }
-<STATE_IFDEF>NL                       { yy_pop_state(); }
-<STATE_IFNDEF>ID                      { return(IDENTIFIER); }
-<STATE_IFNDEF>NL                      { yy_pop_state(); }
-<STATE_UNDEF>ID                       { return(IDENTIFIER); }
-<STATE_UNDEF>NL                       { yy_pop_state(); }
-[ \t\v\n\f\r]                           { forward(yytext); }
-[^ \t\v\n\f\r]*                         { forward(try_expand(yytext)); }
+<STATE_IF>{ID}                          { expand_expression(yytext); }
+<STATE_IFDEF>{ID}                       { return(IDENTIFIER); }
+<STATE_IFDEF>{NL}                       { yy_pop_state(); }
+<STATE_IFNDEF>{ID}                      { return(IDENTIFIER); }
+<STATE_IFNDEF>{NL}                      { yy_pop_state(); }
+<STATE_UNDEF>{ID}                       { return(IDENTIFIER); }
+<STATE_UNDEF>{NL}                       { yy_pop_state(); }
 %%
 
 
 char* try_expand(const char* text){
     char* content;
+
     if(! expand_macro(text, &content)){
         return (char*) text;
     }
@@ -307,6 +313,9 @@ void expand_expression(const char* name){
 }
 
 int forward(const char* str){
+    if (get_skip_mode()) {
+        return 0;
+    }
     str_append(ctx, str);
     return 0;
 }

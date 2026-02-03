@@ -9,7 +9,7 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 %option prefix="tr"
 %option nounput noyywrap nodefault reentrant yylineno
 %option bison-bridge bison-locations
-
+%option yylineno
 %{
 	#include <stdio.h>
 	#include <stdlib.h>
@@ -25,33 +25,58 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 	#define YYSTYPE TRSTYPE
 	#define YYLTYPE TRLTYPE	
 	#define yyparse trparse
+
 	int prep_stack_ptr = 0;
 	YY_BUFFER_STATE prep_stack[MAX_PREP_DEPTH];
+
+	char *current_line_buffer = NULL;
+	size_t current_line_capacity = 0;
+	size_t current_line_length = 0;
+	int current_line_num = 0;
+
+	void ensure_line_buffer_capacity(size_t needed) {
+		if (current_line_buffer == NULL) {
+			current_line_capacity = 256;
+			current_line_buffer = (char*)malloc(current_line_capacity);
+			current_line_buffer[0] = '\0';
+			current_line_length = 0;
+		}
+		if (current_line_length + needed + 1 > current_line_capacity) {
+			while (current_line_length + needed + 1 > current_line_capacity)
+				current_line_capacity *= 2;
+			current_line_buffer = (char*)realloc(current_line_buffer, current_line_capacity);
+		}
+	}
 
 	void count(yyscan_t);
 	void comment(yyscan_t);
 	int check_type(yyscan_t, YYSTYPE*);
 	int check_sized_type(yyscan_t, YYSTYPE*);
+
 	int type_size = -1;
-	int lineno = 0;
-	static int next_column = 1;
-	int column = 1;
-	char *lineptr = NULL;
-	size_t n = 0;
-	size_t consumed = 0;
-	size_t available = 0;
-	size_t min(size_t a, size_t b);
 	static yyscan_t scanner;
-	#define YY_USER_ACTION                                                        \
-		yylloc->first_line = yylloc->last_line;                                     \
-		yylloc->first_column = yylloc->last_column;                                 \
-		if (yylloc->last_line == yylineno)                                          \
-			yylloc->last_column += yyleng;                                            \
-		else                                                                        \
-		{                                                                         \
-			yylloc->last_line = yylineno;                                           \
-			yylloc->last_column = yytext + yyleng - strrchr (yytext, '\n');         \
+
+	#define YY_USER_ACTION                                                        		\
+		if (yylineno != current_line_num) {                                         	\
+			current_line_length = 0;                                                	\
+			if (current_line_buffer) current_line_buffer[0] = '\0';                 	\
+			current_line_num = yylineno;                                            	\
+		}                                                                           	\
+		ensure_line_buffer_capacity(yyleng);                                        	\
+		memcpy(current_line_buffer + current_line_length, yytext, yyleng);          	\
+		current_line_length += yyleng;                                              	\
+		current_line_buffer[current_line_length] = '\0';                            	\
+		yylloc->first_line = yylloc->last_line;                                     	\
+		yylloc->first_column = yylloc->last_column;                                 	\
+		if (yylloc->last_line == yylineno)                                          	\
+			yylloc->last_column += yyleng;                                          	\
+		else                                                                        	\
+		{                                                                         		\
+			yylloc->last_line = yylineno;                                           	\
+			yylloc->last_column = (int) ((char*)(yytext + yyleng) - strrchr (yytext, '\n'));     \
 		}
+
+
 %}
 
 %%
@@ -111,7 +136,7 @@ L?'(\\.|[^\\'\n])+'	{ count(yyscanner); yylval->str = strdup(yytext); return(STR
 0[xX]{H}*"."{H}+{P}?{FS}?     { count(yyscanner); yylval->f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 0[xX]{H}+"."{H}*{P}?{FS}?     { count(yyscanner); yylval->f = strtof(yytext, NULL); return(FLOATCONSTANT); }
 
-"\n"	{ next_column = 1; }
+"\n"	{ }
 L?\"(\\.|[^\\"\n])*\"	{ count(yyscanner); yylval->str = strdup(yytext); return(STRING_LITERAL); }
 
 "..."			{ count(yyscanner); return(ELLIPSIS); }
@@ -197,9 +222,7 @@ void comment(yyscan_t scanner)
 
 void count(yyscan_t scanner)
 {
-	lineno = yyget_lineno(scanner);
-	column = next_column;
-	next_column += yyget_leng(scanner);
+
 }
 
 int check_type(yyscan_t scanner, YYSTYPE* out)

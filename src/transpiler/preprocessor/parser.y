@@ -61,7 +61,7 @@ struct string_builder* ctx = NULL;
 %token DEFINED
 %token OPENQASM
 %token LPAREN RPAREN
-%token COMMA
+%token COMMA NEWLINE
 %token NUM
 %token PLACEHOLDER STRINGIFIED
 %token TEXT
@@ -74,43 +74,55 @@ struct string_builder* ctx = NULL;
 %type<define> define_id;
 %type<macro_args> define_args;
 %type<placeholder> define_body;
+%type<placeholder> define_body_item;
 %type<operand> primary_expression;
 %type<operand> relational_expression;
 %type<operand> equality_expression;
 %type<operand> logical_and_expression;
 %type<operand> logical_or_expression;
 %type<operand> if_expression;
+%type<b> if_condition;
 
 %start program
 %%
 
 program
-    : if
-    | ifdef
-    | ifndef
+    : directive_list
+    | %empty
+    ;
+
+directive_list
+    : directive
+    | directive_list directive
+    ;
+
+directive
+    : if_directive
+    | ifdef_directive
+    | ifndef_directive
     | undef
     | elif
     | define
     | openqasm
-    | %empty
     ;
 
-if
-    : IF if_args program ENDIF {  } // body is passed in flex
-    | IF if_args program ELSE { }
+if_directive
+    : IF if_condition program ENDIF { if (!$2) { } }
+    | IF if_condition program ELSE program ENDIF { }
     ;
 
-
-if_args
-    : if_expression
+if_condition
+    : if_expression { $$ = ($1->kind == OP_INTEGER) ? $1->value.i : (int)$1->value.f; set_skip_mode(!$$); }
     ;
 
-ifndef
-    : IFNDEF IDENTIFIER
+ifdef_directive
+    : IFDEF IDENTIFIER { set_skip_mode(find_macro(yylval.str) == NULL); } program ENDIF { set_skip_mode(0); }
+    | IFDEF IDENTIFIER { int cond = find_macro(yylval.str) != NULL; set_skip_mode(!cond); } program ELSE { set_skip_mode($<b>3); } program ENDIF { set_skip_mode(0); }
     ;
 
-ifdef
-    : IFDEF IDENTIFIER
+ifndef_directive
+    : IFNDEF IDENTIFIER { set_skip_mode(find_macro(yylval.str) != NULL); } program ENDIF { set_skip_mode(0); }
+    | IFNDEF IDENTIFIER { int cond = find_macro(yylval.str) == NULL; set_skip_mode(!cond); } program ELSE { set_skip_mode($<b>3); } program ENDIF { set_skip_mode(0); }
     ;
 
 elif
@@ -122,38 +134,41 @@ undef
     ;
 
 define
-    : define_id { push_define($1); } define_body { $1->content = $3; $$ = $1; }
-    | define_id { push_define($1); } LPAREN define_args RPAREN define_body { $1->args = $4; $1->content = $6; $$ = $1; }
+    : define_id LPAREN define_args RPAREN define_body NEWLINE { $1->args = $3; $1->content = $5; push_define($1); $$ = $1; }
+    | define_id define_body NEWLINE { $1->content = $2; push_define($1); $$ = $1; }
+    | define_id NEWLINE { $1->content = NULL; push_define($1); $$ = $1; }
     ;
 
 define_id
-    : DEFINE IDENTIFIER { $$ = new_define((const char*) prlval.str); }
+    : DEFINE IDENTIFIER { $$ = new_define((const char*) yylval.str); }
     ;
 
 define_args
-    : define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) prlval.str); }
-    | IDENTIFIER { $$ = args_builder_begin((const char*) prlval.str); }
+    : IDENTIFIER { $$ = args_builder_begin((const char*) yylval.str); }
+    | define_args COMMA IDENTIFIER { $$ = args_builder_append($1, (const char*) yylval.str); }
     ;
 
 
 openqasm
-    : OPENQASM NUM { $$ = openqasm_new(prlval.i); }
+    : OPENQASM NUM { $$ = openqasm_new(yylval.i); }
     ;
 
 define_body
-    : define_body TEXT { $$ = ph_builder_append($1, is_define_arg(top_define()->args, (const char*) prlval.str) ? PH_PLACEHOLDER : PH_TEXT, prlval.str); }
-    | define_body PLACEHOLDER { $$ = ph_builder_append($1, PH_PLACEHOLDER, prlval.str); }
-    | define_body STRINGIFIED { $$ = ph_builder_append($1, PH_STRINGIFIED, prlval.str); }
-    | TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) prlval.str) ? PH_PLACEHOLDER : PH_TEXT, prlval.str); }
-    | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, prlval.str); }
-    | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, prlval.str); }
+    : define_body_item { $$ = $1; }
+    | define_body define_body_item { $$ = ph_builder_concat($1, $2); }
+    ;
+
+define_body_item
+    : TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
+    | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, yylval.str); }
+    | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, yylval.str); }
     ;
 
 
 primary_expression
-    : INTEGER { NEW_OPERAND(OP_INTEGER, prlval.i, $$); }
-    | FLOAT { NEW_OPERAND(OP_FLOAT, prlval.f, $$); }
-    | DEFINED LPAREN IDENTIFIER RPAREN { NEW_OPERAND(OP_INTEGER,find_macro(prlval.str) != NULL, $$); }
+    : INTEGER { NEW_OPERAND(OP_INTEGER, yylval.i, $$); }
+    | FLOAT { NEW_OPERAND(OP_FLOAT, yylval.f, $$); }
+    | DEFINED LPAREN IDENTIFIER RPAREN { NEW_OPERAND(OP_INTEGER,find_macro(yylval.str) != NULL, $$); }
     ;
 
 relational_expression

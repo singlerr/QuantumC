@@ -1,10 +1,17 @@
 typedef unsigned int uint;
 
+#define _TEST_                                                                \
+  int a = 1;                                                                  \
+  a + 1
+#ifdef _TEST_
+#define A 1
+#endif
 uint8_t
+
 eight_qubit_bell_state ()
 {
   qubit q[8];
-
+  int a = _TEST_;
   apply_H (q[0]);
   for (int i = 0; i < 7; i++)
     {
