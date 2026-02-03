@@ -570,12 +570,17 @@ declaration_list
 
 #include <stdio.h>
 
+extern char *current_line_buffer;
+
 void yyerror(YYLTYPE* yyllocp, yyscan_t unused, ast_node** root, const char* msg)
 {
-	fprintf(stderr,"error: %s in line %d, column %d\n", msg, yyllocp->first_line, yyllocp->first_column);
-    for(int i = 0; i < yyllocp->last_column - 1; i++)
-        fprintf(stderr,"_");
-    fprintf(stderr,"^\n");
+	fprintf(stderr,"[transpiler]: %s in line %d, column %d\n", msg, yyllocp->first_line, yyllocp->first_column);
+	if (current_line_buffer)
+		fprintf(stderr, "  %s\n", current_line_buffer);
+	fprintf(stderr, "  ");
+	for(int i = 1; i < yyllocp->first_column; i++)
+		fprintf(stderr, " ");
+	fprintf(stderr, "^\n");
 }
 
 ast_node* compile(FILE* in)
@@ -587,6 +592,7 @@ ast_node* compile(FILE* in)
     init_ctx(&sb, in);
     preprocessor_lex();
     content = end_str_builder(&sb);
+	printf("%s\n", content);
     if(feed_and_parse(content, &root)){
         free(content);
         return NULL;

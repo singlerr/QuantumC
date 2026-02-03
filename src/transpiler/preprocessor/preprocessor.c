@@ -181,7 +181,7 @@ expand_placeholder (char **out, struct placeholder *body)
     }
 
   *out = end_str_builder (&sb);
-  return 0;
+  return 1;
 }
 
 struct dir_define *
@@ -304,6 +304,19 @@ ph_builder_append (struct placeholder *chain, enum placeholder_kind kind,
 }
 
 struct placeholder *
+ph_builder_concat (struct placeholder *chain, struct placeholder *item)
+{
+  if (!chain)
+    {
+      return NULL;
+    }
+  item->prev = chain;
+  chain->next = item;
+
+  return item;
+}
+
+struct placeholder *
 ph_builder_begin (enum placeholder_kind kind, const char *name)
 {
   struct placeholder *cur = new_placeholder (kind, name);
@@ -365,4 +378,18 @@ is_define_arg (struct macro_args *arg_list, const char *name)
     }
 
   return 0;
+}
+
+static int skip_mode = 0;
+
+void
+set_skip_mode (int skip)
+{
+  skip_mode = skip;
+}
+
+int
+get_skip_mode (void)
+{
+  return skip_mode;
 }

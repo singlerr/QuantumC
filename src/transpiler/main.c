@@ -25,6 +25,8 @@ void free_ast (ast_node *root);
 void free_sqz (sqz_program *program);
 
 char *yyfilename;
+extern int prdebug; // preprocessor yacc debug
+extern int trdebug; // transpiler yacc debug
 
 int
 main (int argc, char *argv[])
@@ -33,6 +35,8 @@ main (int argc, char *argv[])
   sqz_program *squeezed;
   program *sem_analysis;
   FILE *f;
+  prdebug = 1;
+  trdebug = 0;
   if (argc > 1)
     {
       if ((f = fopen (argv[1], "r")) == 0)
