@@ -2,6 +2,7 @@
 #define _COMM_H_
 
 #define BUFFER_NMEMB 4096
+#define USER_AGENT_NAME "QuantumC/dev"
 
 typedef struct ResponseBuffer {
     char* data;

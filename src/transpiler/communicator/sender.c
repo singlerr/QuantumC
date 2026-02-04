@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
 
@@ -46,7 +47,7 @@ char* get_bearer_token(const char* api_key) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rb);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT_NAME);
 
     CURLcode response = curl_easy_perform(curl);
     long http_code = 0;
@@ -96,7 +97,7 @@ char* get_bearer_token(const char* api_key) {
     return bearer_token;
 }
 
-char* get_backends(const char* token, const char* crn) {
+char* get_backends_data(const char* token, const char* crn) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
@@ -125,7 +126,7 @@ char* get_backends(const char* token, const char* crn) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rb);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT_NAME);
 
     CURLcode response = curl_easy_perform(curl);
     long http_code = 0;
@@ -150,11 +151,88 @@ char* get_backends(const char* token, const char* crn) {
     return rb.data;
 }
 
+char* select_backend(const char* backends_data) {
+    cJSON* cjson_backends_data = cJSON_Parse(backends_data);
+    if (!cjson_backends_data) {
+        fprintf(stderr, "ERROR - Parsing backends data JSON failed!\n");
+        const char* error = cJSON_GetErrorPtr();
+        if (error) {
+            fprintf(stderr, "ERROR - %s\n", error);
+        }
+        cJSON_Delete(cjson_backends_data);
+        return NULL;
+    }
+
+    cJSON* cjson_devices = cJSON_GetObjectItemCaseSensitive(cjson_backends_data, "devices");
+    if (!cjson_devices || !cjson_devices->child) {
+        fprintf(stderr, "ERROR - Parsing devices list failed!\n");
+        cJSON_Delete(cjson_backends_data);
+        return NULL;
+    }
+
+    int least_busy_device_queue = INT_MAX;
+    char* least_busy_device_name = NULL;
+
+    for (cJSON* cjson_device = cjson_devices->child; cjson_device; cjson_device = cjson_device->next) {
+        int device_jobs = 0;
+
+        cJSON* cjson_device_jobs = cJSON_GetObjectItemCaseSensitive(cjson_device, "queue_length");
+        if (cJSON_IsNumber(cjson_device_jobs)) {
+            device_jobs = cjson_device_jobs->valuedouble;
+        } else {
+            fprintf(stderr, "ERROR - Parsing the queue length failed!\n");
+            cJSON_Delete(cjson_backends_data);
+            return NULL;
+        }
+        
+        if (0 <= device_jobs && device_jobs < least_busy_device_queue) {
+            least_busy_device_queue = device_jobs;
+
+            cJSON* cjson_device_name = cJSON_GetObjectItemCaseSensitive(cjson_device, "name");
+            if (cJSON_IsString(cjson_device_name) && cjson_device_name->valuestring) {
+                least_busy_device_name = cjson_device_name->valuestring;
+            } else {
+                fprintf(stderr, "ERROR - Parsing the device name failed!\n");
+                cJSON_Delete(cjson_backends_data);
+                return NULL;
+            }
+        }
+    }
+
+    char* chosen_backend = (char*)calloc(strlen(least_busy_device_name)+1, sizeof(char));
+    strcpy(chosen_backend, least_busy_device_name);
+
+    cJSON_Delete(cjson_backends_data);
+
+    return chosen_backend;
+}
+
 char* authenticate(const char* api_key, const char* crn) {
     char* bearer_token = get_bearer_token(api_key);
-    char* backends = get_backends(bearer_token, crn);
+    if (!bearer_token) {
+        fprintf(stderr, "ERROR - Getting bearer token failed!\n");
+        return NULL;
+    }
+
+    char* backends_data = get_backends_data(bearer_token, crn);
+    if (!backends_data) {
+        fprintf(stderr, "ERROR - Fetching backends data failed!\n");
+        free(bearer_token);
+        return NULL;
+    }
+
+    char* backend = select_backend(backends_data);
+    if (!backend) {
+        fprintf(stderr, "ERROR - Selecting backend device failed!\n");
+        free(bearer_token);
+        free(backends_data);
+        return NULL;
+    }
 
     free(bearer_token);
+    free(backends_data);
 
-    return backends;
+    return backend;
 }
+
+// TODO: Update the returning types to `const char*`.

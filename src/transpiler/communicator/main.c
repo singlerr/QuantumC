@@ -26,7 +26,7 @@ int main(void)
     if (!cjson_config) {
         fprintf(stderr, "ERROR - Parsing configuration JSON failed!\n");
         const char* error = cJSON_GetErrorPtr();
-        if (!error) {
+        if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
         free(buffer);
@@ -58,8 +58,8 @@ int main(void)
 
     char* response = authenticate(api, crn);
     if (response) {
-        fprintf(stdout, "Authentication was successful.\n\n");
-        fprintf(stdout, "%s\n", response);
+        fprintf(stdout, "A backend was successfully chosen!\n");
+        fprintf(stdout, "Chosen Backend: %s\n", response);
     }
 
     free(buffer);
