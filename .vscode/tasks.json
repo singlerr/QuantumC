@@ -11,6 +11,9 @@
                 "cwd": "${workspaceFolder}/src/transpiler/"
             },
             "args": [
+                "clean",
+                "&&",
+                "make",
                 "DEBUG=1"
             ],
             "problemMatcher": [],

@@ -2,9 +2,9 @@ typedef unsigned int uint;
 
 #define _TEST_                                                                \
   int a = 1;                                                                  \
-  a + 1
-#ifdef _TEST_
-#define A 1
+  a + 1;
+#ifndef _TEST_
+int b = 1;
 #endif
 uint8_t
 

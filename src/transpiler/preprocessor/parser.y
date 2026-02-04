@@ -68,7 +68,7 @@ struct string_builder* ctx = NULL;
 %token AND_OP OR_OP EQ_OP NE_OP GE_OP LE_OP G_OP L_OP
 
 %token INTEGER FLOAT
-
+%type<b> if_condition;
 %type<openqasm> openqasm;
 %type<define> define;
 %type<define> define_id;
@@ -81,7 +81,6 @@ struct string_builder* ctx = NULL;
 %type<operand> logical_and_expression;
 %type<operand> logical_or_expression;
 %type<operand> if_expression;
-%type<b> if_condition;
 
 %start program
 %%
@@ -101,32 +100,28 @@ directive
     | ifdef_directive
     | ifndef_directive
     | undef
-    | elif
     | define
     | openqasm
     ;
 
 if_directive
-    : IF if_condition program ENDIF { if (!$2) { } }
-    | IF if_condition program ELSE program ENDIF { }
+    : IF if_condition { if(! $2) { begin_skip(); } } program  ENDIF { end_skip(); }  
+    | IF if_condition <b> { $$ = ! $2; if($$) { begin_skip(); } } program ELSE { if(! $3) { begin_skip(); } } program ENDIF { end_skip(); }
+    | IF if_condition <b> { $$ = ! $2; if($$) { begin_skip(); } } program ELIF if_condition { if(! $3 && ! $6) { begin_skip(); } else { begin_skip(); }} program ENDIF { end_skip(); }
     ;
 
 if_condition
-    : if_expression { $$ = ($1->kind == OP_INTEGER) ? $1->value.i : (int)$1->value.f; set_skip_mode(!$$); }
+    : if_expression { $$ = $1->value.i; }
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { set_skip_mode(find_macro(yylval.str) == NULL); } program ENDIF { set_skip_mode(0); }
-    | IFDEF IDENTIFIER { int cond = find_macro(yylval.str) != NULL; set_skip_mode(!cond); } program ELSE { set_skip_mode($<b>3); } program ENDIF { set_skip_mode(0); }
+    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { begin_skip(); } } program ENDIF { end_skip(); }
+    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { begin_skip(); } } program ELSE { if(! $3) { begin_skip(); } } program ENDIF { end_skip(); }
     ;
 
 ifndef_directive
-    : IFNDEF IDENTIFIER { set_skip_mode(find_macro(yylval.str) != NULL); } program ENDIF { set_skip_mode(0); }
-    | IFNDEF IDENTIFIER { int cond = find_macro(yylval.str) == NULL; set_skip_mode(!cond); } program ELSE { set_skip_mode($<b>3); } program ENDIF { set_skip_mode(0); }
-    ;
-
-elif
-    : ELIF
+    : IFNDEF { printf("*** ifndef"); } IDENTIFIER { if(find_macro(yylval.str) != NULL) { begin_skip(); } } program ENDIF { end_skip(); }
+    | IFNDEF { printf("*** ifndef"); } IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { begin_skip(); } } program ELSE { if(! $4) { begin_skip(); } } program ENDIF { end_skip(); }
     ;
 
 undef
@@ -159,7 +154,7 @@ define_body
     ;
 
 define_body_item
-    : TEXT { $$ = ph_builder_begin(is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
+    : TEXT { $$ = ph_builder_begin(top_define() != NULL && is_define_arg(top_define()->args, (const char*) yylval.str) ? PH_PLACEHOLDER : PH_TEXT, yylval.str); }
     | PLACEHOLDER { $$ = ph_builder_begin(PH_PLACEHOLDER, yylval.str); }
     | STRINGIFIED { $$ = ph_builder_begin(PH_STRINGIFIED, yylval.str); }
     ;

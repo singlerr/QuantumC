@@ -25,3 +25,4 @@ clean:
 	@-rm -f preprocessor.parser.h
 	@-rm -f preprocessor.lexer.c
 	@-rm -f preprocessor.lexer.h
+	@-rm -f *.output

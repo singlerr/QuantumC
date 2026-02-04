@@ -39,8 +39,11 @@ enum operand_kind
   OP_FLOAT
 };
 
-struct if_state
+struct if_stack
 {
+
+  struct if_stack *next;
+  struct if_stack *prev;
 };
 
 struct placeholder
@@ -130,7 +133,7 @@ struct placeholder *ph_builder_concat (struct placeholder *chain,
 
 struct dir_openqasm *openqasm_new (int version);
 
-void set_skip_mode (int skip);
-int get_skip_mode (void);
-
+void begin_skip ();
+void end_skip ();
+int should_skip ();
 #endif

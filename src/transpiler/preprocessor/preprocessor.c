@@ -30,6 +30,7 @@
 #endif
 
 struct directive *directives = NULL;
+int skip_state = 0;
 
 static struct placeholder *
 append_placeholder (struct placeholder *__dest, struct placeholder *__new)
@@ -380,16 +381,21 @@ is_define_arg (struct macro_args *arg_list, const char *name)
   return 0;
 }
 
-static int skip_mode = 0;
-
 void
-set_skip_mode (int skip)
+begin_skip ()
 {
-  skip_mode = skip;
+  skip_state += 1;
 }
-
-int
-get_skip_mode (void)
+void
+end_skip ()
 {
-  return skip_mode;
+  if (skip_state > 0)
+    {
+      skip_state -= 1;
+    }
+}
+int
+should_skip ()
+{
+  return skip_state > 0;
 }

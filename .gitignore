@@ -1,7 +1,7 @@
 # File created using '.gitignore Generator' for Visual Studio Code: https://bit.ly/vscode-gig
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,c,rust
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,linux,c,rust
-
+*.output
 *.bad
 *.lexer.c
 *.lexer.h
