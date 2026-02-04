@@ -21,10 +21,10 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 #include "preprocessor.h"
 
 extern struct string_builder *ctx;
+extern struct string_builder *if_ctx;
 
 #define yylval prlval
 #define MAX_INCLUDE_DEPTH 10
-#define YY_USER_ACTION if(check_skip(yytext)) { } else
 
 // preprocessor sections
 int include_stack_ptr = 0;
@@ -37,7 +37,6 @@ int expand_macro(const char* name, char** out);
 void expand_expression(const char* name);
 char* try_expand(const char* text);
 int forward(const char* str);
-int check_skip(const char* text);
 
 %}
 %option prefix="pr"
@@ -59,211 +58,181 @@ int check_skip(const char* text);
 %x STATE_EXPAND
 %%
 
-^"#""openqasm"                { yy_push_state(STATE_OPENQASM); return(OPENQASM); }
-^"#""include"                 { yy_push_state(STATE_INCLUDE); }
-^"#""define"                  { yy_push_state(STATE_DEFINE); return(DEFINE); }
-^"#""ifdef"                   { yy_push_state(STATE_IFDEF); return(IFDEF); }
-^"#""else"                    { return(ELSE); }
-^"#""if"                      { yy_push_state(STATE_IF); return(IF); }
-^"#""elif"                    { return(ELIF); }
-^"#""ifndef"                  { yy_push_state(STATE_IFNDEF); return(IFNDEF); }
-^"#""endif"                   { return(ENDIF); }
-^"#""undef"                   { yy_push_state(STATE_UNDEF); return(UNDEF); }
+"#openqasm"                { if(! should_skip()) { yy_push_state(STATE_OPENQASM); return(OPENQASM); } }
+"#include"                 { if(! should_skip()) { yy_push_state(STATE_INCLUDE); } }
+"#define"                  { if(! should_skip()) { yy_push_state(STATE_DEFINE); return(DEFINE); } }
+"#ifdef"                   { if(! should_skip()) { yy_push_state(STATE_IFDEF); return(IFDEF); } }
+"#else"                    { if(! should_skip()) { return(ELSE); } }
+"#if"                      { if(! should_skip()) { yy_push_state(STATE_IF); return(IF); } }
+"#elif"                    { if(! should_skip()) { return(ELIF); } }
+"#ifndef"                  { if(! should_skip()) { yy_push_state(STATE_IFNDEF); return(IFNDEF); } }
+"#endif"                   { if(! should_skip()) { return(ENDIF); } }
+"#undef"                   { if(! should_skip()) { yy_push_state(STATE_UNDEF); return(UNDEF); } }
 
-"auto"			{ forward(yytext); }
-"bool"			{ forward(yytext); }
-"break"			{ forward(yytext); }
-"case"			{ forward(yytext); }
-"char"			{ forward(yytext); }
-"complex"		{ forward(yytext); }
-"const"			{ forward(yytext); }
-"continue"		{ forward(yytext); }
-"default"		{ forward(yytext); }
-"do"			{ forward(yytext); }
-"double"		{ forward(yytext); }
-"else"			{ forward(yytext); }
-"enum"			{ forward(yytext); }
-"extern"		{ forward(yytext); }
-"float"			{ forward(yytext); }
-"for"			{ forward(yytext); }
-"goto"			{ forward(yytext); }
-"if"			{ forward(yytext); }
-"imaginary"	    { forward(yytext); }
-"inline"		{ forward(yytext); }
-"int"			{ forward(yytext); }
-"long"			{ forward(yytext); }
-"register"		{ forward(yytext); }
-"restrict"		{ forward(yytext); }
-"return"		{ forward(yytext); }
-"short"			{ forward(yytext); }
-"signed"		{ forward(yytext); }
-"sizeof"		{ forward(yytext); }
-"static"		{ forward(yytext); }
-"struct"		{ forward(yytext); }
-"switch"		{ forward(yytext); }
-"typedef"		{ forward(yytext); }
-"union"			{ forward(yytext); }
-"unsigned"		{ forward(yytext); }
-"void"			{ forward(yytext); }
-"volatile"		{ forward(yytext); }
-"while"			{ forward(yytext); }
+"auto"                     { if(! should_skip()) { forward(yytext); } }
+"bool"                     { if(! should_skip()) { forward(yytext); } }
+"break"                     { if(! should_skip()) { forward(yytext); } }
+"case"                     { if(! should_skip()) { forward(yytext); } }
+"char"                     { if(! should_skip()) { forward(yytext); } }
+"complex"                   { if(! should_skip()) { forward(yytext); } }
+"const"                     { if(! should_skip()) { forward(yytext); } }
+"continue"                   { if(! should_skip()) { forward(yytext); } }
+"default"                   { if(! should_skip()) { forward(yytext); } }
+"do"                       { if(! should_skip()) { forward(yytext); } }
+"double"                   { if(! should_skip()) { forward(yytext); } }
+"else"                     { if(! should_skip()) { forward(yytext); } }
+"enum"                     { if(! should_skip()) { forward(yytext); } }
+"extern"                   { if(! should_skip()) { forward(yytext); } }
+"float"                     { if(! should_skip()) { forward(yytext); } }
+"for"                       { if(! should_skip()) { forward(yytext); } }
+"goto"                     { if(! should_skip()) { forward(yytext); } }
+"if"                       { if(! should_skip()) { forward(yytext); } }
+"imaginary"                 { if(! should_skip()) { forward(yytext); } }
+"inline"                   { if(! should_skip()) { forward(yytext); } }
+"int"                       { if(! should_skip()) { forward(yytext); } }
+"long"                       { if(! should_skip()) { forward(yytext); } }
+"register"                   { if(! should_skip()) { forward(yytext); } }
+"restrict"                   { if(! should_skip()) { forward(yytext); } }
+"return"                     { if(! should_skip()) { forward(yytext); } }
+"short"                     { if(! should_skip()) { forward(yytext); } }
+"signed"                     { if(! should_skip()) { forward(yytext); } }
+"sizeof"                     { if(! should_skip()) { forward(yytext); } }
+"static"                     { if(! should_skip()) { forward(yytext); } }
+"struct"                     { if(! should_skip()) { forward(yytext); } }
+"switch"                     { if(! should_skip()) { forward(yytext); } }
+"typedef"                   { if(! should_skip()) { forward(yytext); } }
+"union"                     { if(! should_skip()) { forward(yytext); } }
+"unsigned"                   { if(! should_skip()) { forward(yytext); } }
+"void"                       { if(! should_skip()) { forward(yytext); } }
+"volatile"                   { if(! should_skip()) { forward(yytext); } }
+"while"                     { if(! should_skip()) { forward(yytext); } }
 
+{S}+                       { if(! should_skip()) { forward(yytext); } }
+{L}({L}|{D})*              { if(! should_skip()) { forward(try_expand(yytext)); } }
+0[xX]{H}+{IS}?             { if(! should_skip()) { forward(yytext); } }
+0[0-7]*{IS}?               { if(! should_skip()) { forward(yytext); } }
+[1-9]{D}*{IS}?             { if(! should_skip()) { forward(yytext); } }
+L?'(\\.|[^\\'\n])+'        { if(! should_skip()) { forward(yytext); } }
 
-[[:space:]]+             { forward(yytext); }
-{L}({L}|{D})*		{ forward(try_expand(yytext)); }
-0[xX]{H}+{IS}?		{ forward(yytext); }
-0[0-7]*{IS}?		{ forward(yytext); }
-[1-9]{D}*{IS}?		{ forward(yytext); }
-L?'(\\.|[^\\'\n])+'	{ forward(yytext); }
+{D}+{E}{FS}?               { if(! should_skip()) { forward(yytext); } }
+{D}*"."{D}+{E}?{FS}?       { if(! should_skip()) { forward(yytext); } }
+{D}+"."{D}*{E}?{FS}?       { if(! should_skip()) { forward(yytext); } }
+0[xX]{H}+{P}{FS}?          { if(! should_skip()) { } }
+0[xX]{H}*"."{H}+{P}?{FS}?  { if(! should_skip()) { forward(yytext); } }
+0[xX]{H}+"."{H}*{P}?{FS}?  { if(! should_skip()) { forward(yytext); } }
 
-{D}+{E}{FS}?		{ forward(yytext); }
-{D}*"."{D}+{E}?{FS}?	{ forward(yytext); }
-{D}+"."{D}*{E}?{FS}?	{ forward(yytext); }
-0[xX]{H}+{P}{FS}?	{ }
-0[xX]{H}*"."{H}+{P}?{FS}?     { forward(yytext); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { forward(yytext); }
+"\n"                       { if(! should_skip()) { forward(yytext); } }
+L?\"(\\.|[^\\"\n])*\"      { if(! should_skip()) { forward(yytext); } }
 
-"\n"	{ forward(yytext); }
-L?\"(\\.|[^\\"\n])*\"	{ forward(yytext); }
+"..."                      { if(! should_skip()) { forward(yytext); } }
+">>="			{ if(! should_skip()) { forward(yytext); } }
+"<<="			{ if(! should_skip()) { forward(yytext); } }
+"+="			{ if(! should_skip()) { forward(yytext); } }
+"-="			{ if(! should_skip()) { forward(yytext); } }
+"*="			{ if(! should_skip()) { forward(yytext); } }
+"/="			{ if(! should_skip()) { forward(yytext); } }
+"%="			{ if(! should_skip()) { forward(yytext); } }
+"&="			{ if(! should_skip()) { forward(yytext); } }
+"^="			{ if(! should_skip()) { forward(yytext); } }
+"|="			{ if(! should_skip()) { forward(yytext); } }
+">>"			{ if(! should_skip()) { forward(yytext); } }
+"<<"			{ if(! should_skip()) { forward(yytext); } }
+"++"			{ if(! should_skip()) { forward(yytext); } }
+"--"			{ if(! should_skip()) { forward(yytext); } }
+"->"			{ if(! should_skip()) { forward(yytext); } }
+"&&"			{ if(! should_skip()) { forward(yytext); } }
+"||"			{ if(! should_skip()) { forward(yytext); } }
+"<="			{ if(! should_skip()) { forward(yytext); } }
+">="			{ if(! should_skip()) { forward(yytext); } }
+"=="			{ if(! should_skip()) { forward(yytext); } }
+"!="			{ if(! should_skip()) { forward(yytext); } }
+";"			{ if(! should_skip()) { forward(yytext); } }
+("{"|"<%")		{ if(! should_skip()) { forward(yytext); } }
+("}"|"%>")		{ if(! should_skip()) { forward(yytext); } }
+","			{ if(! should_skip()) { forward(yytext); } }
+":"			{ if(! should_skip()) { forward(yytext); } }
+"="			{ if(! should_skip()) { forward(yytext); } }
+"("			{ if(! should_skip()) { forward(yytext); } }
+")"			{ if(! should_skip()) { forward(yytext); } }
+("["|"<:")		{ if(! should_skip()) { forward(yytext); } }
+("]"|":>")		{ if(! should_skip()) { forward(yytext); } }
+"."			{ if(! should_skip()) { forward(yytext); } }
+"&"			{ if(! should_skip()) { forward(yytext); } }
+"!"			{ if(! should_skip()) { forward(yytext); } }
+"~"			{ if(! should_skip()) { forward(yytext); } }
+"-"			{ if(! should_skip()) { forward(yytext); } }
+"+"			{ if(! should_skip()) { forward(yytext); } }
+"*"			{ if(! should_skip()) { forward(yytext); } }
+"/"			{ if(! should_skip()) { forward(yytext); } }
+"%"			{ if(! should_skip()) { forward(yytext); } }
+"<"			{ if(! should_skip()) { forward(yytext); } }
+">"			{ if(! should_skip()) { forward(yytext); } }
+"^"			{ if(! should_skip()) { forward(yytext); } }
+"|"			{ if(! should_skip()) { forward(yytext); } }
+"?"			{ if(! should_skip()) { forward(yytext); } }
+"true"                     { if(! should_skip()) { forward(yytext); } }
+"false"                    { if(! should_skip()) { forward(yytext); } }
 
-"..."			{ forward(yytext); }
-">>="			{ forward(yytext); }
-"<<="			{ forward(yytext); }
-"+="			{ forward(yytext); }
-"-="			{ forward(yytext); }
-"*="			{ forward(yytext); }
-"/="			{ forward(yytext); }
-"%="			{ forward(yytext); }
-"&="			{ forward(yytext); }
-"^="			{ forward(yytext); }
-"|="			{ forward(yytext); }
-">>"			{ forward(yytext); }
-"<<"			{ forward(yytext); }
-"++"			{ forward(yytext); }
-"--"			{ forward(yytext); }
-"->"			{ forward(yytext); }
-"&&"			{ forward(yytext); }
-"||"			{ forward(yytext); }
-"<="			{ forward(yytext); }
-">="			{ forward(yytext); }
-"=="			{ forward(yytext); }
-"!="			{ forward(yytext); }
-";"			{ forward(yytext); }
-("{"|"<%")		{ forward(yytext); }
-("}"|"%>")		{ forward(yytext); }
-","			{ forward(yytext); }
-":"			{ forward(yytext); }
-"="			{ forward(yytext); }
-"("			{ forward(yytext); }
-")"			{ forward(yytext); }
-("["|"<:")		{ forward(yytext); }
-("]"|":>")		{ forward(yytext); }
-"."			{ forward(yytext); }
-"&"			{ forward(yytext); }
-"!"			{ forward(yytext); }
-"~"			{ forward(yytext); }
-"-"			{ forward(yytext); }
-"+"			{ forward(yytext); }
-"*"			{ forward(yytext); }
-"/"			{ forward(yytext); }
-"%"			{ forward(yytext); }
-"<"			{ forward(yytext); }
-">"			{ forward(yytext); }
-"^"			{ forward(yytext); }
-"|"			{ forward(yytext); }
-"?"			{ forward(yytext); }
-"true"		{ forward(yytext); }
-"false"		{ forward(yytext); }
+<STATE_OPENQASM>{D}+        { if(! should_skip()) { return(NUM); } }
+<STATE_OPENQASM>{NL}        { if(! should_skip()) { yy_pop_state(); } }
+<STATE_DEFINE>{ID}          { if(! should_skip()) { yylval.str = strdup(yytext); yy_push_state(STATE_BODY); return(IDENTIFIER); } }
+<STATE_DEFINE>"("           { if(! should_skip()) { return(LPAREN); } }
+<STATE_DEFINE>")"           { if(! should_skip()) { return(RPAREN); } }
+<STATE_DEFINE>","           { if(! should_skip()) { return(COMMA); } }
+<STATE_DEFINE>{S}+          { if(! should_skip()) { /* skip whitespace in define */ } }
+<STATE_BODY>"("             { if(! should_skip()) { return(LPAREN); } }
+<STATE_BODY>")"             { if(! should_skip()) { return(RPAREN); } }
+<STATE_BODY>","             { if(! should_skip()) { return(COMMA); } }
+<STATE_BODY>{S}+            { if(! should_skip()) { yylval.str = strdup(yytext); return(TEXT); } }
+<STATE_BODY>"\\"            { if(! should_skip()) { yy_pop_state(); yy_push_state(STATE_BODY_EXT); } }
+<STATE_BODY>{NL}            { if(! should_skip()) { yy_pop_state(); yy_pop_state(); return(NEWLINE); } }
+<STATE_BODY_EXT>{S}+        { if(! should_skip()) { /* skip leading whitespace after backslash */ } }
+<STATE_BODY_EXT>{NL}        { if(! should_skip()) { yy_pop_state(); yy_push_state(STATE_BODY); } }
+<STATE_BODY>{ID}            { if(! should_skip()) { yylval.str = strdup(yytext); return(PLACEHOLDER); } }
+<STATE_BODY>"##"{ID}        { if(! should_skip()) { yylval.str = strdup(yytext + 2); return(PLACEHOLDER); } }
+<STATE_BODY>"#"{ID}         { if(! should_skip()) { yylval.str = strdup(yytext + 1); return(STRINGIFIED); } }
+<STATE_BODY>[^ \t\v\n\f\r(),"]+     { if(! should_skip()) { yylval.str = strdup(yytext); return(TEXT); } }
+<STATE_BODY_EXT>{ID}        { if(! should_skip()) { yylval.str = strdup(yytext); return(PLACEHOLDER); } }
+<STATE_BODY_EXT>"##"{ID}    { if(! should_skip()) { yylval.str = strdup(yytext + 2); return(PLACEHOLDER); } }
+<STATE_BODY_EXT>"#"{ID}     { if(! should_skip()) { yylval.str = strdup(yytext + 1); return(STRINGIFIED); } }
+<STATE_BODY_EXT>[^ \t\v\n\f\r(),"]+ { if(! should_skip()) { yylval.str = strdup(yytext); return(TEXT); } }
 
-<STATE_OPENQASM>{D}+                    { return(NUM); }
-<STATE_OPENQASM>{NL}                    { yy_pop_state(); }
-<STATE_DEFINE>{ID}                      { yylval.str = strdup(yytext); yy_push_state(STATE_BODY); return(IDENTIFIER); }
-<STATE_DEFINE>"("                       { return(LPAREN); }
-<STATE_DEFINE>")"                       { return(RPAREN); }
-<STATE_DEFINE>","                       { return(COMMA); }
-<STATE_DEFINE>{S}+                      { /* skip whitespace in define */ }
-<STATE_BODY>"("                         { return(LPAREN); }
-<STATE_BODY>")"                         { return(RPAREN); }
-<STATE_BODY>","                         { return(COMMA); }
-<STATE_BODY>{S}+                        { yylval.str = strdup(yytext); return(TEXT); }
-<STATE_BODY>"\\"                        { yy_pop_state(); yy_push_state(STATE_BODY_EXT); }
-<STATE_BODY>{NL}                        { yy_pop_state(); yy_pop_state(); return(NEWLINE); }
-<STATE_BODY_EXT>{S}+                    { /* skip leading whitespace after backslash */ }
-<STATE_BODY_EXT>{NL}                    { if(! should_skip()) { yy_pop_state(); yy_push_state(STATE_BODY); } }
-<STATE_BODY>{ID}                        { yylval.str = strdup(yytext); return(PLACEHOLDER); }
-<STATE_BODY>"##"{ID}                    { yylval.str = strdup(yytext + 2); return(PLACEHOLDER); }
-<STATE_BODY>"#"{ID}                     { yylval.str = strdup(yytext + 1); return(STRINGIFIED); }
-<STATE_BODY>[^ \t\v\n\f\r(),"]+         { yylval.str = strdup(yytext); return(TEXT); }
-<STATE_BODY_EXT>{ID}                    { yylval.str = strdup(yytext); return(PLACEHOLDER); }
-<STATE_BODY_EXT>"##"{ID}                { yylval.str = strdup(yytext + 2); return(PLACEHOLDER); }
-<STATE_BODY_EXT>"#"{ID}                 { yylval.str = strdup(yytext + 1); return(STRINGIFIED); }
-<STATE_BODY_EXT>[^ \t\v\n\f\r(),"]+     { yylval.str = strdup(yytext); return(TEXT); }
-<STATE_INCLUDE>{STR}                    {
-    if (include_stack_ptr >= MAX_INCLUDE_DEPTH)
-    {
-        fprintf( stderr, "Includes nested too deeply" );
-        exit( 1 );
+<STATE_INCLUDE>{STR}        {
+    if(! should_skip()) {
+        // ...existing code...
     }
-
-    include_stack[include_stack_ptr++] = YY_CURRENT_BUFFER;
-    yyin = fopen(yytext, "r");
-
-    if(! yyin)
-    {
-        fprintf(stderr, "File as include target could not be found: %s.\n", yytext);
-        exit(1);
-    }
-
-    yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
-    }
-
-<STATE_INCLUDE><<EOF>> {
-    if(--include_stack_ptr < 0)
-    {
-        yyterminate();
-    }
-    else
-    {
-        yy_delete_buffer(YY_CURRENT_BUFFER);
-        yy_switch_to_buffer(include_stack[include_stack_ptr]);
-    }
-
-    yy_pop_state();
 }
-<STATE_EXPAND><<EOF>> {
-    if(--expand_stack_ptr < 0)
-    {
-        yyterminate();
+<STATE_INCLUDE><<EOF>>      {
+    if(! should_skip()) {
+        // ...existing code...
     }
-    else
-    {
-        yy_delete_buffer(YY_CURRENT_BUFFER);
-        yy_switch_to_buffer(expand_stack[expand_stack_ptr]);
+}
+<STATE_EXPAND><<EOF>>       {
+    if(! should_skip()) {
+        // ...existing code...
     }
-
-    yy_pop_state();
 }
 
-<STATE_INCLUDE>\<(\\.|[^\\>\n])*\>    { yy_pop_state(); }
-<STATE_INCLUDE>{NL}                     { yy_pop_state(); }
-<STATE_IF>"defined"                   { return(DEFINED); }
-<STATE_IF>"<"                         { return(L_OP); }
-<STATE_IF>">"                         { return(G_OP); }
-<STATE_IF>"<="                        { return(LE_OP); }
-<STATE_IF>">="                        { return(GE_OP); }
-<STATE_IF>{NL}                          { yy_pop_state(); }
-<STATE_IF>"("                         { return(LPAREN); }
-<STATE_IF>")"                         { return(RPAREN); }
-<STATE_IF>"&&"                        { return(AND_OP); }
-<STATE_IF>"||"                        { return(OR_OP); }
-<STATE_IF>{ID}                          { expand_expression(yytext); }
-<STATE_IFDEF>{ID}                       { yylval.str = strdup(yytext); return(IDENTIFIER); }
-<STATE_IFDEF>{NL}                       { yy_pop_state(); }
-<STATE_IFNDEF>{S}+                      { }
-<STATE_IFNDEF>{ID}                      { yylval.str = strdup(yytext); return(IDENTIFIER); }
-<STATE_IFNDEF>{NL}                      { yy_pop_state(); }
-<STATE_UNDEF>{ID}                       { yylval.str = strdup(yytext); return(IDENTIFIER); }
-<STATE_UNDEF>{NL}                       { yy_pop_state(); }
+<STATE_INCLUDE>\<(\\.|[^\\>\n])*\> { if(! should_skip()) { yy_pop_state(); } }
+<STATE_INCLUDE>{NL}          { if(! should_skip()) { yy_pop_state(); } }
+<STATE_IF>"defined"          { if(! should_skip()) { return(DEFINED); } }
+<STATE_IF>"<"                { if(! should_skip()) { return(L_OP); } }
+<STATE_IF>">"                { if(! should_skip()) { return(G_OP); } }
+<STATE_IF>"<="               { if(! should_skip()) { return(LE_OP); } }
+<STATE_IF>">="               { if(! should_skip()) { return(GE_OP); } }
+<STATE_IF>{NL}               { if(! should_skip()) { yy_pop_state(); } }
+<STATE_IF>"("                { if(! should_skip()) { return(LPAREN); } }
+<STATE_IF>")"                { if(! should_skip()) { return(RPAREN); } }
+<STATE_IF>"&&"               { if(! should_skip()) { return(AND_OP); } }
+<STATE_IF>"||"               { if(! should_skip()) { return(OR_OP); } }
+<STATE_IF>{ID}               { if(! should_skip()) { expand_expression(yytext); } }
+<STATE_IFDEF>{ID}            { if(! should_skip()) { yylval.str = strdup(yytext); return(IDENTIFIER); } }
+<STATE_IFDEF>{NL}            { if(! should_skip()) { yy_pop_state(); } }
+<STATE_IFNDEF>{S}+           { if(! should_skip()) { } }
+<STATE_IFNDEF>{ID}           { if(! should_skip()) { yylval.str = strdup(yytext); return(IDENTIFIER); } }
+<STATE_IFNDEF>{NL}           { if(! should_skip()) { yy_pop_state(); } }
+<STATE_UNDEF>{ID}            { if(! should_skip()) { yylval.str = strdup(yytext); return(IDENTIFIER); } }
+<STATE_UNDEF>{NL}            { if(! should_skip()) { yy_pop_state(); } }
 %%
 
 
@@ -323,6 +292,3 @@ int forward(const char* str){
     return 0;
 }
 
-int check_skip(const char* text){
-    return should_skip() && (strcmp(text, "#endif") && strcmp(text, "#elif") && strcmp(text, "#else"));
-}

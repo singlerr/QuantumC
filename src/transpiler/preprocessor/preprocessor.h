@@ -41,8 +41,7 @@ enum operand_kind
 
 struct if_stack
 {
-
-  struct if_stack *next;
+  int enabled;
   struct if_stack *prev;
 };
 
@@ -133,7 +132,12 @@ struct placeholder *ph_builder_concat (struct placeholder *chain,
 
 struct dir_openqasm *openqasm_new (int version);
 
-void begin_skip ();
-void end_skip ();
+struct if_stack *push_if ();
+struct if_stack *pop_if ();
+struct if_stack *top_if ();
 int should_skip ();
+
+void begin_collect (struct string_builder *ctx);
+void end_collect ();
+
 #endif

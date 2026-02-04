@@ -38,7 +38,7 @@ void prerror(const char *str);
 
 extern FILE* prin;
 struct string_builder* ctx = NULL;
-
+extern int forward(const char* str);
 %}
 
 %define parse.error detailed
@@ -105,9 +105,9 @@ directive
     ;
 
 if_directive
-    : IF if_condition { if(! $2) { begin_skip(); } } program  ENDIF { end_skip(); }  
-    | IF if_condition <b> { $$ = ! $2; if($$) { begin_skip(); } } program ELSE { if(! $3) { begin_skip(); } } program ENDIF { end_skip(); }
-    | IF if_condition <b> { $$ = ! $2; if($$) { begin_skip(); } } program ELIF if_condition { if(! $3 && ! $6) { begin_skip(); } else { begin_skip(); }} program ENDIF { end_skip(); }
+    : IF if_condition { if(! $2) { push_if(); } } program  ENDIF { pop_if(); }  
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELIF if_condition { if(! $3 && ! $6) { push_if(); } else { push_if(); }} program ENDIF { pop_if(); }
     ;
 
 if_condition
@@ -115,13 +115,13 @@ if_condition
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { begin_skip(); } } program ENDIF { end_skip(); }
-    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { begin_skip(); } } program ELSE { if(! $3) { begin_skip(); } } program ENDIF { end_skip(); }
+    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } program ENDIF { pop_if(); }
+    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
     ;
 
 ifndef_directive
-    : IFNDEF { printf("*** ifndef"); } IDENTIFIER { if(find_macro(yylval.str) != NULL) { begin_skip(); } } program ENDIF { end_skip(); }
-    | IFNDEF { printf("*** ifndef"); } IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { begin_skip(); } } program ELSE { if(! $4) { begin_skip(); } } program ENDIF { end_skip(); }
+    : IFNDEF { struct string_builder sb; begin_collect(&sb); } IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program ENDIF { pop_if(); }
+    | IFNDEF {struct string_builder sb; begin_collect(&sb); } IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program { if(! $4) { push_if(); } } ELSE program ENDIF { pop_if(); }
     ;
 
 undef

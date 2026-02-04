@@ -29,9 +29,9 @@
   while (0);
 #endif
 
+struct if_stack *if_stack = NULL;
 struct directive *directives = NULL;
-int skip_state = 0;
-
+struct string_builder *if_ctx = NULL;
 static struct placeholder *
 append_placeholder (struct placeholder *__dest, struct placeholder *__new)
 {
@@ -381,21 +381,56 @@ is_define_arg (struct macro_args *arg_list, const char *name)
   return 0;
 }
 
-void
-begin_skip ()
+struct if_stack *
+push_if ()
 {
-  skip_state += 1;
+  struct if_stack *inst = (struct if_stack *)malloc (sizeof (struct if_stack));
+  inst->enabled = !should_skip ();
+  inst->prev = if_stack;
+  if_stack = inst;
+
+  return inst;
 }
-void
-end_skip ()
+struct if_stack *
+pop_if ()
 {
-  if (skip_state > 0)
+  if (!if_stack)
     {
-      skip_state -= 1;
+      return NULL;
     }
+
+  struct if_stack *inst = if_stack;
+  if_stack = inst->prev;
+  return inst;
 }
+
+struct if_stack *
+top_if ()
+{
+  return if_stack;
+}
+
 int
 should_skip ()
 {
-  return skip_state > 0;
+  struct if_stack *top = top_if ();
+  if (!top)
+    {
+      return 0;
+    }
+
+  return !top->enabled;
+}
+
+void
+begin_collect (struct string_builder *ctx)
+{
+  init_str_builder (ctx);
+  if_ctx = ctx;
+}
+
+void
+end_collect ()
+{
+  if_ctx = NULL;
 }
