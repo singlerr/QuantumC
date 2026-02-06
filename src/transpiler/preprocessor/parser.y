@@ -1,6 +1,7 @@
 %{
 
 #include "preprocessor.h"
+#include "stringbuilder.h"
 #include "../preprocessor_link.h"
 
 #ifndef TRUE
@@ -38,7 +39,7 @@ void prerror(const char *str);
 
 extern FILE* prin;
 struct string_builder* ctx = NULL;
-extern int forward(const char* str);
+void forward(const char* str);
 %}
 
 %define parse.error detailed
@@ -56,7 +57,7 @@ extern int forward(const char* str);
 }
 
 %token IDENTIFIER;
-%token DEFINE
+%token DEFINE DEFINE_CONTINUE
 %token IF ELIF IFDEF IFNDEF ENDIF UNDEF ELSE
 %token DEFINED
 %token OPENQASM
@@ -82,12 +83,24 @@ extern int forward(const char* str);
 %type<operand> logical_or_expression;
 %type<operand> if_expression;
 
-%start program
+
+%start program_list
 %%
 
 program
     : directive_list
-    | %empty
+    | program_body
+    ;
+
+program_list
+    : program_list program
+    | program
+    ;
+    
+
+program_body
+    : program_body TEXT { forward(yylval.str); }
+    | TEXT { forward(yylval.str); }
     ;
 
 directive_list
@@ -105,9 +118,9 @@ directive
     ;
 
 if_directive
-    : IF if_condition { if(! $2) { push_if(); } } program  ENDIF { pop_if(); }  
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELIF if_condition { if(! $3 && ! $6) { push_if(); } else { push_if(); }} program ENDIF { pop_if(); }
+    : IF if_condition { if(! $2) { push_if(); } } NEWLINE program ENDIF { pop_if(); } NEWLINE  
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE program ELSE { if(! $3) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE program ELIF if_condition { if(! $3 && ! $7) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
     ;
 
 if_condition
@@ -115,13 +128,13 @@ if_condition
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } program ENDIF { pop_if(); }
-    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
+    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program ENDIF NEWLINE { pop_if(); }
+    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program ELSE { if(! $3) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
     ;
 
 ifndef_directive
-    : IFNDEF { struct string_builder sb; begin_collect(&sb); } IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program ENDIF { pop_if(); }
-    | IFNDEF {struct string_builder sb; begin_collect(&sb); } IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program { if(! $4) { push_if(); } } ELSE program ENDIF { pop_if(); }
+    : IFNDEF IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
+    | IFNDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program { if(! $3) { push_if(); } } ELSE NEWLINE program ENDIF { pop_if(); }
     ;
 
 undef
@@ -208,4 +221,12 @@ void prerror(const char *str)
 
 int preprocessor_lex(){
     return prparse();
+}
+
+void forward(const char* str){
+    printf("***** %s:%d\n", str, should_skip());
+    if(should_skip()){
+        return;
+    }
+    str_append(ctx, str);
 }

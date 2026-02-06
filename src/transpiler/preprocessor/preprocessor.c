@@ -31,7 +31,6 @@
 
 struct if_stack *if_stack = NULL;
 struct directive *directives = NULL;
-struct string_builder *if_ctx = NULL;
 static struct placeholder *
 append_placeholder (struct placeholder *__dest, struct placeholder *__new)
 {
@@ -419,18 +418,5 @@ should_skip ()
       return 0;
     }
 
-  return !top->enabled;
-}
-
-void
-begin_collect (struct string_builder *ctx)
-{
-  init_str_builder (ctx);
-  if_ctx = ctx;
-}
-
-void
-end_collect ()
-{
-  if_ctx = NULL;
+  return top->enabled;
 }

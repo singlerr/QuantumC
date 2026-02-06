@@ -102,11 +102,6 @@ int validate_expr (enum if_op op, struct operand *l, struct operand *r);
 
 int expand_placeholder (char **out, struct placeholder *body);
 
-void dir_if (int val);
-void dir_ifdef (int val);
-void dir_ifndef (int val);
-void dir_endif ();
-
 struct dir_define *new_define (const char *name);
 struct dir_define *top_define ();
 int is_define_arg (struct macro_args *arg_list, const char *name);
@@ -136,8 +131,5 @@ struct if_stack *push_if ();
 struct if_stack *pop_if ();
 struct if_stack *top_if ();
 int should_skip ();
-
-void begin_collect (struct string_builder *ctx);
-void end_collect ();
 
 #endif
