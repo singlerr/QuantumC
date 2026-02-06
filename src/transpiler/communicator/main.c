@@ -3,6 +3,7 @@
 #include <cjson/cJSON.h>
 
 #include "comm.h"
+#include "auth.h"
 #include "sender.h"
 
 
