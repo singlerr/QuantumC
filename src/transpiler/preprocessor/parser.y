@@ -57,7 +57,7 @@ void forward(const char* str);
 }
 
 %token IDENTIFIER;
-%token DEFINE DEFINE_CONTINUE
+%token DEFINE
 %token IF ELIF IFDEF IFNDEF ENDIF UNDEF ELSE
 %token DEFINED
 %token OPENQASM
@@ -224,7 +224,6 @@ int preprocessor_lex(){
 }
 
 void forward(const char* str){
-    printf("***** %s:%d\n", str, should_skip());
     if(should_skip()){
         return;
     }

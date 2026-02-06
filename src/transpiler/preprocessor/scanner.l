@@ -241,6 +241,7 @@ L?\"(\\.|[^\\"\n])*\"      { return handle_text(yytext); }
 
 <STATE_INCLUDE>\<(\\.|[^\\>\n])*\> { yy_pop_state(); }
 <STATE_INCLUDE>{NL}          { yy_pop_state(); }
+
 <STATE_IF>"defined"          { return(DEFINED); }
 <STATE_IF>"<"                { return(L_OP); }
 <STATE_IF>">"                { return(G_OP); }
@@ -252,6 +253,18 @@ L?\"(\\.|[^\\"\n])*\"      { return handle_text(yytext); }
 <STATE_IF>"&&"               { return(AND_OP); }
 <STATE_IF>"||"               { return(OR_OP); }
 <STATE_IF>{ID}               { expand_expression(yytext); }
+<STATE_IF>"=="			{ return(EQ_OP); }
+<STATE_IF>"!="			{ return(NE_OP); }
+<STATE_IF>0[xX]{H}+{IS}?             { yylval.i = strtol(yytext, NULL, 16); return(INTEGER); }
+<STATE_IF>0[0-7]*{IS}?               { yylval.i = strtol(yytext, NULL, 8); return(INTEGER); }
+<STATE_IF>[1-9]{D}*{IS}?             { yylval.i = strtol(yytext, NULL, 10); return(INTEGER); }
+<STATE_IF>{D}+{E}{FS}?               { yylval.i = strtod(yytext, NULL); return(INTEGER); }
+<STATE_IF>{D}*"."{D}+{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_IF>{D}+"."{D}*{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_IF>0[xX]{H}+{P}{FS}?          { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_IF>0[xX]{H}*"."{H}+{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_IF>0[xX]{H}+"."{H}*{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+
 <STATE_IFDEF>{ID}            { yylval.str = strdup(yytext); return(IDENTIFIER); }
 <STATE_IFDEF>{NL}            { yy_pop_state(); return(NEWLINE); }
 <STATE_IFNDEF>{S}+           { }
