@@ -64,7 +64,7 @@ int handle_text(const char* str);
 "#ifdef"                   { yy_push_state(STATE_IFDEF); return(IFDEF); }
 "#else"                    { return(ELSE); }
 "#if"                      { yy_push_state(STATE_IF); return(IF); }
-"#elif"                    { return(ELIF); }
+"#elif"                    { yy_push_state(STATE_IF); return(ELIF); }
 "#ifndef"                  { yy_push_state(STATE_IFNDEF); return(IFNDEF); }
 "#endif"                   { return(ENDIF); }
 "#undef"                   { yy_push_state(STATE_UNDEF); return(UNDEF); }
@@ -318,7 +318,8 @@ void expand_expression(const char* name){
         fprintf(stderr, "Expand too deeply");
         exit(1);
     }
-     expand_stack[expand_stack_ptr++] = YY_CURRENT_BUFFER;
+
+    expand_stack[expand_stack_ptr++] = YY_CURRENT_BUFFER;
     YY_BUFFER_STATE buffer = yy_scan_string(content);
     yy_push_state(STATE_EXPAND);
     yy_switch_to_buffer(buffer);

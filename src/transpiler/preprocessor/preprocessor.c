@@ -324,22 +324,18 @@ ph_builder_begin (enum placeholder_kind kind, const char *name)
 }
 
 struct placeholder *
-ph_builder_end (struct placeholder *chain, enum placeholder_kind kind,
-                const char *name)
+ph_builder_end (struct placeholder *chain)
 {
   if (!chain)
     {
       return NULL;
     }
-  struct placeholder *cur = new_placeholder (kind, name);
-  cur->prev = chain;
-  chain->next = cur;
 
   // go to head
-  for (; cur; cur = cur->prev)
+  for (; chain && chain->prev; chain = chain->prev)
     {
     }
-  return cur;
+  return chain;
 }
 
 struct dir_openqasm *
@@ -381,10 +377,11 @@ is_define_arg (struct macro_args *arg_list, const char *name)
 }
 
 struct if_stack *
-push_if ()
+push_if (int val)
 {
   struct if_stack *inst = (struct if_stack *)malloc (sizeof (struct if_stack));
   inst->enabled = !should_skip ();
+  inst->value = val;
   inst->prev = if_stack;
   if_stack = inst;
 
@@ -418,5 +415,10 @@ should_skip ()
       return 0;
     }
 
-  return top->enabled;
+  if (top->enabled)
+    {
+      return top->value;
+    }
+
+  return 1;
 }

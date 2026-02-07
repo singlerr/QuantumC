@@ -42,6 +42,7 @@ enum operand_kind
 struct if_stack
 {
   int enabled;
+  int value;
   struct if_stack *prev;
 };
 
@@ -119,15 +120,13 @@ struct placeholder *ph_builder_append (struct placeholder *chain,
                                        const char *name);
 struct placeholder *ph_builder_begin (enum placeholder_kind kind,
                                       const char *name);
-struct placeholder *ph_builder_end (struct placeholder *chain,
-                                    enum placeholder_kind kind,
-                                    const char *name);
+struct placeholder *ph_builder_end (struct placeholder *chain);
 struct placeholder *ph_builder_concat (struct placeholder *chain,
                                        struct placeholder *item);
 
 struct dir_openqasm *openqasm_new (int version);
 
-struct if_stack *push_if ();
+struct if_stack *push_if (int val);
 struct if_stack *pop_if ();
 struct if_stack *top_if ();
 int should_skip ();

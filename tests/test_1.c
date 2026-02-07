@@ -5,7 +5,18 @@ typedef unsigned int uint;
 int b = 1;
 #if _TEST_2_ >= 111
 int c = 1;
+#else
+int d = 1;
 #endif
+int e = 1;
+#endif
+
+#if _TEST_2_ < 1
+int f = 1;
+#elif _TEST_2_ >= 112
+int g = 1;
+#else
+int h = 1;
 #endif
 
 uint8_t

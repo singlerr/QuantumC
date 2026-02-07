@@ -123,9 +123,10 @@ directive
     ;
 
 if_directive
-    : IF if_condition { if(! $2) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }  
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE opt_program_list ELSE { if(! $3) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE opt_program_list ELIF if_condition { if(! $3 && ! $7) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }
+    : IF if_condition { push_if(! $2); } NEWLINE opt_program_list  
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } NEWLINE opt_program_list 
+    | ENDIF { pop_if(); }
+    | ELIF if_condition { if(top_if()->enabled && $2) { top_if()->value = ! top_if()->value; } } NEWLINE opt_program_list
     ;
 
 if_condition
@@ -133,13 +134,15 @@ if_condition
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
-    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program_list ELSE { if(! $3) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
+    : IFDEF IDENTIFIER { push_if(find_macro(yylval.str) == NULL); } NEWLINE program_list
+    | ENDIF { pop_if(); }
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } NEWLINE program_list
     ;
 
 ifndef_directive
-    : IFNDEF IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
-    | IFNDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program_list { if(! $3) { push_if(); } } ELSE NEWLINE program_list ENDIF { pop_if(); }
+    : IFNDEF IDENTIFIER { push_if(find_macro(yylval.str) != NULL); } NEWLINE program_list 
+    | ENDIF { pop_if(); }
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } program_list 
     ;
 
 undef
@@ -167,7 +170,7 @@ openqasm
     ;
 
 define_body
-    : define_body_item { $$ = $1; }
+    : define_body_item { $$ = ph_builder_end($1); }
     | define_body define_body_item { $$ = ph_builder_concat($1, $2); }
     ;
 

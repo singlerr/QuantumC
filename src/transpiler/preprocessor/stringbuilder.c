@@ -31,6 +31,7 @@ str_append (struct string_builder *builder, const char *str)
   if (!builder->buffer || builder->size == 0)
     {
       builder->buffer = (char *)malloc (len + 1);
+      memset (builder->buffer, 0, sizeof (builder->buffer));
       strncpy (builder->buffer + (builder->size), str, len);
       builder->size = len + 1;
     }
