@@ -1,6 +1,7 @@
 %{
 
 #include "preprocessor.h"
+#include "stringbuilder.h"
 #include "../preprocessor_link.h"
 
 #ifndef TRUE
@@ -38,7 +39,7 @@ void prerror(const char *str);
 
 extern FILE* prin;
 struct string_builder* ctx = NULL;
-extern int forward(const char* str);
+void forward(const char* str);
 %}
 
 %define parse.error detailed
@@ -82,11 +83,28 @@ extern int forward(const char* str);
 %type<operand> logical_or_expression;
 %type<operand> if_expression;
 
-%start program
+
+%start program_list
 %%
 
 program
     : directive_list
+    | program_body
+    ;
+
+program_list
+    : program_list program
+    | program
+    ;
+    
+
+program_body
+    : program_body TEXT { forward(yylval.str); }
+    | TEXT { forward(yylval.str); }
+    ;
+
+opt_program_list
+    : program_list
     | %empty
     ;
 
@@ -105,9 +123,10 @@ directive
     ;
 
 if_directive
-    : IF if_condition { if(! $2) { push_if(); } } program  ENDIF { pop_if(); }  
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } program ELIF if_condition { if(! $3 && ! $6) { push_if(); } else { push_if(); }} program ENDIF { pop_if(); }
+    : IF if_condition { push_if(! $2); } NEWLINE opt_program_list  
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } NEWLINE opt_program_list 
+    | ENDIF { pop_if(); }
+    | ELIF if_condition { if(top_if()->enabled && $2) { top_if()->value = ! top_if()->value; } } NEWLINE opt_program_list
     ;
 
 if_condition
@@ -115,13 +134,15 @@ if_condition
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } program ENDIF { pop_if(); }
-    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } program ELSE { if(! $3) { push_if(); } } program ENDIF { pop_if(); }
+    : IFDEF IDENTIFIER { push_if(find_macro(yylval.str) == NULL); } NEWLINE program_list
+    | ENDIF { pop_if(); }
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } NEWLINE program_list
     ;
 
 ifndef_directive
-    : IFNDEF { struct string_builder sb; begin_collect(&sb); } IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program ENDIF { pop_if(); }
-    | IFNDEF {struct string_builder sb; begin_collect(&sb); } IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } else { forward(end_str_builder(&sb)); } end_collect(); } program { if(! $4) { push_if(); } } ELSE program ENDIF { pop_if(); }
+    : IFNDEF IDENTIFIER { push_if(find_macro(yylval.str) != NULL); } NEWLINE program_list 
+    | ENDIF { pop_if(); }
+    | ELSE { if(top_if()->enabled) { top_if()->value = ! top_if()->value; } } program_list 
     ;
 
 undef
@@ -149,7 +170,7 @@ openqasm
     ;
 
 define_body
-    : define_body_item { $$ = $1; }
+    : define_body_item { $$ = ph_builder_end($1); }
     | define_body define_body_item { $$ = ph_builder_concat($1, $2); }
     ;
 
@@ -208,4 +229,11 @@ void prerror(const char *str)
 
 int preprocessor_lex(){
     return prparse();
+}
+
+void forward(const char* str){
+    if(should_skip()){
+        return;
+    }
+    str_append(ctx, str);
 }

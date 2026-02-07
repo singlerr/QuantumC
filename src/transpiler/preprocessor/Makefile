@@ -8,10 +8,10 @@ all: $(LIB)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 preprocessor.parser.c: parser.y
-	$(YACC) --debug --defines=preprocessor.parser.h $< -o $@
+	$(YACC) $(YACC_ARGS) --defines=preprocessor.parser.h $< -o $@
 
 preprocessor.lexer.c: scanner.l
-	$(LEX) --header-file=preprocessor.lexer.h -o $@ $<
+	$(LEX) $(LEX_ARGS) --header-file=preprocessor.lexer.h -o $@ $<
 
 preprocessor.parser.o: preprocessor.lexer.c preprocessor.parser.c preprocessor.c
 preprocessor.lexer.o: preprocessor.parser.c

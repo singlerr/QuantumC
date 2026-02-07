@@ -592,7 +592,7 @@ ast_node* compile(FILE* in)
     init_ctx(&sb, in);
     preprocessor_lex();
     content = end_str_builder(&sb);
-	printf("%s\n", content);
+	printf("DEBUG %s\n", content);
     if(feed_and_parse(content, &root)){
         free(content);
         return NULL;
