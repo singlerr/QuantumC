@@ -44,7 +44,7 @@ int handle_text(const char* str);
 %option yylineno
 %option noyywrap
 %option stack
-
+%option nodefault 
 
 %x STATE_DEFINE
 %x STATE_BODY
@@ -220,22 +220,26 @@ L?\"(\\.|[^\\"\n])*\"      { return handle_text(yytext); }
 }
 
 <STATE_INCLUDE><<EOF>>      {
-    if (include_stack_ptr <= 0) {
+    if (--include_stack_ptr < 0) {
         yyterminate();
     } else {
+       
         yy_delete_buffer(YY_CURRENT_BUFFER);
-        yy_switch_to_buffer(include_stack[--include_stack_ptr]);
+        yy_switch_to_buffer(include_stack[include_stack_ptr]);
         yy_pop_state();
+  
     }
 }
 
-<STATE_EXPAND><<EOF>>       {
-    if (expand_stack_ptr <= 0) {
-        yy_pop_state();
+<STATE_EXPAND,STATE_IF><<EOF>>       {
+    if (--expand_stack_ptr < 0) {
+        yyterminate();
     } else {
+
         yy_delete_buffer(YY_CURRENT_BUFFER);
-        yy_switch_to_buffer(expand_stack[--expand_stack_ptr]);
+        yy_switch_to_buffer(expand_stack[expand_stack_ptr]);
         yy_pop_state();
+    
     }
 }
 
@@ -255,23 +259,23 @@ L?\"(\\.|[^\\"\n])*\"      { return handle_text(yytext); }
 <STATE_IF>{ID}               { expand_expression(yytext); }
 <STATE_IF>"=="			{ return(EQ_OP); }
 <STATE_IF>"!="			{ return(NE_OP); }
-<STATE_IF>0[xX]{H}+{IS}?             { yylval.i = strtol(yytext, NULL, 16); return(INTEGER); }
-<STATE_IF>0[0-7]*{IS}?               { yylval.i = strtol(yytext, NULL, 8); return(INTEGER); }
-<STATE_IF>[1-9]{D}*{IS}?             { yylval.i = strtol(yytext, NULL, 10); return(INTEGER); }
-<STATE_IF>{D}+{E}{FS}?               { yylval.i = strtod(yytext, NULL); return(INTEGER); }
-<STATE_IF>{D}*"."{D}+{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-<STATE_IF>{D}+"."{D}*{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-<STATE_IF>0[xX]{H}+{P}{FS}?          { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-<STATE_IF>0[xX]{H}*"."{H}+{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-<STATE_IF>0[xX]{H}+"."{H}*{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
-
+<STATE_EXPAND,STATE_IF>0[xX]{H}+{IS}?             { yylval.i = strtol(yytext, NULL, 16); return(INTEGER); }
+<STATE_EXPAND,STATE_IF>0[0-7]*{IS}?               { yylval.i = strtol(yytext, NULL, 8); return(INTEGER); }
+<STATE_EXPAND,STATE_IF>[1-9]{D}*{IS}?             { yylval.i = strtol(yytext, NULL, 10); return(INTEGER); }
+<STATE_EXPAND,STATE_IF>{D}+{E}{FS}?               { yylval.i = strtod(yytext, NULL); return(INTEGER); }
+<STATE_EXPAND,STATE_IF>{D}*"."{D}+{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_EXPAND,STATE_IF>{D}+"."{D}*{E}?{FS}?       { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_EXPAND,STATE_IF>0[xX]{H}+{P}{FS}?          { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_EXPAND,STATE_IF>0[xX]{H}*"."{H}+{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_EXPAND,STATE_IF>0[xX]{H}+"."{H}*{P}?{FS}?  { yylval.f = strtof(yytext, NULL); return(FLOAT); }
+<STATE_EXPAND,STATE_IF>{ID}               { expand_expression(yytext); }
 <STATE_IFDEF>{ID}            { yylval.str = strdup(yytext); return(IDENTIFIER); }
 <STATE_IFDEF>{NL}            { yy_pop_state(); return(NEWLINE); }
-<STATE_IFNDEF>{S}+           { }
 <STATE_IFNDEF>{ID}           { yylval.str = strdup(yytext); return(IDENTIFIER); }
 <STATE_IFNDEF>{NL}           { yy_pop_state(); return(NEWLINE); }
 <STATE_UNDEF>{ID}            { yylval.str = strdup(yytext); return(IDENTIFIER); }
 <STATE_UNDEF>{NL}            { yy_pop_state(); return(NEWLINE); }
+<STATE_EXPAND,STATE_IF,STATE_IFDEF,STATE_IFNDEF>[[:space:]]+                  { }
 %%
 
 char* try_expand(const char* text){
@@ -314,11 +318,12 @@ void expand_expression(const char* name){
         fprintf(stderr, "Expand too deeply");
         exit(1);
     }
-
+     expand_stack[expand_stack_ptr++] = YY_CURRENT_BUFFER;
+    YY_BUFFER_STATE buffer = yy_scan_string(content);
     yy_push_state(STATE_EXPAND);
-    YY_BUFFER_STATE buffer = pr_scan_string(content);
-    expand_stack[expand_stack_ptr++] = YY_CURRENT_BUFFER;
-    pr_switch_to_buffer(buffer);
+    yy_switch_to_buffer(buffer);
+
+
 }
 
 int handle_text(const char* text){

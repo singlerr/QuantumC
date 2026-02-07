@@ -103,6 +103,11 @@ program_body
     | TEXT { forward(yylval.str); }
     ;
 
+opt_program_list
+    : program_list
+    | %empty
+    ;
+
 directive_list
     : directive
     | directive_list directive
@@ -118,9 +123,9 @@ directive
     ;
 
 if_directive
-    : IF if_condition { if(! $2) { push_if(); } } NEWLINE program ENDIF { pop_if(); } NEWLINE  
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE program ELSE { if(! $3) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
-    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE program ELIF if_condition { if(! $3 && ! $7) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
+    : IF if_condition { if(! $2) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }  
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE opt_program_list ELSE { if(! $3) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }
+    | IF if_condition <b> { $$ = ! $2; if($$) { push_if(); } } NEWLINE opt_program_list ELIF if_condition { if(! $3 && ! $7) { push_if(); } } NEWLINE opt_program_list ENDIF { pop_if(); }
     ;
 
 if_condition
@@ -128,13 +133,13 @@ if_condition
     ;
 
 ifdef_directive
-    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program ENDIF NEWLINE { pop_if(); }
-    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program ELSE { if(! $3) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
+    : IFDEF IDENTIFIER { if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
+    | IFDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) == NULL; if(find_macro(yylval.str) == NULL) { push_if(); } } NEWLINE program_list ELSE { if(! $3) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
     ;
 
 ifndef_directive
-    : IFNDEF IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program ENDIF { pop_if(); }
-    | IFNDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program { if(! $3) { push_if(); } } ELSE NEWLINE program ENDIF { pop_if(); }
+    : IFNDEF IDENTIFIER { if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program_list ENDIF { pop_if(); }
+    | IFNDEF IDENTIFIER <b> { $$ = find_macro(yylval.str) != NULL;  if(find_macro(yylval.str) != NULL) { push_if(); } } NEWLINE program_list { if(! $3) { push_if(); } } ELSE NEWLINE program_list ENDIF { pop_if(); }
     ;
 
 undef
