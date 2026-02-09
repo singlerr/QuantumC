@@ -11,6 +11,8 @@ int main(void)
 {
     fprintf(stdout, "=== QuantumC Runtime ===\n\n");
 
+    // Parsing `config.json`.
+
     FILE* file = fopen("config.json", "r");
     if (!file) {
         fprintf(stderr, "ERROR - Opening config.json failed!\n");
@@ -57,15 +59,21 @@ int main(void)
         return EXIT_FAILURE;
     }
 
+    // Authenticate 
+
     char* response = authenticate(api, crn);
     if (response) {
         fprintf(stdout, "A backend was successfully chosen!\n");
         fprintf(stdout, "Chosen Backend: %s\n", response);
     }
 
+    // Send a job to a quantum backend.
+
     free(buffer);
     cJSON_Delete(cjson_config);
     free(response);
+
+    // Receive the job result and display.
 
     // fprintf(stdout, "=== Final Result ===\n\n");
 
