@@ -148,4 +148,3 @@ char* authenticate(const char* api_key, const char* crn) {
 }
 
 // TODO: Update the returning types to `const char*`.
-// TODO: Separate authentication part from `sender.c` and implement multi-thread workflow.

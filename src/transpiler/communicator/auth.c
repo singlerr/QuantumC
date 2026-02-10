@@ -95,3 +95,11 @@ char* get_bearer_token(const char* api_key) {
     
     return bearer_token;
 }
+
+void start_authenticator(const char* api_key) {
+    pthread_t auth_thread;
+
+    pthread_create(&auth_thread, NULL, get_bearer_token, NULL);
+
+    return;
+}
