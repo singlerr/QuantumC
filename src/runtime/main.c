@@ -22,6 +22,11 @@ int main(void)
     // TODO: Implement overflow checking.
     // TODO: Even better, implement dynamic size allocation.
     char* buffer = (char*)calloc(BUFFER_NMEMB, sizeof(char));
+    if (!buffer) {
+        fprintf(stderr, "ERROR - Allocating memory for buffer failed!\n");
+        return EXIT_FAILURE;
+    }
+
     fread(buffer, sizeof(char), BUFFER_NMEMB, file);
     fclose(file);
 
@@ -59,21 +64,48 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    // Start the authenticator.
+    // Start the authenticator thread.
 
-    start_authenticator(api);
+    pthread_t authenticator;
+
+    TOKEN_DATA* token_data = (TOKEN_DATA*)calloc(1, sizeof(TOKEN_DATA));
+    if (!token_context) {
+        fprintf(stderr, "ERROR - Allocating memory for token data failed!\n");
+        return;
+    }
+
+    token_data->api_key = (const char*)api;
+    token_data->token = NULL;
+    pthread_mutex_init(&token_data->lock, NULL);
+
+    int create_status = pthread_create(&authenticator, NULL, start_authenticator, (void*)token_data);
+    if (create_status) {
+        fprintf(stderr, "ERROR - Thread creation failed!\n");
+        pthread_mutex_destroy(&token_data->lock);
+        free(token_data);
+        return EXIT_FAILURE;
+    }
 
     // Send a job to a quantum backend.
 
-    // Receive the job result and display.
+    int join_status = pthread_join(authenticator, NULL);
+    if (join_status) {
+        fprintf(stderr, "ERROR - Thread joining failed!\n");
+        pthread_mutex_destroy(&token_data->lock);
+        free(token_data);
+        return EXIT_FAILURE;
+    }
+
+    // Parse the job result and display.
 
     // fprintf(stdout, "=== Final Result ===\n\n");
 
     // Clean up.
 
     free(buffer);
+    pthread_mutex_destroy(&token_data->lock);
+    free(token_data);
     cJSON_Delete(cjson_config);
-    free(response);
 
     return EXIT_SUCCESS;
 }

@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <curl/curl.h>
+#include <cjson/cJSON.h>
 #include <pthread.h>
 
+#include "comm.h"
 #include "auth.h"
 
 void update_bearer_token() {
@@ -96,10 +100,8 @@ char* get_bearer_token(const char* api_key) {
     return bearer_token;
 }
 
-void start_authenticator(const char* api_key) {
-    pthread_t auth_thread;
+void* start_authenticator(void* arg) {
+    TOKEN_DATA* token_data = (TOKEN_DATA*)arg;
 
-    pthread_create(&auth_thread, NULL, get_bearer_token, NULL);
-
-    return;
+    return NULL;
 }
