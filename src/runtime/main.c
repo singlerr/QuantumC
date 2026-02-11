@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <cjson/cJSON.h>
 
 #include "comm.h"
@@ -11,7 +12,7 @@ int main(void)
 {
     fprintf(stdout, "=== QuantumC Runtime ===\n\n");
 
-    // Parsing `config.json`.
+    // Parse `config.json`.
 
     FILE* file = fopen("config.json", "r");
     if (!file) {
@@ -69,9 +70,9 @@ int main(void)
     pthread_t authenticator;
 
     TOKEN_DATA* token_data = (TOKEN_DATA*)calloc(1, sizeof(TOKEN_DATA));
-    if (!token_context) {
+    if (!token_data) {
         fprintf(stderr, "ERROR - Allocating memory for token data failed!\n");
-        return;
+        return EXIT_FAILURE;
     }
 
     token_data->api_key = (const char*)api;
@@ -103,6 +104,7 @@ int main(void)
     // Clean up.
 
     free(buffer);
+    free(token_data->token);
     pthread_mutex_destroy(&token_data->lock);
     free(token_data);
     cJSON_Delete(cjson_config);

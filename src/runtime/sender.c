@@ -90,7 +90,7 @@ char* select_backend(const char* backends_data) {
 
         cJSON* cjson_device_jobs = cJSON_GetObjectItemCaseSensitive(cjson_device, "queue_length");
         if (cJSON_IsNumber(cjson_device_jobs)) {
-            device_jobs = cjson_device_jobs->valuedouble;
+            device_jobs = cjson_device_jobs->valueint;
         } else {
             fprintf(stderr, "ERROR - Parsing the queue length failed!\n");
             cJSON_Delete(cjson_backends_data);
@@ -120,6 +120,10 @@ char* select_backend(const char* backends_data) {
 }
 
 char* authenticate(const char* api_key, const char* crn) {
+    // while (!token_data->token) {
+    //     pthread_cond_wait(&token_data->received, &token_data->lock);
+    // }
+    
     char* bearer_token = get_bearer_token(api_key);
     if (!bearer_token) {
         fprintf(stderr, "ERROR - Getting bearer token failed!\n");

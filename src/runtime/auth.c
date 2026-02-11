@@ -8,15 +8,27 @@
 #include "comm.h"
 #include "auth.h"
 
-void update_bearer_token() {
+void update_bearer_token(TOKEN_DATA* token_data, const char* bearer_token) {
+    pthread_mutex_lock(&token_data->lock);
 
+    size_t token_length = strlen(bearer_token);
+    token_data->token = (char*)realloc(token_data->token, sizeof(char)*(token_length+1));
+    strcpy(token_data->token, bearer_token);
+
+    pthread_mutex_unlock(&token_data->lock);
+
+    return;
 }
 
-char* get_bearer_token(const char* api_key) {
+// Returns expiration time.
+// TODO: Refactoring may be required.
+int get_bearer_token(TOKEN_DATA* token_data) {
+    const char* api_key = token_data->api_key;
+    
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
-        return NULL;
+        return -1;
     }
 
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
@@ -27,7 +39,7 @@ char* get_bearer_token(const char* api_key) {
         fprintf(stderr, "ERROR - API Key escaping failed!\n");
         free(rb.data);
         curl_easy_cleanup(curl);
-        return NULL;
+        return -1;
     }
 
     // TODO: Implement overflow checking.
@@ -41,7 +53,7 @@ char* get_bearer_token(const char* api_key) {
         free(rb.data);
         curl_easy_cleanup(curl);
         curl_free(escaped);
-        return NULL;
+        return -1;
     }
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://iam.cloud.ibm.com/identity/token");
@@ -63,7 +75,7 @@ char* get_bearer_token(const char* api_key) {
         curl_easy_cleanup(curl);
         curl_slist_free_all(headers);
         curl_free(escaped);
-        return NULL;
+        return -1;
     }
     
     curl_easy_cleanup(curl);
@@ -80,28 +92,46 @@ char* get_bearer_token(const char* api_key) {
         }
         free(rb.data);
         cJSON_Delete(cjson_data);
-        return NULL;
+        return -1;
     }
 
-    char* bearer_token = (char*)calloc(rb.size+1, sizeof(char));
+    int expiration_time = 0;
+    cJSON* cjson_expiration_time = cJSON_GetObjectItemCaseSensitive(cjson_data, "expires_in");
+    if (cJSON_IsNumber(cjson_expiration_time) && cjson_expiration_time->valueint > 0) {
+        expiration_time = cjson_expiration_time->valueint;
+    } else {
+        fprintf(stderr, "ERROR - The expiration time is not valid!\n");
+        free(rb.data);
+        cJSON_Delete(cjson_data);
+        return -1;
+    }
+
     cJSON* cjson_bearer_token = cJSON_GetObjectItemCaseSensitive(cjson_data, "access_token");
     if (cJSON_IsString(cjson_bearer_token) && cjson_bearer_token->valuestring) {
-        strcpy(bearer_token, cjson_bearer_token->valuestring);
+        update_bearer_token(token_data, (const char*)cjson_bearer_token->valuestring);
     } else {
         fprintf(stderr, "ERROR - Parsing bearer token failed!\n");
         free(rb.data);
         cJSON_Delete(cjson_data);
-        return NULL;
+        return -1;
     }
 
     free(rb.data);
     cJSON_Delete(cjson_data);
     
-    return bearer_token;
+    return expiration_time;
 }
 
 void* start_authenticator(void* arg) {
     TOKEN_DATA* token_data = (TOKEN_DATA*)arg;
+
+    int expiration_time = get_bearer_token(token_data);
+    if (expiration_time < 0) {
+        fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
+        return NULL;
+    }
+
+    printf("Bearer Token: %s\n", token_data->token);
 
     return NULL;
 }

@@ -1,7 +1,7 @@
-#include <pthread.h>
-
 #ifndef _AUTH_H_
 #define _AUTH_H_
+
+#define MIN_TIME 300
 
 typedef struct TokenData {
     const char* api_key;
@@ -12,5 +12,7 @@ typedef struct TokenData {
 
     pthread_mutex_t lock;
 } TOKEN_DATA;
+
+void* start_authenticator(void* arg);
 
 #endif
