@@ -7,6 +7,11 @@
 #include "auth.h"
 #include "sender.h"
 
+// TODO: Implement cleanup by using goto statement on entire source.
+// TODO: Decide if const char* datatype is used for every strings.
+// TODO: Tidy up define macros.
+// TODO: Reorder include statements.
+// TODO: Document the source code.
 
 int main(void)
 {
@@ -34,7 +39,7 @@ int main(void)
     cJSON* cjson_config = cJSON_Parse(buffer);
     if (!cjson_config) {
         fprintf(stderr, "ERROR - Parsing configuration JSON failed!\n");
-        const char* error = cJSON_GetErrorPtr();
+        char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -43,7 +48,7 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    char* api = NULL;
+    char* api_key = NULL;
     cJSON* cjson_api = cJSON_GetObjectItemCaseSensitive(cjson_config, "api");
     if (cJSON_IsString(cjson_api) && cjson_api->valuestring) {
         api = cjson_api->valuestring;
@@ -67,7 +72,7 @@ int main(void)
 
     // Start the authenticator thread.
 
-    pthread_t authenticator;
+    pthread_t authenticator_thread;
 
     TOKEN_DATA* token_data = (TOKEN_DATA*)calloc(1, sizeof(TOKEN_DATA));
     if (!token_data) {
@@ -75,11 +80,11 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    token_data->api_key = (const char*)api;
+    token_data->api_key = api_key;
     token_data->token = NULL;
     pthread_mutex_init(&token_data->lock, NULL);
 
-    int create_status = pthread_create(&authenticator, NULL, start_authenticator, (void*)token_data);
+    int create_status = pthread_create(&authenticator_thread, NULL, authenticator, (void*)token_data);
     if (create_status) {
         fprintf(stderr, "ERROR - Thread creation failed!\n");
         pthread_mutex_destroy(&token_data->lock);
@@ -88,6 +93,10 @@ int main(void)
     }
 
     // Send a job to a quantum backend.
+
+    char* job_id = sender(token_data; crn);
+
+    // the receiver signals the pthread to terminate and join.
 
     int join_status = pthread_join(authenticator, NULL);
     if (join_status) {

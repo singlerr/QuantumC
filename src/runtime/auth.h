@@ -1,7 +1,7 @@
 #ifndef _AUTH_H_
 #define _AUTH_H_
 
-#define MIN_TIME 300
+#define TTIME_OFFSET 300
 
 typedef struct TokenData {
     const char* api_key;
@@ -13,6 +13,9 @@ typedef struct TokenData {
     pthread_mutex_t lock;
 } TOKEN_DATA;
 
-void* start_authenticator(void* arg);
+void update_bearer_token(TOKEN_DATA* token_data, char* token);
+int get_bearer_token(TOKEN_DATA* token_data);
+
+void* authenticator(void* arg);
 
 #endif

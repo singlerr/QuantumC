@@ -9,7 +9,7 @@
 #include "sender.h"
 
 
-char* get_backends_data(const char* token, const char* crn) {
+char* get_backends_data(char* token, char* crn) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
@@ -30,7 +30,7 @@ char* get_backends_data(const char* token, const char* crn) {
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, token_header);
     headers = curl_slist_append(headers, crn_header);
-    headers = curl_slist_append(headers, "IBM-API-Version: 2025-05-01");
+    headers = curl_slist_append(headers, IBM_API_VERSION);
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://quantum.cloud.ibm.com/api/v1/backends");
     curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
@@ -63,11 +63,11 @@ char* get_backends_data(const char* token, const char* crn) {
     return rb.data;
 }
 
-char* select_backend(const char* backends_data) {
+char* select_backend(char* backends_data) {
     cJSON* cjson_backends_data = cJSON_Parse(backends_data);
     if (!cjson_backends_data) {
         fprintf(stderr, "ERROR - Parsing backends data JSON failed!\n");
-        const char* error = cJSON_GetErrorPtr();
+        char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -119,36 +119,35 @@ char* select_backend(const char* backends_data) {
     return chosen_backend;
 }
 
-char* authenticate(const char* api_key, const char* crn) {
-    // while (!token_data->token) {
-    //     pthread_cond_wait(&token_data->received, &token_data->lock);
-    // }
-    
-    char* bearer_token = get_bearer_token(api_key);
-    if (!bearer_token) {
-        fprintf(stderr, "ERROR - Getting bearer token failed!\n");
-        return NULL;
-    }
+char* get_job_id(char* token, char* crn, char* backend, char* qasm_filename) {
 
-    char* backends_data = get_backends_data(bearer_token, crn);
+}
+
+// Returns job ID.
+char* sender(TOKEN_DATA* token_data, char* crn) {
+    while (!token_data->token) {
+        pthread_cond_wait(&token_data->received, &token_data->lock);
+    }
+    
+    char* token = token->token;
+
+    char* backends_data = get_backends_data(token, crn);
     if (!backends_data) {
         fprintf(stderr, "ERROR - Fetching backends data failed!\n");
-        free(bearer_token);
+        free(token);
         return NULL;
     }
 
     char* backend = select_backend(backends_data);
     if (!backend) {
         fprintf(stderr, "ERROR - Selecting backend device failed!\n");
-        free(bearer_token);
+        free(token);
         free(backends_data);
         return NULL;
     }
 
-    free(bearer_token);
+    free(token);
     free(backends_data);
 
     return backend;
 }
-
-// TODO: Update the returning types to `const char*`.

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
@@ -8,12 +9,13 @@
 #include "comm.h"
 #include "auth.h"
 
-void update_bearer_token(TOKEN_DATA* token_data, const char* bearer_token) {
+
+void update_bearer_token(TOKEN_DATA* token_data, char* token) {
     pthread_mutex_lock(&token_data->lock);
 
-    size_t token_length = strlen(bearer_token);
+    size_t token_length = strlen(token);
     token_data->token = (char*)realloc(token_data->token, sizeof(char)*(token_length+1));
-    strcpy(token_data->token, bearer_token);
+    strcpy(token_data->token, token);
 
     pthread_mutex_unlock(&token_data->lock);
 
@@ -21,9 +23,9 @@ void update_bearer_token(TOKEN_DATA* token_data, const char* bearer_token) {
 }
 
 // Returns expiration time.
-// TODO: Refactoring may be required.
+// TODO: Refactoring is required.
 int get_bearer_token(TOKEN_DATA* token_data) {
-    const char* api_key = token_data->api_key;
+    char* api_key = token_data->api_key;
     
     CURL* curl = curl_easy_init();
     if (!curl) {
@@ -86,7 +88,7 @@ int get_bearer_token(TOKEN_DATA* token_data) {
     cJSON* cjson_data = cJSON_Parse(rb.data);
     if (!cjson_data) {
         fprintf(stderr, "ERROR - Parsing bearer token data JSON failed!\n");
-        const char* error = cJSON_GetErrorPtr();
+        char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -108,7 +110,7 @@ int get_bearer_token(TOKEN_DATA* token_data) {
 
     cJSON* cjson_bearer_token = cJSON_GetObjectItemCaseSensitive(cjson_data, "access_token");
     if (cJSON_IsString(cjson_bearer_token) && cjson_bearer_token->valuestring) {
-        update_bearer_token(token_data, (const char*)cjson_bearer_token->valuestring);
+        update_bearer_token(token_data, cjson_bearer_token->valuestring);
     } else {
         fprintf(stderr, "ERROR - Parsing bearer token failed!\n");
         free(rb.data);
@@ -122,13 +124,16 @@ int get_bearer_token(TOKEN_DATA* token_data) {
     return expiration_time;
 }
 
-void* start_authenticator(void* arg) {
+// TODO: Fix the time logic.
+void* authenticator(void* arg) {
     TOKEN_DATA* token_data = (TOKEN_DATA*)arg;
 
-    int expiration_time = get_bearer_token(token_data);
-    if (expiration_time < 0) {
-        fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
-        return NULL;
+    while (true) {
+        int expiration_time = get_bearer_token(token_data);
+        if (expiration_time < 0) {
+            fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
+            // pthread error handling.
+        }
     }
 
     printf("Bearer Token: %s\n", token_data->token);
