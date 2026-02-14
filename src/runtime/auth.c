@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
+#include <errno.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
 #include <pthread.h>
@@ -88,7 +91,7 @@ int get_bearer_token(TOKEN_DATA* token_data) {
     cJSON* cjson_data = cJSON_Parse(rb.data);
     if (!cjson_data) {
         fprintf(stderr, "ERROR - Parsing bearer token data JSON failed!\n");
-        char* error = cJSON_GetErrorPtr();
+        const char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -124,16 +127,69 @@ int get_bearer_token(TOKEN_DATA* token_data) {
     return expiration_time;
 }
 
-// TODO: Fix the time logic.
+
 void* authenticator(void* arg) {
     TOKEN_DATA* token_data = (TOKEN_DATA*)arg;
 
+    // Obtain the first token.
+
+    int expiration_time = get_bearer_token(token_data);
+    if (expiration_time < 0) {
+        fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
+        pthread_exit((void*)EXIT_FAILURE);
+    } else if (expiration_time < TIME_OFFSET) {
+        fprintf(stderr, "ERROR - The given expiration time is less than the offset of %d seconds!\n", TIME_OFFSET);
+        pthread_exit((void*)EXIT_FAILURE);
+    }
+
+    // Signal that the first token was received to the other thread.
+
+    pthread_cond_signal(&token_data->token_received);
+
+    // Check if the expiration time has passed and the termination signal has activated.
+    // If the expiration time has passed, get a new bearer token.
+    // If the termination has been announced, terminate this thread to join the main thread.
+
     while (true) {
-        int expiration_time = get_bearer_token(token_data);
-        if (expiration_time < 0) {
-            fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
-            // pthread error handling.
+        pthread_mutex_lock(&token_data->lock);
+
+        // Terminate this thread once the job termination is announced.
+
+        if (token_data->job_terminated) {
+            pthread_mutex_unlock(&token_data->lock);
+            break;
         }
+
+        // Compute the wake up time.
+
+        struct timespec time_spec;
+        struct timeval now;
+        gettimeofday(&now, NULL);
+
+        time_spec.tv_sec = now.tv_sec + expiration_time - TIME_OFFSET;
+        time_spec.tv_nsec = now.tv_usec * 1000;
+
+        // Go to sleep until the token expires or the job termination announced.
+        // The function `pthread_cond_timedwait()` requires the mutex to be locked and unlocks the mutex.
+        
+        int wait_result = pthread_cond_timedwait(&token_data->job_terminated, &token_data->lock, &time_spec);
+
+        // Terminate this thread once the job termination is announced.
+
+        if (token_data->job_terminated) {
+            pthread_mutex_unlock(&token_data->lock);
+            break;
+        }
+
+        // Get a new token since the previous token just got expired.
+
+        if (wait_result == ETIMEDOUT) {
+            pthread_mutex_unlock(&token_data->lock);
+            expiration_time = get_bearer_token(token_data);
+            pthread_mutex_lock(&token_data->lock);
+        }
+
+        pthread_mutex_unlock(&token_data->lock);
     }
 
     printf("Bearer Token: %s\n", token_data->token);

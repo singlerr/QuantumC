@@ -7,14 +7,15 @@
 #include "auth.h"
 #include "sender.h"
 
+
+// TODO: Replace strcpy() with strdup() except for update_bearer_token() in auth.c.
 // TODO: Implement cleanup by using goto statement on entire source.
-// TODO: Decide if const char* datatype is used for every strings.
+// TODO: Refactor main.c.
 // TODO: Tidy up define macros.
 // TODO: Reorder include statements.
 // TODO: Document the source code.
-
-int main(void)
-{
+// TODO: Write Makefile script.
+int main(int argc, char** argv) {
     fprintf(stdout, "=== QuantumC Runtime ===\n\n");
 
     // Parse `config.json`.
@@ -39,7 +40,7 @@ int main(void)
     cJSON* cjson_config = cJSON_Parse(buffer);
     if (!cjson_config) {
         fprintf(stderr, "ERROR - Parsing configuration JSON failed!\n");
-        char* error = cJSON_GetErrorPtr();
+        const char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -51,7 +52,7 @@ int main(void)
     char* api_key = NULL;
     cJSON* cjson_api = cJSON_GetObjectItemCaseSensitive(cjson_config, "api");
     if (cJSON_IsString(cjson_api) && cjson_api->valuestring) {
-        api = cjson_api->valuestring;
+        api_key = cjson_api->valuestring;
     } else {
         fprintf(stderr, "ERROR - Parsing API key failed!\n");
         free(buffer);
@@ -70,9 +71,15 @@ int main(void)
         return EXIT_FAILURE;
     }
 
+    // Parse the specified OpenQASM file.
+
+    // testing purpose!
+    char* qasm = "";
+
     // Start the authenticator thread.
 
     pthread_t authenticator_thread;
+    void* authenticator_retval;
 
     TOKEN_DATA* token_data = (TOKEN_DATA*)calloc(1, sizeof(TOKEN_DATA));
     if (!token_data) {
@@ -94,13 +101,13 @@ int main(void)
 
     // Send a job to a quantum backend.
 
-    char* job_id = sender(token_data; crn);
+    char* job_id = sender(token_data, crn, qasm);
 
     // the receiver signals the pthread to terminate and join.
 
-    int join_status = pthread_join(authenticator, NULL);
+    int join_status = pthread_join(authenticator_thread, &authenticator_retval);
     if (join_status) {
-        fprintf(stderr, "ERROR - Thread joining failed!\n");
+        fprintf(stderr, "ERROR - Thread joined with an error!\n");
         pthread_mutex_destroy(&token_data->lock);
         free(token_data);
         return EXIT_FAILURE;

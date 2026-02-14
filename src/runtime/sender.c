@@ -4,15 +4,19 @@
 #include <limits.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
+#include <pthread.h>
 
 #include "comm.h"
 #include "sender.h"
 
 
-char* get_backends_data(char* token, char* crn) {
+char* get_backends_data(TOKEN_DATA* token_data, char* crn) {
+    char* token = copy_bearer_token(token_data);
+
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
+        free(token);
         return NULL;
     }
 
@@ -47,6 +51,7 @@ char* get_backends_data(char* token, char* crn) {
         fprintf(stderr, "ERROR - Getting backend information failed!\n");
         fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
         fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
+        free(token);
         free(rb.data);
         curl_easy_cleanup(curl);
         curl_slist_free_all(headers);
@@ -55,6 +60,7 @@ char* get_backends_data(char* token, char* crn) {
         return NULL;
     }
 
+    free(token);
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
     free(token_header);
@@ -67,7 +73,7 @@ char* select_backend(char* backends_data) {
     cJSON* cjson_backends_data = cJSON_Parse(backends_data);
     if (!cjson_backends_data) {
         fprintf(stderr, "ERROR - Parsing backends data JSON failed!\n");
-        char* error = cJSON_GetErrorPtr();
+        const char* error = cJSON_GetErrorPtr();
         if (error) {
             fprintf(stderr, "ERROR - %s\n", error);
         }
@@ -119,35 +125,38 @@ char* select_backend(char* backends_data) {
     return chosen_backend;
 }
 
-char* get_job_id(char* token, char* crn, char* backend, char* qasm_filename) {
+char* submit_job(TOKEN_DATA* token_data, char* crn, char* backend, char* qasm) {
+    char* token = copy_bearer_token(token_data);
 
+    free(token);
+
+    return "";
 }
 
-// Returns job ID.
-char* sender(TOKEN_DATA* token_data, char* crn) {
-    while (!token_data->token) {
-        pthread_cond_wait(&token_data->received, &token_data->lock);
-    }
-    
-    char* token = token->token;
 
-    char* backends_data = get_backends_data(token, crn);
+// Returns job ID.
+char* sender(TOKEN_DATA* token_data, char* crn, char* qasm) {
+    while (!token_data->token) {
+        pthread_cond_wait(&token_data->token_received, &token_data->lock);
+    }
+
+    char* backends_data = get_backends_data(token_data, crn);
     if (!backends_data) {
         fprintf(stderr, "ERROR - Fetching backends data failed!\n");
-        free(token);
         return NULL;
     }
 
     char* backend = select_backend(backends_data);
     if (!backend) {
         fprintf(stderr, "ERROR - Selecting backend device failed!\n");
-        free(token);
         free(backends_data);
         return NULL;
     }
 
-    free(token);
-    free(backends_data);
+    char* job_id = submit_job(token_data, crn, backend, qasm);
 
-    return backend;
+    free(backends_data);
+    free(backend);
+
+    return job_id;
 }
