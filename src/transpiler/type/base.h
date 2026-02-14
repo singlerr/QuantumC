@@ -1,6 +1,7 @@
 #ifndef _BASE_H_
 #define _BASE_H_
 
+#include "data/btree/btree.h"
 #include "data/hamt/include/hamt.h"
 #include "ena/ena.h"
 #include <stdint.h>
@@ -132,7 +133,8 @@ typedef struct type_error
 
 typedef struct type_scheme
 {
-
+  struct btree *unbound;
+  type_t *ty;
 } type_scheme_t;
 
 typedef struct type_inference
@@ -140,6 +142,13 @@ typedef struct type_inference
   ena_table_t *unification_table;
   struct hamt *errors;
 } type_inference_t;
+
+typedef struct type_infer_out
+{
+  // TODO: Ast<TypeVar>
+  type_scheme_t scheme;
+  struct hamt *errors;
+} type_infer_out_t;
 
 node_id_t *provenance_id (provenance_t *self);
 
