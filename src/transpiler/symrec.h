@@ -1,7 +1,7 @@
 #ifndef _SYMREC_H_
 #define _SYMREC_H_
 
-#include "ast_types.h"
+#include "ast_common_types.h"
 #include "type.h"
 
 #ifndef PRIM_TYPES
@@ -31,25 +31,27 @@
 #endif
 
 #ifndef PUT_TYPE
-#define PUT_TYPE(name, type, size) puttype(name, type, mk_type(name, mk_type_meta(size), 0))
+#define PUT_TYPE(name, type, size)                                            \
+  puttype (name, type, mk_type (name, mk_type_meta (size), 0))
 #endif
 
 #ifndef PUT_SIZED_TYPE
-#define PUT_SIZED_TYPE(name, type, size) putsizedtype(name, type, mk_type(name, mk_type_meta(size), 0))
+#define PUT_SIZED_TYPE(name, type, size)                                      \
+  putsizedtype (name, type, mk_type (name, mk_type_meta (size), 0))
 #endif
 
 typedef struct _symrec
 {
-    char *name;
-    struct _symrec *next;
+  char *name;
+  struct _symrec *next;
 } symrec_t;
 
 typedef struct _typerec
 {
-    char *name;
-    ast_node_type type_type;
-    type_t *handle;
-    struct _typerec *next;
+  char *name;
+  ast_node_type type_type;
+  type_t *handle;
+  struct _typerec *next;
 } typerec_t;
 
 extern symrec_t *sym_table;
@@ -75,16 +77,18 @@ extern typerec_t *PRIM_DURATION;
 extern typerec_t *PRIM_BIT;
 extern typerec_t *PRIM_BOOL;
 
-symrec_t *putsym(const char *name);
-symrec_t *getsym(const char *name);
-symrec_t *getorcreatesym(const char *name);
+symrec_t *putsym (const char *name);
+symrec_t *getsym (const char *name);
+symrec_t *getorcreatesym (const char *name);
 
-typerec_t *puttype(const char *name, ast_node_type type_type, const type_t *type);
-typerec_t *putsizedtype(const char *name, ast_node_type type_type, const type_t *type);
-typerec_t *gettype(const char *name);
-typerec_t *getsizedtype(const char *name, int size);
-typerec_t *clone_type_rec(const typerec_t *o);
+typerec_t *puttype (const char *name, ast_node_type type_type,
+                    const type_t *type);
+typerec_t *putsizedtype (const char *name, ast_node_type type_type,
+                         const type_t *type);
+typerec_t *gettype (const char *name);
+typerec_t *getsizedtype (const char *name, int size);
+typerec_t *clone_type_rec (const typerec_t *o);
 
-void init_type();
+void init_type ();
 
 #endif
