@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <limits.h>
 #include <curl/curl.h>
@@ -23,8 +24,6 @@ char* get_backends_data(TOKEN_DATA* token_data, char* crn) {
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
     struct curl_slist* headers = NULL;
 
-    // TODO: Implement overflow checking.
-    // TODO: Even better, implement dynamic size allocation.
     char* token_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     char* crn_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
 
@@ -137,7 +136,7 @@ char* submit_job(TOKEN_DATA* token_data, char* crn, char* backend, char* qasm) {
 // Returns job ID.
 char* sender(TOKEN_DATA* token_data, char* crn, char* qasm) {
     while (!token_data->token) {
-        pthread_cond_wait(&token_data->token_received, &token_data->lock);
+        pthread_cond_wait(&token_data->token_received_cond, &token_data->lock);
     }
 
     char* backends_data = get_backends_data(token_data, crn);

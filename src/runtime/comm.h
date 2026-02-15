@@ -13,8 +13,11 @@ typedef struct TokenData {
     char* api_key;
     char* token;
 
-    pthread_cond_t token_received;
-    pthread_cond_t job_terminated;
+    bool token_received_bool;
+    bool job_terminated_bool;
+
+    pthread_cond_t token_received_cond;
+    pthread_cond_t job_terminated_cond;
 
     pthread_mutex_t lock;
 } TOKEN_DATA;

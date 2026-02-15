@@ -47,8 +47,6 @@ int get_bearer_token(TOKEN_DATA* token_data) {
         return -1;
     }
 
-    // TODO: Implement overflow checking.
-    // TODO: Even better, implement dynamic size allocation.
     char* payload = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     snprintf(payload, BUFFER_NMEMB, "grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=%s", escaped);
 
@@ -144,7 +142,10 @@ void* authenticator(void* arg) {
 
     // Signal that the first token was received to the other thread.
 
-    pthread_cond_signal(&token_data->token_received);
+    pthread_mutex_lock(&token_data->lock);
+    token_data->token_received_bool = true;
+    pthread_mutex_unlock(&token_data->lock);
+    pthread_cond_signal(&token_data->token_received_cond);
 
     // Check if the expiration time has passed and the termination signal has activated.
     // If the expiration time has passed, get a new bearer token.
@@ -155,7 +156,7 @@ void* authenticator(void* arg) {
 
         // Terminate this thread once the job termination is announced.
 
-        if (token_data->job_terminated) {
+        if (token_data->job_terminated_bool) {
             pthread_mutex_unlock(&token_data->lock);
             break;
         }
@@ -172,11 +173,11 @@ void* authenticator(void* arg) {
         // Go to sleep until the token expires or the job termination announced.
         // The function `pthread_cond_timedwait()` requires the mutex to be locked and unlocks the mutex.
         
-        int wait_result = pthread_cond_timedwait(&token_data->job_terminated, &token_data->lock, &time_spec);
+        int wait_result = pthread_cond_timedwait(&token_data->job_terminated_cond, &token_data->lock, &time_spec);
 
         // Terminate this thread once the job termination is announced.
 
-        if (token_data->job_terminated) {
+        if (token_data->job_terminated_bool) {
             pthread_mutex_unlock(&token_data->lock);
             break;
         }
@@ -193,6 +194,8 @@ void* authenticator(void* arg) {
     }
 
     printf("Bearer Token: %s\n", token_data->token);
+
+    pthread_exit((void*)EXIT_SUCCESS);
 
     return NULL;
 }
