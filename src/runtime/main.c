@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include <cjson/cJSON.h>
 
@@ -10,9 +11,9 @@
 
 // TODO: Replace strcpy() with strdup() except for update_bearer_token() in auth.c.
 // TODO: Implement cleanup by using goto statement on entire source.
-// TODO: Refactor main.c.
-// TODO: Tidy up define macros.
-// TODO: Reorder include statements.
+// TODO: Refactor main.c and reader.c.
+// TODO: Tidy up the define macros.
+// TODO: Reorder the include statements.
 // TODO: Document the source code.
 // TODO: Write Makefile script.
 int main(int argc, char** argv) {
@@ -26,8 +27,6 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    // TODO: Implement overflow checking.
-    // TODO: Even better, implement dynamic size allocation.
     char* buffer = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!buffer) {
         fprintf(stderr, "ERROR - Allocating memory for buffer failed!\n");
@@ -74,9 +73,7 @@ int main(int argc, char** argv) {
     // Parse the specified OpenQASM file.
 
     // testing purpose!
-    char* qasm = "";
-
-    // Start the authenticator thread.
+    char* qasm = "OPENQASM 3.0; include \"stdgates.inc\"; bit[1] c; x $0; c[0] = measure $0";
 
     pthread_t authenticator_thread;
     void* authenticator_retval;
@@ -89,6 +86,10 @@ int main(int argc, char** argv) {
 
     token_data->api_key = api_key;
     token_data->token = NULL;
+    token_data->token_received_bool = false;
+    token_data->job_terminated_bool = false;
+    pthread_cond_init(&token_data->token_received_cond, NULL);
+    pthread_cond_init(&token_data->job_terminated_cond, NULL);
     pthread_mutex_init(&token_data->lock, NULL);
 
     int create_status = pthread_create(&authenticator_thread, NULL, authenticator, (void*)token_data);
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
 
     char* job_id = sender(token_data, crn, qasm);
 
+    // Receive the job result from the quantum backend.
     // the receiver signals the pthread to terminate and join.
 
     int join_status = pthread_join(authenticator_thread, &authenticator_retval);
@@ -113,16 +115,17 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    // Parse the job result and display.
-
     // fprintf(stdout, "=== Final Result ===\n\n");
 
     // Clean up.
 
     free(buffer);
     free(token_data->token);
+    pthread_cond_destroy(&token_data->token_received_cond);
+    pthread_cond_destroy(&token_data->job_terminated_cond);
     pthread_mutex_destroy(&token_data->lock);
     free(token_data);
+    free(job_id);
     cJSON_Delete(cjson_config);
 
     return EXIT_SUCCESS;

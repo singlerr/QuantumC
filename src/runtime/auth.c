@@ -140,7 +140,7 @@ void* authenticator(void* arg) {
         pthread_exit((void*)EXIT_FAILURE);
     }
 
-    // Signal that the first token was received to the other thread.
+    // Signal that the first token was received to start sending the job.
 
     pthread_mutex_lock(&token_data->lock);
     token_data->token_received_bool = true;
@@ -167,11 +167,11 @@ void* authenticator(void* arg) {
         struct timeval now;
         gettimeofday(&now, NULL);
 
-        time_spec.tv_sec = now.tv_sec + expiration_time - TIME_OFFSET;
+        time_spec.tv_sec = now.tv_sec + (expiration_time - TIME_OFFSET);
         time_spec.tv_nsec = now.tv_usec * 1000;
 
         // Go to sleep until the token expires or the job termination announced.
-        // The function `pthread_cond_timedwait()` requires the mutex to be locked and unlocks the mutex.
+        // The function `pthread_cond_timedwait()` requires the mutex to be locked and locks the mutex right before the return.
         
         int wait_result = pthread_cond_timedwait(&token_data->job_terminated_cond, &token_data->lock, &time_spec);
 
@@ -192,8 +192,6 @@ void* authenticator(void* arg) {
 
         pthread_mutex_unlock(&token_data->lock);
     }
-
-    printf("Bearer Token: %s\n", token_data->token);
 
     pthread_exit((void*)EXIT_SUCCESS);
 

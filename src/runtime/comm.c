@@ -31,9 +31,7 @@ char* copy_bearer_token(TOKEN_DATA* token_data) {
     }
 
     pthread_mutex_lock(&token_data->lock);
-
     char* copy = strdup(token);
-
     pthread_mutex_unlock(&token_data->lock);
 
     return copy;
