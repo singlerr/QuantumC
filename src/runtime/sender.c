@@ -116,8 +116,7 @@ char* select_backend(char* backends_data) {
         }
     }
 
-    char* chosen_backend = (char*)calloc(strlen(least_busy_device_name)+1, sizeof(char));
-    strcpy(chosen_backend, least_busy_device_name);
+    char* chosen_backend = strdup(least_busy_device_name);
 
     cJSON_Delete(cjson_backends_data);
 
@@ -131,14 +130,13 @@ char* submit_job(TOKEN_DATA* token_data, char* crn, char* backend, char* qasm) {
     // Construct the JSON payload.
 
     cJSON* root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "program_id", "estimator");
+    cJSON_AddStringToObject(root, "program_id", "sampler");
     cJSON_AddStringToObject(root, "backend", backend);
 
     cJSON* params = cJSON_AddObjectToObject(root, "params");
     cJSON* pubs = cJSON_AddArrayToObject(params, "pubs");
     cJSON* single_pub = cJSON_CreateArray();
     cJSON_AddItemToArray(single_pub, cJSON_CreateString(qasm));
-    cJSON_AddItemToArray(single_pub, cJSON_CreateString("Z"));
     cJSON_AddItemToArray(pubs, single_pub);
 
     cJSON* options = cJSON_AddObjectToObject(params, "options");
@@ -146,11 +144,10 @@ char* submit_job(TOKEN_DATA* token_data, char* crn, char* backend, char* qasm) {
     cJSON_AddBoolToObject(dd, "enable", cJSON_True);
 
     cJSON_AddNumberToObject(params, "version", 2);
-    cJSON_AddNumberToObject(params, "resilience_level", 1);
 
     char* payload_string = cJSON_PrintUnformatted(root);
 
-    // Send the OpenQASM code to the quantum backend.
+    // Submit the OpenQASM code to the quantum backend.
 
     CURL* curl = curl_easy_init();
     if (!curl) {
@@ -280,13 +277,12 @@ char* sender(TOKEN_DATA* token_data, char* crn, char* qasm) {
     }
 
     char* job_id = submit_job(token_data, crn, backend, qasm);
-
-    printf("Job ID: %s\n", job_id);
-
-    pthread_mutex_lock(&token_data->lock);
-    token_data->job_terminated_bool = true;
-    pthread_mutex_unlock(&token_data->lock);
-    pthread_cond_signal(&token_data->job_terminated_cond);
+    if (!job_id) {
+        fprintf(stderr, "ERROR - Getting the job ID failed!\n");
+        free(backends_data);
+        free(backend);
+        return NULL;
+    }
 
     free(backends_data);
     free(backend);

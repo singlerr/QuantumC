@@ -16,9 +16,8 @@
 void update_bearer_token(TOKEN_DATA* token_data, char* token) {
     pthread_mutex_lock(&token_data->lock);
 
-    size_t token_length = strlen(token);
-    token_data->token = (char*)realloc(token_data->token, sizeof(char)*(token_length+1));
-    strcpy(token_data->token, token);
+    free(token_data->token);
+    token_data->token = strdup(token);
 
     pthread_mutex_unlock(&token_data->lock);
 
@@ -142,10 +141,7 @@ void* authenticator(void* arg) {
 
     // Signal that the first token was received to start sending the job.
 
-    pthread_mutex_lock(&token_data->lock);
-    token_data->token_received_bool = true;
-    pthread_mutex_unlock(&token_data->lock);
-    pthread_cond_signal(&token_data->token_received_cond);
+    signal_token_received(token_data);
 
     // Check if the expiration time has passed and the termination signal has activated.
     // If the expiration time has passed, get a new bearer token.

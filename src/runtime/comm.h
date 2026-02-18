@@ -1,7 +1,9 @@
 #ifndef _COMM_H_
 #define _COMM_H_
 
-#define BUFFER_NMEMB 4096
+#include <stdbool.h>
+
+#define BUFFER_NMEMB 2048
 #define USER_AGENT_NAME "QuantumC/dev"
 
 typedef struct ResponseBuffer {
@@ -23,6 +25,12 @@ typedef struct TokenData {
 } TOKEN_DATA;
 
 size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp);
+
+void initialize_token_data(TOKEN_DATA* token_data, char* api_key);
+void destroy_token_data(TOKEN_DATA* token_data);
+
+void signal_token_received(TOKEN_DATA* token_data);
+void signal_job_terminated(TOKEN_DATA* token_data);
 
 char* copy_bearer_token(TOKEN_DATA* token_data);
 
