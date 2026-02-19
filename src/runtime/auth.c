@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 #include <time.h>
 #include <sys/time.h>
-#include <errno.h>
+
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
 #include <pthread.h>
@@ -134,8 +135,8 @@ void* authenticator(void* arg) {
     if (expiration_time < 0) {
         fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
         pthread_exit((void*)EXIT_FAILURE);
-    } else if (expiration_time < TIME_OFFSET) {
-        fprintf(stderr, "ERROR - The given expiration time is less than the offset of %d seconds!\n", TIME_OFFSET);
+    } else if (expiration_time < OFFSET_TIME) {
+        fprintf(stderr, "ERROR - The given expiration time is less than the offset of %d seconds!\n", OFFSET_TIME);
         pthread_exit((void*)EXIT_FAILURE);
     }
 
@@ -163,7 +164,7 @@ void* authenticator(void* arg) {
         struct timeval now;
         gettimeofday(&now, NULL);
 
-        time_spec.tv_sec = now.tv_sec + (expiration_time - TIME_OFFSET);
+        time_spec.tv_sec = now.tv_sec + (expiration_time - OFFSET_TIME);
         time_spec.tv_nsec = now.tv_usec * 1000;
 
         // Go to sleep until the token expires or the job termination announced.

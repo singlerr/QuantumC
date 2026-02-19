@@ -1,8 +1,6 @@
 #ifndef _COMM_H_
 #define _COMM_H_
 
-#include <stdbool.h>
-
 #define BUFFER_NMEMB 2048
 #define USER_AGENT_NAME "QuantumC/dev"
 

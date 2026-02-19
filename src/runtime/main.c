@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
 #include <pthread.h>
 
 #include "comm.h"
@@ -12,7 +13,8 @@
 
 // TODO: Implement cleanup by using goto statement on entire source.
 // TODO: Tidy up the define macros.
-// TODO: Reorder the include statements.
+// TODO: Change cJSON variable names.
+// TODO: Reorder the include statements. <--
 // TODO: Rewrite error messages.
 // TODO: Document the source code.
 // TODO: Write Makefile script.
@@ -49,6 +51,8 @@ int main(int argc, char** argv) {
         free(config);
         return EXIT_FAILURE;
     }
+
+    fprintf(stdout, "OpenQASM Code: \n%s\n", qasm);
 
     // Configure and start authentication thread.
 
@@ -105,6 +109,8 @@ int main(int argc, char** argv) {
         free(config);
         return EXIT_FAILURE;
     }
+
+    signal_job_terminated(token_data);
 
     // Join the authenticator thread to the main thread.
 
