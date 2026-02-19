@@ -11,10 +11,9 @@
 #include "reader.h"
 
 
-// TODO: Implement cleanup by using goto statement on entire source.
+// TODO: Implement cleanup using goto statement pattern.
 // TODO: Tidy up the define macros.
 // TODO: Change cJSON variable names.
-// TODO: Reorder the include statements. <--
 // TODO: Rewrite error messages.
 // TODO: Document the source code.
 // TODO: Write Makefile script.
