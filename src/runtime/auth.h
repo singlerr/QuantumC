@@ -3,8 +3,9 @@
 
 #define OFFSET_TIME 300
 
+char* get_bearer_token(TOKEN_DATA* token_data);
 void update_bearer_token(TOKEN_DATA* token_data, char* token);
-int get_bearer_token(TOKEN_DATA* token_data);
+int parse_bearer_token(TOKEN_DATA* token_data, char* response); // separate parse_bearer_token and parse_expiration_time?
 
 void* authenticator(void* arg);
 

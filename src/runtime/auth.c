@@ -14,49 +14,40 @@
 #include "auth.h"
 
 
-void update_bearer_token(TOKEN_DATA* token_data, char* token) {
-    pthread_mutex_lock(&token_data->lock);
-
-    free(token_data->token);
-    token_data->token = strdup(token);
-
-    pthread_mutex_unlock(&token_data->lock);
-
-    return;
-}
-
-// Returns expiration time.
-// TODO: Refactoring is required.
-int get_bearer_token(TOKEN_DATA* token_data) {
+char* get_bearer_token(TOKEN_DATA* token_data) {
+    char* response_data = NULL;
     char* api_key = token_data->api_key;
     
     CURL* curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "ERROR: cURL initialization failed!\n");
-        return -1;
+        goto terminate;
     }
 
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
-    struct curl_slist* headers = NULL; 
+    if (!rb.data) {
+        fprintf(stderr, "ERROR - Allocating memory for response buffer failed1\n");
+        goto cleanup_curl;
+    }
 
     char* escaped = curl_easy_escape(curl, api_key, 0);
     if (!escaped) {
         fprintf(stderr, "ERROR - API Key escaping failed!\n");
-        free(rb.data);
-        curl_easy_cleanup(curl);
-        return -1;
+        goto cleanup_rb;
     }
 
     char* payload = (char*)calloc(BUFFER_NMEMB, sizeof(char));
+    if (!payload) {
+        fprintf(stderr, "ERROR - Allocating memory for payload failed!\n");
+        goto cleanup_escaped;
+    }
     snprintf(payload, BUFFER_NMEMB, "grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=%s", escaped);
 
+    struct curl_slist* headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
     if (!headers) {
         fprintf(stderr, "ERROR - Content type appending failed!\n");
-        free(rb.data);
-        curl_easy_cleanup(curl);
-        curl_free(escaped);
-        return -1;
+        goto cleanup_payload;
     }
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://iam.cloud.ibm.com/identity/token");
@@ -74,70 +65,90 @@ int get_bearer_token(TOKEN_DATA* token_data) {
         fprintf(stderr, "ERROR - Authentication request failed!\n");
         fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
         fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
-        free(rb.data);
-        curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
-        curl_free(escaped);
-        return -1;
+        goto cleanup_payload;
     }
     
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(headers);
-    curl_free(escaped);
+    response_data = strdup(rb.data);
+
+cleanup_payload:
     free(payload);
 
-    cJSON* cjson_data = cJSON_Parse(rb.data);
-    if (!cjson_data) {
+cleanup_escaped:
+    curl_free(escaped);
+
+cleanup_rb:
+    free(rb.data);
+
+cleanup_curl:
+    curl_easy_cleanup(curl);
+
+terminate:
+    return response_data;
+}
+
+void update_bearer_token(TOKEN_DATA* token_data, char* token) {
+    pthread_mutex_lock(&token_data->lock);
+    free(token_data->token);
+    token_data->token = strdup(token);
+    pthread_mutex_unlock(&token_data->lock);
+
+    return;
+}
+
+int parse_bearer_token(TOKEN_DATA* token_data, char* response) {
+    int expiration_time = -1;
+
+    cJSON* data_cjson = cJSON_Parse(response);
+    if (!data_cjson) {
         fprintf(stderr, "ERROR - Parsing bearer token data JSON failed!\n");
         const char* error = cJSON_GetErrorPtr();
-        if (error) {
-            fprintf(stderr, "ERROR - %s\n", error);
-        }
-        free(rb.data);
-        cJSON_Delete(cjson_data);
-        return -1;
+        if (error) fprintf(stderr, "ERROR - %s\n", error);
+        goto terminate;
     }
 
-    int expiration_time = 0;
-    cJSON* cjson_expiration_time = cJSON_GetObjectItemCaseSensitive(cjson_data, "expires_in");
-    if (cJSON_IsNumber(cjson_expiration_time) && cjson_expiration_time->valueint > 0) {
-        expiration_time = cjson_expiration_time->valueint;
-    } else {
-        fprintf(stderr, "ERROR - The expiration time is not valid!\n");
-        free(rb.data);
-        cJSON_Delete(cjson_data);
-        return -1;
-    }
-
-    cJSON* cjson_bearer_token = cJSON_GetObjectItemCaseSensitive(cjson_data, "access_token");
+    cJSON* cjson_bearer_token = cJSON_GetObjectItemCaseSensitive(data_cjson, "access_token");
     if (cJSON_IsString(cjson_bearer_token) && cjson_bearer_token->valuestring) {
         update_bearer_token(token_data, cjson_bearer_token->valuestring);
     } else {
         fprintf(stderr, "ERROR - Parsing bearer token failed!\n");
-        free(rb.data);
-        cJSON_Delete(cjson_data);
-        return -1;
+        goto cleanup_data_cjson;
     }
 
-    free(rb.data);
-    cJSON_Delete(cjson_data);
+    cJSON* cjson_expiration_time = cJSON_GetObjectItemCaseSensitive(data_cjson, "expires_in");
+    if (cJSON_IsNumber(cjson_expiration_time) && cjson_expiration_time->valueint > 0) {
+        expiration_time = cjson_expiration_time->valueint;
+    } else {
+        fprintf(stderr, "ERROR - The expiration time is not valid!\n");
+        goto cleanup_data_cjson;
+    }
+
+cleanup_data_cjson:
+    cJSON_Delete(data_cjson);
     
+terminate:
     return expiration_time;
 }
 
 
 void* authenticator(void* arg) {
     TOKEN_DATA* token_data = (TOKEN_DATA*)arg;
+    long termination_status = EXIT_FAILURE;
 
     // Obtain the first token.
 
-    int expiration_time = get_bearer_token(token_data);
-    if (expiration_time < 0) {
+    char* response = get_bearer_token(token_data);
+    if (!response) {
         fprintf(stderr, "ERROR - Obtaining bearer token failed!\n");
-        pthread_exit((void*)EXIT_FAILURE);
+        goto terminate;
+    }
+
+    int expiration_time = parse_bearer_token(token_data, response);
+    if (expiration_time < 0) {
+        fprintf(stderr, "ERROR - Parsing bearer token failed!\n");
+        goto cleanup_response;
     } else if (expiration_time < OFFSET_TIME) {
         fprintf(stderr, "ERROR - The given expiration time is less than the offset of %d seconds!\n", OFFSET_TIME);
-        pthread_exit((void*)EXIT_FAILURE);
+        goto cleanup_response;
     }
 
     // Signal that the first token was received to start sending the job.
@@ -183,14 +194,21 @@ void* authenticator(void* arg) {
 
         if (wait_result == ETIMEDOUT) {
             pthread_mutex_unlock(&token_data->lock);
-            expiration_time = get_bearer_token(token_data);
+            response = get_bearer_token(token_data); // FIXME: Potential memory leak.
+            expiration_time = parse_bearer_token(token_data, response);
             pthread_mutex_lock(&token_data->lock);
         }
 
         pthread_mutex_unlock(&token_data->lock);
     }
 
-    pthread_exit((void*)EXIT_SUCCESS);
+    termination_status = EXIT_SUCCESS;
+
+cleanup_response:
+    free(response);
+
+terminate:
+    pthread_exit((void*)termination_status);
 
     return NULL;
 }

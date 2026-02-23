@@ -51,45 +51,43 @@ CONFIG* read_config(char* filename) {
 
     fread(buffer, sizeof(char), characters, file);
 
-    cJSON* cjson_config = cJSON_Parse(buffer);
-    if (!cjson_config) {
+    cJSON* config_cjson = cJSON_Parse(buffer);
+    if (!config_cjson) {
         fprintf(stderr, "ERROR - Parsing configuration JSON failed!\n");
         const char* error = cJSON_GetErrorPtr();
-        if (error) {
-            fprintf(stderr, "ERROR - %s\n", error);
-        }
+        if (error) fprintf(stderr, "ERROR - %s\n", error);
         goto cleanup_buffer;
     }
 
-    cJSON* cjson_api = cJSON_GetObjectItemCaseSensitive(cjson_config, "api");
+    cJSON* cjson_api = cJSON_GetObjectItemCaseSensitive(config_cjson, "api");
     if (!cJSON_IsString(cjson_api) || !cjson_api->valuestring) {
         fprintf(stderr, "ERROR - Parsing API key failed!\n");
-        goto cleanup_cjson_config;
+        goto cleanup_config_cjson;
     }
 
-    cJSON* cjson_crn = cJSON_GetObjectItemCaseSensitive(cjson_config, "crn");
+    cJSON* cjson_crn = cJSON_GetObjectItemCaseSensitive(config_cjson, "crn");
     if (!cJSON_IsString(cjson_crn) || !cjson_crn->valuestring) {
         fprintf(stderr, "ERROR - Parsing CRN failed!\n");
-        goto cleanup_cjson_config;
+        goto cleanup_config_cjson;
     }
 
     config = (CONFIG*)calloc(1, sizeof(CONFIG));
     if (!config) {
         fprintf(stderr, "ERROR - Memory allocation for config failed!\n");
-        goto cleanup_cjson_config;
+        goto cleanup_config_cjson;
     }
 
     config->api_key = strdup(cjson_api->valuestring);
     config->crn = strdup(cjson_crn->valuestring);
 
-cleanup_cjson_config:
-    if (cjson_config) cJSON_Delete(cjson_config);
+cleanup_config_cjson:
+    cJSON_Delete(config_cjson);
 
 cleanup_buffer:
-    if (buffer) free(buffer);
+    free(buffer);
 
 cleanup_file:
-    if (file) fclose(file);
+    fclose(file);
 
 terminate:
     return config;

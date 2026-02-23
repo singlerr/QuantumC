@@ -68,14 +68,11 @@ void signal_job_terminated(TOKEN_DATA* token_data) {
 
 
 char* copy_bearer_token(TOKEN_DATA* token_data) {
-    char* token = token_data->token;
-    if (!token) {
-        fprintf(stderr, "ERROR - The bearer token is not valid to copy!\n");
-        return NULL;
-    }
+    char* copy = NULL;
 
     pthread_mutex_lock(&token_data->lock);
-    char* copy = strdup(token);
+    if (token_data->token) copy = strdup(token_data->token);
+    else fprintf(stderr, "ERROR - The bearer token is not valid to copy!\n");
     pthread_mutex_unlock(&token_data->lock);
 
     return copy;
