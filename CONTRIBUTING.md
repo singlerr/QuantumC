@@ -71,12 +71,11 @@ We prefer using [libcurl](https://curl.se/libcurl/) for backend communication ra
     * [ ] Semantic Analysis
     * [ ] Optimization (optional)
     * [ ] Code Generation
-* [ ] Implement networking component of the compiler for job dispatching.
+* [ ] Implement runtime component of the compiler to communicate with the quantum backend.
     * [x] Making Requests
-    * [ ] Authentication
-    * [ ] Qiskit Transpiler Service
-    * [ ] Qiskit Runtime
-    * [ ] Result Parsing
+    * [x] Authentication
+    * [x] Qiskit Runtime
+    * [x] Result Parsing
     * [ ] Main Compiler Integration
 * [ ] Debug memory leaks.
 * [ ] Implement testing cases.
