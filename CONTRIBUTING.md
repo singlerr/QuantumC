@@ -11,9 +11,9 @@ Please use the [Issues](https://github.com/singlerr/QuantumC/issues) tab for bug
 
 ### Compilation
 
-### Networking
+### Runtime
 
-The networking component handles dispatching compiled QuantumC circuits to remote quantum backends, running them, and returning results to the host program.
+The runtime component handles dispatching compiled QuantumC circuits to remote quantum backends, running them, and returning results to the host program.
 The typical flow for a backend like IBM Quantum is shown below:
 
 ```python
@@ -35,17 +35,8 @@ def run_quantum_circuit(qc: QuantumCircuit, throws: int, token: str, crn: str) -
     return counts
 ```
 
-When a QuantumC program is executed, the networking layer should perform these steps as the code snippet above: authenticate the user, discover and select a backend, run any required transpilation or optimization, submit the job, monitor execution, and parse the results.
+When a QuantumC program is executed, the runtime layer should perform these steps as the code snippet above: authenticate the user, discover and select a backend, run any required transpilation or optimization, submit the job, monitor execution, and parse the results.
 The project aims to support various quantum backend hosts, not limited to IBM.
-
-#### libcurl vs. Qiskit C API
-
-Using libcurl may require more low-level code, but it keeps the networking code self-contained and easier to integrate into different environments while minimizing external dependencies.
-We prefer using [libcurl](https://curl.se/libcurl/) for backend communication rather than the prebuilt [Qiskit C](https://quantum.cloud.ibm.com/docs/en/api/qiskit-c) API for the following reasons:
-
-* **Minimal Runtime Dependencies**: libcurl is a portable C library that does not require Python or Rust configured on the host machine.
-* **Provider-Agnostic REST Access**: Direct HTTP calls make it easier to support multiple backend hosts and custom provider APIs.
-* **Full Control of Requests**: Implementing authentication, error handling, job submission, and result parsing in C gives the user finer control.
 
 ## Task Queue
 
@@ -86,6 +77,6 @@ We prefer using [libcurl](https://curl.se/libcurl/) for backend communication ra
     * [ ] Quantum Approximate Optimization Algorithm
 * [ ] Document and maintain the codebase.
     * [ ] QuantumC Compiler Code
-    * [ ] QuantumC Networking Code
+    * [ ] QuantumC Runtime Code
     * [ ] QuantumC Testing Code
     * [ ] Demonstration Manuals
