@@ -12,36 +12,46 @@
 #include "sender.h"
 
 
+/**
+ * @brief Fetch available backends data from IBM Quantum API
+ *
+ * Uses the bearer token in token_data and the provided CRN to request the
+ * list of backends. The returned string must be freed by the caller.
+ *
+ * @param token_data Pointer to TOKEN_DATA with authentication token
+ * @param crn Service CRN string to include in headers
+ * @return JSON response string on success (CALLER MUST FREE), or NULL on error
+ */
 char* get_backends_data(TOKEN_DATA* token_data, char* crn) {
     char* backends_data = NULL;
 
     char* token = copy_bearer_token(token_data);
     if (!token) {
-        fprintf(stderr, "ERROR - Copying the bearer token failed!\n");
+        fprintf(stderr, "ERROR - Copying bearer token failed in get_backends_data()!\n");
         goto terminate;
     }
 
     CURL* curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "ERROR: cURL initialization failed!\n");
+        fprintf(stderr, "ERROR - cURL initialization failed in get_backends_data()!\n");
         goto cleanup_token;
     }
 
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
     if (!rb.data) {
-        fprintf(stderr, "ERROR - Allocating memory for response buffer failed1\n");
+        fprintf(stderr, "ERROR - Allocating memory for response buffer failed in get_backends_data()!\n");
         goto cleanup_curl;
     }
 
     char* token_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!token_header) {
-        fprintf(stderr, "ERROR - Allocating memory for token header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for token header failed in get_backends_data()!\n");
         goto cleanup_rb;
     }
 
     char* crn_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!crn_header) {
-        fprintf(stderr, "ERROR - Allocating memory for CRN header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for CRN header failed in get_backends_data()!\n");
         goto cleanup_token_header;
     }
 
@@ -54,7 +64,7 @@ char* get_backends_data(TOKEN_DATA* token_data, char* crn) {
     headers = curl_slist_append(headers, crn_header);
     headers = curl_slist_append(headers, "IBM-API-Version: 2026-02-01");
     if (!headers) {
-        fprintf(stderr, "ERROR - Content type appending failed!\n");
+        fprintf(stderr, "ERROR - Header construction failed in get_backends_data()!\n");
         goto cleanup_crn_header;
     }
 
@@ -66,12 +76,12 @@ char* get_backends_data(TOKEN_DATA* token_data, char* crn) {
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT_NAME);
 
-    CURLcode response = curl_easy_perform(curl);
+    CURLcode response_code = curl_easy_perform(curl);
     long http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    if (response != CURLE_OK || http_code >= 400) {
-        fprintf(stderr, "ERROR - Getting backend information failed!\n");
-        fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
+    if (response_code != CURLE_OK || http_code >= 400) {
+        fprintf(stderr, "ERROR - Getting backend information failed in get_backends_data()!\n");
+        fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response_code));
         fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
         goto cleanup_headers;
     }
@@ -100,45 +110,54 @@ terminate:
     return backends_data;
 }
 
+/**
+ * @brief Select the least-busy backend from backends JSON
+ *
+ * Parses the provided JSON and returns a duplicated backend name chosen by
+ * queue length heuristics.
+ *
+ * @param backends_data JSON string describing available backends
+ * @return Duplicated backend name (CALLER MUST FREE) or NULL on failure
+ */
 char* select_backend(char* backends_data) {
     char* backend = NULL;
 
     cJSON* backends_data_cjson = cJSON_Parse(backends_data);
     if (!backends_data_cjson) {
-        fprintf(stderr, "ERROR - Parsing backends data JSON failed!\n");
+        fprintf(stderr, "ERROR - Parsing backends data JSON failed in select_backend()!\n");
         const char* error = cJSON_GetErrorPtr();
         if (error) fprintf(stderr, "ERROR - %s\n", error);
         goto terminate;
     }
 
-    cJSON* cjson_devices = cJSON_GetObjectItemCaseSensitive(backends_data_cjson, "devices");
-    if (!cjson_devices || !cjson_devices->child) {
-        fprintf(stderr, "ERROR - Parsing devices list failed!\n");
+    cJSON* devices_cjson = cJSON_GetObjectItemCaseSensitive(backends_data_cjson, "devices");
+    if (!devices_cjson || !devices_cjson->child) {
+        fprintf(stderr, "ERROR - Parsing devices list failed in select_backend()!\n");
         goto cleanup_backends_data_cjson;
     }
 
     int least_busy_device_queue = INT_MAX;
     char* least_busy_device_name = NULL;
 
-    for (cJSON* cjson_device = cjson_devices->child; cjson_device; cjson_device = cjson_device->next) {
+    for (cJSON* device_cjson = devices_cjson->child; device_cjson; device_cjson = device_cjson->next) {
         int device_jobs = 0;
 
-        cJSON* cjson_device_jobs = cJSON_GetObjectItemCaseSensitive(cjson_device, "queue_length");
-        if (cJSON_IsNumber(cjson_device_jobs)) {
-            device_jobs = cjson_device_jobs->valueint;
+        cJSON* device_jobs_cjson = cJSON_GetObjectItemCaseSensitive(device_cjson, "queue_length");
+        if (cJSON_IsNumber(device_jobs_cjson)) {
+            device_jobs = device_jobs_cjson->valueint;
         } else {
-            fprintf(stderr, "ERROR - Parsing the queue length failed!\n");
+            fprintf(stderr, "ERROR - Parsing the queue length failed in select_backend()!\n");
             goto cleanup_backends_data_cjson;
         }
         
         if (0 <= device_jobs && device_jobs < least_busy_device_queue) {
             least_busy_device_queue = device_jobs;
 
-            cJSON* cjson_device_name = cJSON_GetObjectItemCaseSensitive(cjson_device, "name");
-            if (cJSON_IsString(cjson_device_name) && cjson_device_name->valuestring) {
-                least_busy_device_name = cjson_device_name->valuestring;
+            cJSON* device_name_cjson = cJSON_GetObjectItemCaseSensitive(device_cjson, "name");
+            if (cJSON_IsString(device_name_cjson) && device_name_cjson->valuestring) {
+                least_busy_device_name = device_name_cjson->valuestring;
             } else {
-                fprintf(stderr, "ERROR - Parsing the device name failed!\n");
+                fprintf(stderr, "ERROR - Parsing the device name failed in select_backend()!\n");
                 goto cleanup_backends_data_cjson;
             }
         }
@@ -153,6 +172,16 @@ terminate:
     return backend;
 }
 
+/**
+ * @brief Build job submission payload
+ *
+ * Constructs the JSON payload to submit a sampling job for the provided
+ * backend and OpenQASM program.
+ *
+ * @param backend Backend name to target
+ * @param qasm OpenQASM program string
+ * @return JSON payload string (CALLER MUST FREE) or NULL
+ */
 char* build_payload(char* backend, char* qasm) {
     char* payload = NULL;
 
@@ -178,36 +207,47 @@ char* build_payload(char* backend, char* qasm) {
     return payload;
 }
 
+/**
+ * @brief Submit a job to the IBM Quantum jobs endpoint
+ *
+ * Posts the provided JSON payload to the jobs endpoint and returns the raw
+ * response body when successful.
+ *
+ * @param token_data Pointer to TOKEN_DATA with authentication token
+ * @param crn Service CRN string
+ * @param payload JSON payload to submit
+ * @return Response body string on success (CALLER MUST FREE) or NULL on error
+ */
 char* submit_job(TOKEN_DATA* token_data, char* crn, char* payload) {
-    char* response_data = NULL;
+    char* response = NULL;
 
     char* token = copy_bearer_token(token_data);
     if (!token) {
-        fprintf(stderr, "ERROR - Copying the bearer token failed!\n");
+        fprintf(stderr, "ERROR - Copying bearer token failed in submit_job()!\n");
         goto terminate;
     }
 
     CURL* curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "ERROR: cURL initialization failed!\n");
+        fprintf(stderr, "ERROR - cURL initialization failed in submit_job()!\n");
         goto cleanup_token;
     }
 
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
     if (!rb.data) {
-        fprintf(stderr, "ERROR - Allocating memory for response buffer failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for response buffer failed in submit_job()!\n");
         goto cleanup_curl;
     }
 
     char* token_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!token_header) {
-        fprintf(stderr, "ERROR - Allocating memory for token header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for token header failed in submit_job()!\n");
         goto cleanup_rb;
     }
 
     char* crn_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!crn_header) {
-        fprintf(stderr, "ERROR - Allocating memory for CRN header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for CRN header failed in submit_job()!\n");
         goto cleanup_token_header;
     }
 
@@ -221,7 +261,7 @@ char* submit_job(TOKEN_DATA* token_data, char* crn, char* payload) {
     headers = curl_slist_append(headers, "IBM-API-Version: 2026-02-01");
     headers = curl_slist_append(headers, "Content-Type: application/json");
     if (!headers) {
-        fprintf(stderr, "ERROR - Content type appending failed!\n");
+        fprintf(stderr, "ERROR - Header construction failed in submit_job()!\n");
         goto cleanup_crn_header;
     }
 
@@ -234,18 +274,18 @@ char* submit_job(TOKEN_DATA* token_data, char* crn, char* payload) {
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT_NAME);
 
-    CURLcode response = curl_easy_perform(curl);
+    CURLcode response_code = curl_easy_perform(curl);
     long http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    if (response != CURLE_OK || http_code >= 400) {
-        fprintf(stderr, "ERROR - Job submission failed!\n");
-        fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
+    if (response_code != CURLE_OK || http_code >= 400) {
+        fprintf(stderr, "ERROR - Job submission failed in submit_job()!\n");
+        fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response_code));
         fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
-        if (rb.data && rb.size > 0) fprintf(stderr, "ERROR - Response body: %s\n", rb.data);
+        if (rb.data && rb.size > 0) fprintf(stderr, "ERROR - Response Body: %s\n", rb.data);
         goto cleanup_headers;
     }
 
-    response_data = strdup(rb.data);
+    response = strdup(rb.data);
 
 cleanup_headers:
     curl_slist_free_all(headers);
@@ -266,15 +306,23 @@ cleanup_token:
     free(token);
 
 terminate:
-    return response_data;
+    return response;
 }
 
+/**
+ * @brief Parse job ID from job submission response
+ *
+ * Extracts the id field from the job submission JSON response.
+ *
+ * @param response JSON response string from job submission
+ * @return Duplicated job id string (CALLER MUST FREE) or NULL on failure
+ */
 char* parse_job_id(char* response) {
     char* job_id = NULL;
 
     cJSON* response_cjson = cJSON_Parse(response);
     if (!response_cjson) {
-        fprintf(stderr, "ERROR - Parsing job submission response JSON failed!\n");
+        fprintf(stderr, "ERROR - Parsing job submission response JSON failed in parse_job_id()!\n");
         const char* error = cJSON_GetErrorPtr();
         if (error) fprintf(stderr, "ERROR - %s\n", error);
         goto terminate;
@@ -284,7 +332,7 @@ char* parse_job_id(char* response) {
     if (cJSON_IsString(job_id_cjson) && job_id_cjson->valuestring) {
         job_id = strdup(job_id_cjson->valuestring);
     } else {
-        fprintf(stderr, "ERROR - Parsing job ID from response failed!\n");
+        fprintf(stderr, "ERROR - Parsing job ID from response failed in parse_job_id()!\n");
         goto cleanup_response_cjson;
     }
 
@@ -296,6 +344,17 @@ terminate:
 }
 
 
+/**
+ * @brief High-level sender: select backend, submit job, return job id
+ *
+ * Waits for the authenticator to provide a token, selects a backend,
+ * constructs the payload, submits the job and returns the job id.
+ *
+ * @param token_data Pointer to TOKEN_DATA used for authentication
+ * @param crn Service CRN string
+ * @param qasm OpenQASM program string to submit
+ * @return Duplicated job id string (CALLER MUST FREE) or NULL on failure
+ */
 char* sender(TOKEN_DATA* token_data, char* crn, char* qasm) {
     pthread_mutex_lock(&token_data->lock);
     while (!token_data->token_received_bool) {
@@ -307,31 +366,31 @@ char* sender(TOKEN_DATA* token_data, char* crn, char* qasm) {
 
     char* backends_data = get_backends_data(token_data, crn);
     if (!backends_data) {
-        fprintf(stderr, "ERROR - Fetching backends data failed!\n");
+        fprintf(stderr, "ERROR - Fetching backends data failed in sender()!\n");
         goto terminate;
     }
 
     char* backend = select_backend(backends_data);
     if (!backend) {
-        fprintf(stderr, "ERROR - Selecting the backend device failed!\n");
+        fprintf(stderr, "ERROR - Selecting the backend device failed in sender()!\n");
         goto cleanup_backends_data;
     }
 
     char* payload = build_payload(backend, qasm);
     if (!payload) {
-        fprintf(stderr, "ERROR - Building a payload for submitting job failed!\n");
+        fprintf(stderr, "ERROR - Building payload for job submission failed in sender()!\n");
         goto cleanup_backend;
     }
 
     char* response = submit_job(token_data, crn, payload);
     if (!response) {
-        fprintf(stderr, "ERROR - Getting a response from job submission failed!\n");
+        fprintf(stderr, "ERROR - Getting a response from job submission failed in sender()!\n");
         goto cleanup_payload;
     }
 
     job_id = parse_job_id(response);
     if (!job_id) {
-        fprintf(stderr, "ERROR - Parsing the job ID failed!\n");
+        fprintf(stderr, "ERROR - Parsing the job ID failed in sender()!\n");
         goto cleanup_response;
     }
 

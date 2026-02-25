@@ -4,7 +4,7 @@
 #define CONFIG_FILENAME "config.json"
 
 typedef struct config {
-    char* api_key;
+    char* key;
     char* crn;
 } CONFIG;
 

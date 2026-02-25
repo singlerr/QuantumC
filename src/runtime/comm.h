@@ -10,7 +10,7 @@ typedef struct ResponseBuffer {
 } RESPONSE_BUFFER;
 
 typedef struct TokenData {
-    char* api_key;
+    char* key;
     char* token;
 
     bool token_received_bool;
@@ -24,7 +24,7 @@ typedef struct TokenData {
 
 size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp);
 
-void initialize_token_data(TOKEN_DATA* token_data, char* api_key);
+void initialize_token_data(TOKEN_DATA* token_data, char* key);
 void destroy_token_data(TOKEN_DATA* token_data);
 
 void signal_token_received(TOKEN_DATA* token_data);

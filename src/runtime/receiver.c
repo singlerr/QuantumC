@@ -12,12 +12,21 @@
 #include "receiver.h"
 
 
+/**
+ * @brief Check backend response for special queue code
+ *
+ * Inspect the backend JSON response for the special error code (1234)
+ * indicating the job is still queued.
+ *
+ * @param response JSON response string from the backend
+ * @return true if the special code (1234) is present, false otherwise (error)
+ */
 bool check_code(char* response) {
     bool is_code_1234 = false;
 
     cJSON* result_cjson = cJSON_Parse(response);
     if (!result_cjson) {
-        fprintf(stderr, "ERROR - Parsing response packet from the backend failed!\n");
+        fprintf(stderr, "ERROR - Parsing response packet from the backend failed in check_code()!\n");
         const char* error = cJSON_GetErrorPtr();
         if (error) fprintf(stderr, "ERROR - %s\n", error);
         goto terminate;
@@ -28,7 +37,7 @@ bool check_code(char* response) {
     if (cJSON_IsArray(errors_cjson)) {
         first_error_cjson = errors_cjson->child;
     } else {
-        fprintf(stderr, "ERROR - The errors part does not contain an error array!\n");
+        fprintf(stderr, "ERROR - The errors part does not contain an error array in check_code()!\n");
         goto cleanup_result_cjson;
     }
 
@@ -36,7 +45,7 @@ bool check_code(char* response) {
     if (cJSON_IsNumber(code_cjson) && code_cjson->valueint == 1234) {
         is_code_1234 = true;
     } else {
-        fprintf(stderr, "ERROR - API returned error code: %d\n", code_cjson->valueint);
+        fprintf(stderr, "ERROR - API returned error code: %d in check_code()!\n", code_cjson->valueint);
         cJSON* error_msg = cJSON_GetObjectItemCaseSensitive(first_error_cjson, "message");
         if (cJSON_IsString(error_msg) && error_msg->valuestring) {
             fprintf(stderr, "ERROR - Message: %s\n", error_msg->valuestring);
@@ -50,42 +59,53 @@ terminate:
     return is_code_1234;
 }
 
+/**
+ * @brief Retrieve job result by polling the job results endpoint
+ *
+ * Polls until the job result is available (handles queued responses) and
+ * returns the raw response body.
+ *
+ * @param token_data Pointer to TOKEN_DATA with authentication token
+ * @param crn Service CRN string
+ * @param job_id Job identifier to query
+ * @return JSON result string on success (CALLER MUST FREE), or NULL on error
+ */
 char* get_job_result(TOKEN_DATA* token_data, char* crn, char* job_id) {
     char* job_result = NULL;
 
     char* token = copy_bearer_token(token_data);
     if (!token) {
-        fprintf(stderr, "ERROR - Copying bearer token failed!\n");
+        fprintf(stderr, "ERROR - Copying bearer token failed in get_job_result()!\n");
         goto terminate;
     }
 
     CURL* curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "ERROR - cURL initialization failed!\n");
+        fprintf(stderr, "ERROR - cURL initialization failed in get_job_result()!\n");
         goto cleanup_token;
     }
 
     RESPONSE_BUFFER rb = {(char*)calloc(1, sizeof(char)), 0};
     if (!rb.data) {
-        fprintf(stderr, "ERROR - Allocating memory for response buffer failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for response buffer failed in get_job_result()!\n");
         goto cleanup_curl;
     }
 
     char* url = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!url) {
-        fprintf(stderr, "ERROR- Allocating memory for URL failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for URL failed in get_job_result()!\n");
         goto cleanup_rb;
     }
 
     char* token_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!token_header) {
-        fprintf(stderr, "ERROR - Allocating memory for token header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for token header failed in get_job_result()!\n");
         goto cleanup_url;
     }
 
     char* crn_header = (char*)calloc(BUFFER_NMEMB, sizeof(char));
     if (!crn_header) {
-        fprintf(stderr, "ERROR - Allocating memory for CRN header failed!\n");
+        fprintf(stderr, "ERROR - Allocating memory for CRN header failed in get_job_result()!\n");
         goto cleanup_token_header;
     }
 
@@ -99,7 +119,7 @@ char* get_job_result(TOKEN_DATA* token_data, char* crn, char* job_id) {
     headers = curl_slist_append(headers, crn_header);
     headers = curl_slist_append(headers, "IBM-API-Version: 2026-02-01");
     if (!headers) {
-        fprintf(stderr, "ERROR - Content type appending failed!\n");
+        fprintf(stderr, "ERROR - Header construction failed in get_job_result()!\n");
         goto cleanup_crn_header;
     }
 
@@ -112,7 +132,7 @@ char* get_job_result(TOKEN_DATA* token_data, char* crn, char* job_id) {
     curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT_NAME);
 
     while (true) {
-        CURLcode response = curl_easy_perform(curl);
+        CURLcode response_code = curl_easy_perform(curl);
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 
@@ -123,9 +143,9 @@ char* get_job_result(TOKEN_DATA* token_data, char* crn, char* job_id) {
             continue;
         }
 
-        if (response != CURLE_OK || http_code >= 400) {
-            fprintf(stderr, "ERROR - Getting job result failed!\n");
-            fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response));
+        if (response_code != CURLE_OK || http_code >= 400) {
+            fprintf(stderr, "ERROR - Getting job result failed in get_job_result()!\n");
+            fprintf(stderr, "ERROR - cURL Error: %s\n", curl_easy_strerror(response_code));
             fprintf(stderr, "ERROR - HTTP Code: %ld\n", http_code);
             goto cleanup_headers;
         }
@@ -160,12 +180,21 @@ terminate:
     return job_result;
 }
 
+/**
+ * @brief Parse job result and return most frequent sample
+ *
+ * Navigates the result JSON to find results[0].data.meas.samples and returns
+ * the most frequent sample string.
+ *
+ * @param result Job result JSON string
+ * @return Duplicated sample string (CALLER MUST FREE) or NULL on failure
+ */
 char* parse_job_result(char* result) {
     char* result_sample = NULL;
 
     cJSON* result_cjson = cJSON_Parse(result);
     if (!result_cjson) {
-        fprintf(stderr, "ERROR - Parsing result JSON failed!\n");
+        fprintf(stderr, "ERROR - Parsing result JSON failed in parse_job_result()!\n");
         goto terminate;
     }
 
@@ -173,26 +202,26 @@ char* parse_job_result(char* result) {
 
     cJSON* results_array = cJSON_GetObjectItemCaseSensitive(result_cjson, "results");
     if (!results_array || !results_array->child) {
-        fprintf(stderr, "ERROR - No results array found!\n");
+        fprintf(stderr, "ERROR - No results array found in parse_job_result()!\n");
         goto cleanup_result_cjson;
     }
 
     cJSON* first_result = results_array->child;
     cJSON* data = cJSON_GetObjectItemCaseSensitive(first_result, "data");
     if (!data) {
-        fprintf(stderr, "ERROR - No data field in result!\n");
+        fprintf(stderr, "ERROR - No data field in result in parse_job_result()!\n");
         goto cleanup_result_cjson;
     }
 
     cJSON* meas = cJSON_GetObjectItemCaseSensitive(data, "meas");
     if (!meas) {
-        fprintf(stderr, "ERROR - No meas field in data!\n");
+        fprintf(stderr, "ERROR - No meas field in data in parse_job_result()!\n");
         goto cleanup_result_cjson;
     }
 
     cJSON* samples_array = cJSON_GetObjectItemCaseSensitive(meas, "samples");
     if (!samples_array || !samples_array->child) {
-        fprintf(stderr, "ERROR - No samples array found!\n");
+        fprintf(stderr, "ERROR - No samples array found in parse_job_result()!\n");
         goto cleanup_result_cjson;
     }
 
@@ -224,7 +253,7 @@ char* parse_job_result(char* result) {
             sample_counts[found_index].count++;
         } else {
             if (unique_count >= max_unique_samples) {
-                fprintf(stderr, "ERROR - Too many unique samples!\n");
+                fprintf(stderr, "ERROR - Too many unique samples in parse_job_result()!\n");
                 goto cleanup_sample_counts;
             }
             sample_counts[unique_count].sample = strdup(sample_str);
@@ -259,6 +288,15 @@ terminate:
     return result_sample;
 }
 
+/**
+ * @brief Convert hex sample to binary string
+ *
+ * Parses a hexadecimal sample string (e.g., "0x...") and returns a
+ * newly allocated binary string representation.
+ *
+ * @param sample Hex sample string to convert
+ * @return Duplicated binary string (CALLER MUST FREE) or NULL on failure
+ */
 char* convert_job_result(char* sample) {
     char* binary_str = NULL;
 
@@ -266,7 +304,7 @@ char* convert_job_result(char* sample) {
 
     unsigned long hex_value = 0;
     if (sscanf(sample, "0x%lx", &hex_value) != 1) {
-        fprintf(stderr, "ERROR - Failed to parse hex sample: %s\n", sample);
+        fprintf(stderr, "ERROR - Failed to parse hex sample: %s in convert_job_result()!\n", sample);
         return NULL;
     }
 
@@ -287,7 +325,7 @@ char* convert_job_result(char* sample) {
 
     binary_str = (char*)calloc(num_bits+1, sizeof(char));
     if (!binary_str) {
-        fprintf(stderr, "ERROR - Memory allocation failed for binary string!\n");
+        fprintf(stderr, "ERROR - Memory allocation failed for binary string in convert_job_result()!\n");
         goto terminate;
     }
 
@@ -303,24 +341,35 @@ terminate:
 }
 
 
+/**
+ * @brief Retrieve job result and return most frequent sample as bit string
+ *
+ * Retrieves the job result from the backend, extracts the most frequent
+ * sample, and converts it into a binary string.
+ *
+ * @param token_data Pointer to TOKEN_DATA used for authentication
+ * @param crn Service CRN string
+ * @param job_id Job identifier to query
+ * @return Duplicated bit string (CALLER MUST FREE) or NULL on failure
+ */
 char* receiver(TOKEN_DATA* token_data, char* crn, char* job_id) {
     char* binary_string = NULL;
 
     char* response = get_job_result(token_data, crn, job_id);
     if (!response) {
-        fprintf(stderr, "ERROR - Getting the job result from the backend failed!\n");
+        fprintf(stderr, "ERROR - Getting the job result from the backend failed in receiver()!\n");
         goto terminate;
     }
 
     char* sample = parse_job_result(response);
     if (!sample) {
-        fprintf(stderr, "ERROR - Result parsing failed!\n");
+        fprintf(stderr, "ERROR - Result parsing failed in receiver()!\n");
         goto cleanup_response;
     }
 
     binary_string = convert_job_result(sample);
     if (!binary_string) {
-        fprintf(stderr, "ERROR - Result bit string conversion failed1\n");
+        fprintf(stderr, "ERROR - Result bit string conversion failed in receiver()!\n");
         goto cleanup_sample;
     }
 
