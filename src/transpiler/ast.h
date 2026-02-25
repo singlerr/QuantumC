@@ -1,84 +1,181 @@
 #ifndef _AST_H_
 #define _AST_H_
 
-#include "ast_types.h"
-#include "symrec.h"
-#include "type.h"
+#include <stdint.h>
 
-#ifndef AST_SIMPLE_NODE
-#define AST_SIMPLE_NODE(node_type) new_ast_node(node_type, NULL, NULL, NULL, NULL, NULL, NULL)
-#endif
+struct type;
 
-#ifndef AST_GENERAL_NODE
-#define AST_GENERAL_NODE(node_type, left, middle, right) new_ast_node(node_type, NULL, NULL, NULL, left, middle, right)
-#endif
-
-#ifndef AST_IDENTIFIER_NODE
-#define AST_IDENTIFIER_NODE(node_type, id, left, middle, right) new_ast_node(node_type, id, NULL, NULL, left, middle, right)
-#endif
-
-#ifndef AST_TYPE_NODE
-#define AST_TYPE_NODE(node_type, type, left, middle, right) new_ast_node(node_type, NULL, NULL, type, left, middle, right)
-#endif
-
-#ifndef AST_CONST_NODE
-#define AST_CONST_NODE(node_type, constant) new_ast_node(node_type, NULL, constant, NULL, NULL, NULL, NULL)
-#endif
-
-#ifndef AST_ID_CURSCOPE
-#define AST_ID_CURSCOPE(symbol, type) new_identifier_node(symbol, type, get_scope_level())
-#endif
-
-#ifndef AST_ID_NONSCOPE
-#define AST_ID_NONSCOPE(symbol, type) new_identifier_node(symbol, type, -1)
-#endif
-
-typedef struct _ast_identifier
+typedef struct var
 {
-    symrec_t *sym;
-    type_t *type;
-    int scope_level;
-} ast_identifier_node;
+  uint32_t id;
+} var_t;
 
-typedef struct _ast_constant
+typedef struct typed_var
 {
-    union data
-    {
-        int i;
-        char c;
-        float f;
-        double d;
-        char *s;
-    } data;
-} ast_const_node;
+  var_t var;
+  struct type type;
+} typed_var_t;
 
-typedef struct _ast_node
+typedef typed_var_t *typed_var_vec;
+
+typedef struct strct
 {
-    ast_node_type node_type;
-    ast_identifier_node *identifier;
-    ast_const_node *constant;
-    typerec_t *type;
-    struct _ast_node *left;
-    struct _ast_node *right;
-    struct _ast_node *middle;
-} ast_node;
+  typed_var_vec field;
+} struct_t;
 
-int get_scope_level();
-void inc_scope_level();
-void dec_scope_level();
+typedef struct qubit
+{
+  uint32_t size;
+} qubit_t;
 
-ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level);
-ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right);
-ast_const_node *new_ast_int_const(int i);
-ast_const_node *new_ast_float_const(float f);
-ast_const_node *new_ast_str_const(const char *s);
-ast_const_node *new_ast_bool_const(int b);
-int register_type_if_required(ast_node *decl, ast_node *identifier);
+typedef struct angle
+{
+  uint32_t size;
+  uint32_t value;
+} angle_t;
 
-void append_left_child(ast_node *parent, const ast_node *child);
-void append_right_child(ast_node *parent, const ast_node *child);
-void append_middle_child(ast_node *parent, const ast_node *child);
-const ast_node *find_last_left_child(const ast_node *parent);
-const ast_node *find_last_right_child(const ast_node *parent);
-const ast_node *find_last_middle_child(const ast_node *parent);
+typedef struct duration
+{
+  uint32_t value;
+} duration_t;
+
+typedef union literal
+{
+  int i;
+  float f;
+  short s;
+
+} literal_t;
+
+typedef struct stmt_compound
+{
+} stmt_compound_t;
+
+typedef struct stmt_if
+{
+
+} stmt_if_t;
+
+typedef struct stmt_if_else
+{
+
+} stmt_if_else_t;
+
+typedef struct stmt_switch
+{
+
+} stmt_switch_t;
+
+typedef struct stmt_while
+{
+
+} stmt_while_t;
+
+typedef struct stmt_for
+{
+
+} stmt_for_t;
+
+typedef struct node_id
+{
+  uint32_t id;
+} node_id_t;
+
+typedef enum ast_tag
+{
+  AST_VAR,
+  AST_INT,
+  AST_FLOAT,
+  AST_SHORT,
+  AST_QUBIT,
+  AST_ANGLE,
+  AST_DURATION,
+  AST_FUN,
+  AST_APP,
+  AST_STRUCT,
+  AST_UNION,
+  AST_ENUM,
+
+  AST_IF,
+  AST_IF_ELSE,
+  AST_SWITCH,
+  AST_WHILE,
+  AST_DO_WHILE,
+  AST_FOR,
+  AST_COMPOUND,
+
+  AST_RETURN,
+  AST_BREAK,
+  AST_CONTINUE,
+  AST_LABEL,
+  AST_CASE,
+  AST_DEFAULT,
+  AST_GOTO,
+
+  AST_ARRAY_ACCESS,
+  AST_MEMBER_ACCESS,
+  AST_POST_INC,
+  AST_POST_DEC,
+  AST_PRE_INC,
+  AST_PRE_DEC,
+  AST_CAST,
+  AST_SIZEOF,
+
+  AST_MUL,
+  AST_DIV,
+  AST_MOD,
+
+  AST_ADD,
+  AST_SUB,
+
+  AST_LSHIFT,
+  AST_RSHIFT,
+
+  AST_LT,
+  AST_GT,
+  AST_GEQ,
+  AST_LEQ,
+
+  AST_EQ,
+  AST_NEQ,
+
+  AST_AND,
+  AST_OR,
+  AST_XOR,
+
+  AST_LAND,
+  AST_LOR,
+
+  AST_ASSIGN,
+  AST_ASSIGN_MUL,
+  AST_ASSIGN_DIV,
+  AST_ASSIGN_MOD,
+  AST_ASSIGN_ADD,
+  AST_ASSIGN_SUB,
+  AST_ASSIGN_LSHIFT,
+  AST_ASSIGN_RSHIFT,
+  AST_ASSIGN_AND,
+  AST_ASSIGN_OR,
+  AST_ASSIGN_XOR
+} ast_tag_t;
+
+typedef struct ast
+{
+  ast_tag_t tag;
+  node_id_t id;
+  int lineno;
+  union
+  {
+
+    var_t var;
+    literal_t literal;
+    qubit_t qubit;
+    struct_t struct_t;
+    struct_t union_t;
+    angle_t angle;
+    duration_t duration;
+  };
+
+} ast_t;
+
 #endif

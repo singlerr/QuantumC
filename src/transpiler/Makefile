@@ -1,7 +1,7 @@
 OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
 LEX = flex
 YACC = bison
-SUBDIRS := preprocessor
+SUBDIRS := preprocessor ena data
 LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 
 YACC_ARGS =
