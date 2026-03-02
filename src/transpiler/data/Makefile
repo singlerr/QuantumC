@@ -1,5 +1,5 @@
 LIB     = libdata.a
-SUBDIRS := btree hamt vec
+SUBDIRS := btree hamt
 LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 
 .PHONY: all clean $(SUBDIRS)

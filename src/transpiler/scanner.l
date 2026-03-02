@@ -14,7 +14,7 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 	#include <stdio.h>
 	#include <stdlib.h>
 	#include <string.h>
-	#include <errno.h>
+	#include "type/tytab.h"
 	#include "stringlib.h"
 	#include "symrec.h"
 	#include "ast.h"
@@ -227,10 +227,13 @@ void count(yyscan_t scanner)
 
 int check_type(yyscan_t scanner, YYSTYPE* out)
 {
-	type_size = -1;
-	out->str = strdup(yyget_text(scanner));
-
-	if(gettype(yyget_text(scanner))){
+	type_t* ty;
+	char* text;
+	text = yyget_text(scanner);
+	ty = find_type_by_name(text);
+	out->str = strdup(text);
+	if(ty){
+		yylval.type = ty;
 		return TYPE_NAME;
 	}
 
