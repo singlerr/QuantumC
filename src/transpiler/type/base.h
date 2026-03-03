@@ -47,10 +47,13 @@ typedef struct ty_fun
   args_t args;
 } ty_fun_t;
 
-typedef cvector_vector_type (struct {
+typedef struct struct_field
+{
   char name[SYM_MAXLEN];
   ty_deco_t *ty;
-}) struct_fields_t;
+} struct_field_t;
+
+typedef cvector_vector_type (struct_field_t) struct_fields_t;
 
 typedef struct ty_struct
 {

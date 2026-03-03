@@ -9,7 +9,8 @@ typedef struct type_deco
   struct type *ty;
 } ty_deco_t;
 
-ty_deco_t *begin_deco (struct type *ty);
+ty_deco_t *begin_deco_ty (struct type *ty);
+ty_deco_t *begin_deco_constr (int constr);
 ty_deco_t *deco_constr (ty_deco_t *builder, int contr);
 ty_deco_t *deco_type (ty_deco_t *builder, struct type *ty);
 ty_deco_t *end_deco (ty_deco_t *builder);

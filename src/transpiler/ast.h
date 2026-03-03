@@ -85,6 +85,7 @@ typedef struct ast_fun
 
 typedef struct pointer
 {
+  int constraints;
   ast_t *ref;
 } pointer_t;
 
@@ -277,6 +278,7 @@ app_t new_app (struct ast *fun, struct ast *arg);
 array_access_t new_arr_access (struct ast *array, struct ast *index);
 member_access_t new_member_access (struct ast *aggregate, struct ast *member);
 expr_unary_t new_unary_expr (ast_t *value);
+pointer_t new_pointer (ast_t *ref, int constr);
 
 ast_t *new_ast ();
 void init_ast_ctx ();
@@ -293,6 +295,7 @@ const char *to_ast_string (ast_tag_t tag);
 #define MemAccess(aggregate, member) new_member_access (aggregate, member)
 #define Id(i) new_node_id (i)
 #define Unary(ast) new_unary_expr (ast)
+#define Pointer(ref, constr) new_pointer (ref, constr)
 #define AST_NAME(ast_tag) to_ast_string (ast_tag)
 
 #endif

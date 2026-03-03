@@ -5,6 +5,7 @@
 #include "common.h"
 #include "symtab.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 static inline var_t
@@ -71,6 +72,15 @@ new_ast_unary_expr (ast_tag_t type, expr_unary_t unary)
   return ast;
 }
 
+static inline ast_t *
+new_ast_pointer (pointer_t ptr)
+{
+  ast_t *ast = new_ast ();
+  ast->tag = AST_POINTER;
+  ast->pointer = ptr;
+  return ast;
+}
+
 static inline const struct_field_t *
 search_struct_member (ast_t *strct, const char *name)
 {
@@ -121,4 +131,26 @@ ref_pointer (ast_t *ptr)
 
   return ptr->pointer.ref;
 }
+
+static inline pointer_t *
+find_tail_pointer (pointer_t *ptr)
+{
+  while (1)
+    {
+      if (!ptr->ref)
+        {
+          return ptr;
+        }
+
+      if (ptr->ref->tag != AST_POINTER)
+        {
+          return ptr;
+        }
+
+      ptr = &ptr->ref->pointer;
+    }
+
+  return NULL;
+}
+
 #endif

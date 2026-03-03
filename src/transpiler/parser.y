@@ -43,13 +43,16 @@
 
 %union {
 	int i;
+	int constr;
 	float f;
 	char *str;
 	ast_t* ast;
 	type_t* type;
 	ty_deco_t* ty_deco;
 	ty_struct_t* ty_struct;
+	pointer_t ptr;
 	struct_fields_t struct_fields;
+	struct_field_t struct_field;
 	stmt_compound_t stmt_compound;
 	stmt_if_t stmt_if;
 	stmt_if_else_t stmt_if_else;
@@ -81,9 +84,13 @@
 %start program
 
 %type<ast> primary_expression
-%type<ty_deco> type_qualifier
-%type<ty_deco> type_specifier
+%type<constr> type_qualifier
+%type<constr> type_qualifier_list
+%type<type> type_specifier
 %type<struct_fields> struct_declaration_list
+%type<struct_field> struct_declaration
+%type<ast> declarator
+%type<ptr> pointer;
 
 %%
 
@@ -264,21 +271,21 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID { $$ = begin_deco(Type(TY_VOID)); }
-	| CHAR { $$ = begin_deco(Type(TY_CHAR)); }
-	| SHORT { $$ = begin_deco(Type(TY_SHORT)); }
-	| INT { $$ = begin_deco(Type(TY_INT)); }
-	| LONG { $$ = begin_deco(Type(TY_LONG)); }
-	| FLOAT { $$ = begin_deco(Type(TY_FLOAT)); }
-	| DOUBLE { $$ = begin_deco(Type(TY_DOUBLE)); }
-	| SIGNED { $$ = begin_deco(Type(TY_INT)); }
-	| UNSIGNED { $$ = begin_deco(Type(TY_UINT)); }
-	| COMPLEX  { $$ = begin_deco(Type(TY_COMPLEX)); }
-	| IMAGINARY { $$ = begin_deco(Type(TY_IMAGINARY)); }
-	| BOOL { $$ = begin_deco(Type(TY_BOOL)); }
+	: VOID { $$ = Type(TY_VOID); }
+	| CHAR { $$ = Type(TY_CHAR); }
+	| SHORT { $$ = Type(TY_SHORT); }
+	| INT { $$ = Type(TY_INT); }
+	| LONG { $$ = Type(TY_LONG); }
+	| FLOAT { $$ = Type(TY_FLOAT); }
+	| DOUBLE { $$ = Type(TY_DOUBLE); }
+	| SIGNED { $$ = Type(TY_INT); }
+	| UNSIGNED { $$ = Type(TY_UINT); }
+	| COMPLEX  { $$ = Type(TY_COMPLEX); }
+	| IMAGINARY { $$ = Type(TY_IMAGINARY); }
+	| BOOL { $$ = Type(TY_BOOL); }
 	| struct_or_union_specifier { $$ = $1; }
 	| enum_specifier { $$ = $1; }
-	| TYPE_NAME { $$ = begin_deco(yylval.type); }
+	| TYPE_NAME { $$ = yylval.type; }
 	;
 
 struct_or_union_specifier
@@ -293,19 +300,19 @@ struct_or_union
 	;
 
 struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
+	: struct_declaration { $$ = NULL; cvector_push_back($$, $1); }
+	| struct_declaration_list struct_declaration { $$ = $1; cvector_push_back($$, $2); }
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';'
+	: specifier_qualifier_list struct_declarator_list ';' {  }
 	;
 
 specifier_qualifier_list
-	: type_specifier
-	| specifier_qualifier_list type_specifier
-	| type_qualifier
-	| specifier_qualifier_list type_qualifier
+	: type_specifier { $$ = begin_deco_ty($1); } 
+	| specifier_qualifier_list type_specifier { $$ = deco_type($1, $2); }
+	| type_qualifier { $$ = begin_deco_constr($1); }
+	| specifier_qualifier_list type_qualifier { $$ = deco_constr($1, $2); }
 	;
 
 struct_declarator_list
@@ -338,18 +345,31 @@ enumerator
 	;
 
 type_qualifier
-	: CONST
-	| RESTRICT
-	| VOLATILE
+	: CONST { $$ = CONSTR_CONST; }
+	| RESTRICT { $$ = CONSTR_RESTRICT; }
+	| VOLATILE { $$ = CONSTR_VOLATILE; }
 	;
 
 declarator
-	: direct_declarator
+	: pointer direct_declarator { $$ = find_tail_pointer(&$1); $$->ref = $2; $$ = new_ast_pointer($1); }
+	| direct_declarator { $$ = $1; } 
+	;
+
+pointer
+	: '*' { $$ = EmptyPointer(); } 
+	| '*' type_qualifier_list { $$ = Pointer(NULL, $1); }  
+	| '*' pointer { $$ = Pointer(new_ast_pointer($1, 0)); }
+	| '*' type_qualifier_list pointer { $$ = Pointer(new_ast_pointer($2), $1); }
+	;
+
+type_qualifier_list
+	: type_qualifier { $$ = $1; }
+	| type_qualifier_list type_qualifier { $$ = $1 | $2; }
 	;
 
 
 direct_declarator
-	: IDENTIFIER
+	: IDENTIFIER 
 	| '(' declarator ')'
 	| direct_declarator '[' assignment_expression ']'
 	| direct_declarator '[' ']'
