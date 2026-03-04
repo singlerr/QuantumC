@@ -50,6 +50,9 @@
 	type_t* type;
 	ty_deco_t* ty_deco;
 	ty_struct_t* ty_struct;
+	args_t* args;
+	arg_list_t arg_list;
+	arg_t arg;
 	pointer_t ptr;
 	struct_fields_t struct_fields;
 	struct_field_t struct_field;
@@ -89,8 +92,13 @@
 %type<type> type_specifier
 %type<struct_fields> struct_declaration_list
 %type<struct_field> struct_declaration
+%type<args> parameter_type_list
+%type<arg_list> parameter_list
+%type<args> identifier_list
+%type<arg> parameter_declaration
 %type<ast> declarator
 %type<ptr> pointer;
+%type<ty_deco> declaration_specifiers
 
 %%
 
@@ -244,12 +252,12 @@ declaration
 	;
 
 declaration_specifiers
-    : storage_class_specifier
-    | declaration_specifiers storage_class_specifier
-    | type_specifier
-    | declaration_specifiers type_specifier
-    | type_qualifier
-    | declaration_specifiers type_qualifier
+    : storage_class_specifier { $$ = begin_deco_constr($1); }
+    | declaration_specifiers storage_class_specifier { $$ = deco_constr($1, $2); }
+    | type_specifier { $$ = begin_deco_ty($1); }
+    | declaration_specifiers type_specifier { $$ = deco_ty($1, $2); }
+    | type_qualifier { $$ = begin_deco_constr($1); }
+    | declaration_specifiers type_qualifier { $$ = deco_constr($1, $2); }
     ;
 
 init_declarator_list
@@ -263,11 +271,11 @@ init_declarator
 	;
 
 storage_class_specifier
-	: TYPEDEF
-	| EXTERN
-	| STATIC
-	| AUTO
-	| REGISTER
+	: TYPEDEF { $$ = CONSTR_TYPEDEF; }
+	| EXTERN { $$ = CONSTR_EXTERN; }
+	| STATIC { $$ = CONSTR_STATIC; }
+	| AUTO { $$ = CONSTR_AUTO; }
+	| REGISTER { $$ = CONSTR_REGISTER; }
 	;
 
 type_specifier
@@ -289,9 +297,9 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER { $$ = set_struct_name($1, yylval.str); } '{' struct_declaration_list '}'
-	| struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER { $$ = set_struct_name(yylval.str); }
+	: struct_or_union IDENTIFIER { $$ = set_struct_name($1, yylval.str); } '{' struct_declaration_list '}' { $1->fields = $3; }
+	| struct_or_union '{' struct_declaration_list '}' { $1->fields = $2; }
+	| struct_or_union IDENTIFIER { $$ = set_struct_name(yylval.str); $$->fields = NULL; }
 	;
 
 struct_or_union
@@ -367,30 +375,29 @@ type_qualifier_list
 	| type_qualifier_list type_qualifier { $$ = $1 | $2; }
 	;
 
-
 direct_declarator
-	: IDENTIFIER 
-	| '(' declarator ')'
-	| direct_declarator '[' assignment_expression ']'
-	| direct_declarator '[' ']'
-	| direct_declarator '(' parameter_type_list ')'
+	: IDENTIFIER { $$ = new_ast_var(Var(yylval.str)); }
+	| '(' declarator ')' { $$ = $1; }
+	| direct_declarator '[' assignment_expression ']' { $$ = new_ast_arr_access(ArrAccess($1, $2)); }
+	| direct_declarator '[' ']' { $$ = new_ast_arr_access(ArrAccess($1, NULL)); }
+	| direct_declarator '(' parameter_type_list ')' { $$ =   }
 	| direct_declarator '(' identifier_list ')'
 	| direct_declarator '(' ')'
 	;
 
 
 parameter_type_list
-	: parameter_list
-	| parameter_list ',' ELLIPSIS
+	: parameter_list { $$ = new_args($1, FALSE); }
+	| parameter_list ',' ELLIPSIS { $$ = new_args($1, TRUE); }
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration { $$ = NULL; cvector_push_back($$, $1); }
+	| parameter_list ',' parameter_declaration { $$ = $1; cvector_push_back($$, $2); }
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
+	: declaration_specifiers declarator {  } 
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
 	;

@@ -35,10 +35,20 @@ typedef enum type_tag
 
 #undef ENUM_GEN
 
-typedef cvector_vector_type (struct {
+typedef struct arg
+{
+  int has_name;
   char name[SYM_MAXLEN];
   ty_deco_t *ty;
-}) args_t;
+} arg_t;
+
+typedef cvector_vector_type (arg_t) arg_list_t;
+
+typedef struct args
+{
+  int is_variadic;
+  arg_list_t args;
+} args_t;
 
 typedef struct ty_fun
 {
@@ -78,6 +88,7 @@ typedef struct type
 const char *type_to_str (type_tag_t tag);
 type_t *new_simple_type (int size, type_tag_t tag);
 
+args_t *new_args (arg_list_t args, int variadic);
 ty_struct_t *begin_struct ();
 ty_struct_t *begin_union ();
 ty_struct_t *set_struct_name (ty_struct_t *inst, const char *name);

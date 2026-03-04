@@ -272,7 +272,7 @@ literal_t new_literal_bool (int b);
 qubit_t new_qubit (uint32_t size);
 angle_t new_angle (uint32_t size, uint32_t value);
 duration_t new_duration (uint32_t value);
-var_t new_var (uint32_t id);
+var_t new_var (uint32_t id, const char *name);
 ast_fun_t new_fun (var_t arg, struct ast *body);
 app_t new_app (struct ast *fun, struct ast *arg);
 array_access_t new_arr_access (struct ast *array, struct ast *index);
@@ -283,12 +283,13 @@ pointer_t new_pointer (ast_t *ref, int constr);
 ast_t *new_ast ();
 void init_ast_ctx ();
 node_id_t next_id ();
+uint32_t next_var_id ();
 const char *to_ast_string (ast_tag_t tag);
 
 #define Int(i) new_literal_int (i)
 #define Float(f) new_literal_float (f)
 #define Bool(b) new_literal_bool (b)
-#define Var(id) new_var (id)
+#define Var(name) new_var (next_var_id (), name)
 #define Fun(arg, body) new_fun (arg, body)
 #define App(fun, arg) new_app (fun, arg)
 #define ArrAccess(array, index) new_arr_access (array, index)
