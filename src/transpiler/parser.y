@@ -53,7 +53,7 @@
 	args_t* args;
 	arg_list_t arg_list;
 	arg_t arg;
-	pointer_t ptr;
+	decl_t* decl;
 	struct_fields_t struct_fields;
 	struct_field_t struct_field;
 	stmt_compound_t stmt_compound;
@@ -96,32 +96,36 @@
 %type<arg_list> parameter_list
 %type<args> identifier_list
 %type<arg> parameter_declaration
-%type<ast> declarator
-%type<ptr> pointer;
+%type<decl> direct_declarator
+%type<decl> declarator
+%type<ty_deco> pointer
 %type<ty_deco> declaration_specifiers
+%type<ty_deco> specifier_qualifier_list
+%type<ty_deco> direct_abstract_declarator
+%type<ty_deco> abstract_declarator
 
 %%
 
 program: translation_unit
 
 primary_expression
-	: IDENTIFIER { $$ = new_ast_var(search_var(yylval.str)); }
-	| INTCONSTANT { $$ = new_ast_literal(AST_INT, Int(yylval.i)); }
-	| FLOATCONSTANT { $$ = new_ast_literal(AST_FLOAT, Float(yylval.f)); }
+	: IDENTIFIER { $$ = new_ast_var(search_var(yylval.str), search_symbol_type(yylval.str, FALSE)); }
+	| INTCONSTANT { $$ = new_ast_literal(AST_INT, Int(yylval.i), Deco(Type(TY_INT), CONSTR_EMPTY)); }
+	| FLOATCONSTANT { $$ = new_ast_literal(AST_FLOAT, Float(yylval.f), Deco(Type(TY_FLOAT), CONSTR_EMPTY)); }
 	/* | STRING_LITERAL  */
-	| BOOL_TRUE { $$ = new_ast_literal(AST_BOOL, Bool(TRUE)); }
-	| BOOL_FALSE { $$ = new_ast_literal(AST_BOOL, Bool(FALSE)); }
+	| BOOL_TRUE { $$ = new_ast_literal(AST_BOOL, Bool(TRUE), Deco(Type(TY_BOOL), CONSTR_EMPTY)); }
+	| BOOL_FALSE { $$ = new_ast_literal(AST_BOOL, Bool(FALSE), Deco(Type(TY_BOOL), CONSTR_EMPTY)); }
 	| '(' expression ')' { $$ = $1; }
 	;
 
 postfix_expression 
 	: primary_expression { $$ = $1; }
-	| postfix_expression '[' expression ']' { $$ = new_ast_arr_access(ArrAccess($1, $2)); }
-	| postfix_expression '(' ')' { $$ = new_ast_app(App($1, NULL)); }
-	| postfix_expression '(' argument_expression_list ')' { $$ = new_ast_app(App($1, $2)); }
+	| postfix_expression '[' expression ']' { $$ = new_ast_arr_access(ArrAccess($1, $2), $1); }
+	| postfix_expression '(' ')' { $$ = new_ast_app(App($1, NULL), $1); }
+	| postfix_expression '(' argument_expression_list ')' { $$ = new_ast_app(App($1, $2), $1); }
 	| postfix_expression '.' IDENTIFIER { $$ = from_struct_member($1, yylval.str); }
 	| postfix_expression PTR_OP IDENTIFIER { $$ = from_struct_member(ref_pointer($1), yylval.str); }
-	| postfix_expression INC_OP { $$ = new_ast_unary_expr(AST_POST_INC, Unary($1)); }
+	| postfix_expression INC_OP { $$ = new_ast_unary_expr(AST_POST_INC, Unary($1), ); }
 	| postfix_expression DEC_OP { $$ = new_ast_unary_expr(AST_POST_DEC, Unary($1)); }
 	| '(' type_name ')' '{' initializer_list '}' { $$ =  }
 	| '(' type_name ')' '{' initializer_list ',' '}'
@@ -133,11 +137,11 @@ argument_expression_list
 	;
 
 unary_expression
-	: postfix_expression
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
-	| unary_operator cast_expression
-	| SIZEOF unary_expression
+	: postfix_expression { $$ = $1; }
+	| INC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_INC, Unary($1)); }
+	| DEC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_DEC, Unary($1)); }
+	| unary_operator cast_expression { $$  }
+	| SIZEOF unary_expression { $$ =  }
 	| SIZEOF '(' type_name ')'
 	;
 
@@ -219,7 +223,7 @@ conditional_expression
 	;
 
 assignment_expression
-	: conditional_expression
+	: conditional_expression  
 	| unary_expression assignment_operator assignment_expression
 	;
 
@@ -316,7 +320,7 @@ struct_declaration
 	: specifier_qualifier_list struct_declarator_list ';' {  }
 	;
 
-specifier_qualifier_list
+specifier_qualifier_list 
 	: type_specifier { $$ = begin_deco_ty($1); } 
 	| specifier_qualifier_list type_specifier { $$ = deco_type($1, $2); }
 	| type_qualifier { $$ = begin_deco_constr($1); }
@@ -359,15 +363,15 @@ type_qualifier
 	;
 
 declarator
-	: pointer direct_declarator { $$ = find_tail_pointer(&$1); $$->ref = $2; $$ = new_ast_pointer($1); }
+	: pointer direct_declarator { pointer_tail(&$1->ty->ty.ty_pointer)->ref = $2->type; $2->type = $1; $$ = $2; }
 	| direct_declarator { $$ = $1; } 
 	;
 
 pointer
-	: '*' { $$ = EmptyPointer(); } 
+	: '*' { $$ = EmptyPointer(); }  
 	| '*' type_qualifier_list { $$ = Pointer(NULL, $1); }  
-	| '*' pointer { $$ = Pointer(new_ast_pointer($1, 0)); }
-	| '*' type_qualifier_list pointer { $$ = Pointer(new_ast_pointer($2), $1); }
+	| '*' pointer { $$ = Pointer($1, CONSTR_EMPTY); }
+	| '*' type_qualifier_list pointer { $$ = Pointer($2, $1); }
 	;
 
 type_qualifier_list
@@ -376,13 +380,13 @@ type_qualifier_list
 	;
 
 direct_declarator
-	: IDENTIFIER { $$ = new_ast_var(Var(yylval.str)); }
+	: IDENTIFIER { $$ = begin_decl(yylval.str); }
 	| '(' declarator ')' { $$ = $1; }
-	| direct_declarator '[' assignment_expression ']' { $$ = new_ast_arr_access(ArrAccess($1, $2)); }
-	| direct_declarator '[' ']' { $$ = new_ast_arr_access(ArrAccess($1, NULL)); }
-	| direct_declarator '(' parameter_type_list ')' { $$ =   }
-	| direct_declarator '(' identifier_list ')'
-	| direct_declarator '(' ')'
+	| direct_declarator '[' assignment_expression ']' { $$ = decl_array($1, ); }
+	| direct_declarator '[' ']' { $$ = decl_array($1, -1); }
+	| direct_declarator '(' parameter_type_list ')' {  }
+	| direct_declarator '(' identifier_list ')' { }
+	| direct_declarator '(' ')' { }
 	;
 
 
@@ -397,7 +401,7 @@ parameter_list
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator {  } 
+	: declaration_specifiers declarator { $$ = new_arg() } 
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
 	;
@@ -408,18 +412,21 @@ identifier_list
 	;
 
 type_name
-	: specifier_qualifier_list
-	| specifier_qualifier_list abstract_declarator
+	: specifier_qualifier_list { $$ = $1; }
+	| specifier_qualifier_list abstract_declarator { $$ }
 	;
 
 abstract_declarator
-	: direct_abstract_declarator
+	: pointer { $$ = $1; }
+	| direct_abstract_declarator { $$ = $1; }
+	| pointer direct_abstract_declarator { pointer_tail(&$1->ty->ty.ty_pointer)->ref = $2->type; $2->type = $1; $$ = $2; }
 	;
 
+
 direct_abstract_declarator
-    : '(' abstract_declarator ')'
-    | '[' ']'
-    | '[' assignment_expression ']'
+    : '(' abstract_declarator ')' { $$ = $1; }
+    | '[' ']' { $$ = new_ty_array((ty_array_t) { .ref = NULL, size = -1 }, CONSTR_EMPTY); }
+    | '[' assignment_expression ']' {  }
     | direct_abstract_declarator '[' ']'
     | direct_abstract_declarator '[' assignment_expression ']'
     | '(' ')'

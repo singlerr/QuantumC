@@ -83,11 +83,12 @@ typedef struct ast_fun
   ast_t *body;
 } ast_fun_t;
 
-typedef struct pointer
+typedef struct decl
 {
-  int constraints;
-  ast_t *ref;
-} pointer_t;
+  int has_name;
+  char name[SYM_MAXLEN];
+  ty_deco_t *type;
+} decl_t;
 
 typedef struct struct_field
 {
@@ -123,11 +124,6 @@ typedef struct typed_var
   var_t var;
   struct type type;
 } typed_var_t;
-
-typedef struct strct
-{
-  field_vec field;
-} struct_t;
 
 typedef struct qubit
 {
@@ -235,21 +231,19 @@ typedef struct ast
 {
   ast_tag_t tag;
   node_id_t id;
+  ty_deco_t *ty;
   int lineno;
   union
   {
     var_t var;
     literal_t literal;
     qubit_t qubit;
-    struct_t struct_t;
-    struct_t union_t;
     angle_t angle;
     duration_t duration;
     app_t app;
     ast_fun_t fun;
     array_access_t arr_access;
     member_access_t member_access;
-    pointer_t pointer;
 
     stmt_compound_t stmt_compound;
     stmt_if_t stmt_if;
@@ -278,8 +272,6 @@ app_t new_app (struct ast *fun, struct ast *arg);
 array_access_t new_arr_access (struct ast *array, struct ast *index);
 member_access_t new_member_access (struct ast *aggregate, struct ast *member);
 expr_unary_t new_unary_expr (ast_t *value);
-pointer_t new_pointer (ast_t *ref, int constr);
-
 ast_t *new_ast ();
 void init_ast_ctx ();
 node_id_t next_id ();
@@ -296,7 +288,6 @@ const char *to_ast_string (ast_tag_t tag);
 #define MemAccess(aggregate, member) new_member_access (aggregate, member)
 #define Id(i) new_node_id (i)
 #define Unary(ast) new_unary_expr (ast)
-#define Pointer(ref, constr) new_pointer (ref, constr)
 #define AST_NAME(ast_tag) to_ast_string (ast_tag)
 
 #endif

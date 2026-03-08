@@ -6,6 +6,7 @@
 #include "param.h"
 
 #define FOREACH_TYPE(TYPE)                                                    \
+  TYPE (TY_ARRAY)                                                             \
   TYPE (TY_FUN)                                                               \
   TYPE (TY_VOID)                                                              \
   TYPE (TY_CHAR)                                                              \
@@ -35,6 +36,11 @@ typedef enum type_tag
 
 #undef ENUM_GEN
 
+typedef struct ty_pointer
+{
+  ty_deco_t *ref;
+} ty_pointer_t;
+
 typedef struct arg
 {
   int has_name;
@@ -49,6 +55,12 @@ typedef struct args
   int is_variadic;
   arg_list_t args;
 } args_t;
+
+typedef struct ty_array
+{
+  ty_deco_t *ref;
+  int size;
+} ty_array_t;
 
 typedef struct ty_fun
 {
@@ -81,16 +93,25 @@ typedef struct type
   {
     ty_struct_t ty_struct;
     ty_fun_t ty_fun;
+    ty_pointer_t ty_pointer;
   } ty;
 
 } type_t;
 
 const char *type_to_str (type_tag_t tag);
 type_t *new_simple_type (int size, type_tag_t tag);
+ty_pointer_t new_pointer (ty_deco_t *ty);
+ty_deco_t *new_ty_pointer (ty_pointer_t ptr, int constr);
+ty_deco_t *new_ty_array (ty_array_t arr, int constr);
+ty_deco_t *new_ty_fun (ty_fun_t fun, int constr);
+ty_deco_t *append_ty (ty_deco_t *base, ty_deco_t *tail);
 
 args_t *new_args (arg_list_t args, int variadic);
 ty_struct_t *begin_struct ();
 ty_struct_t *begin_union ();
 ty_struct_t *set_struct_name (ty_struct_t *inst, const char *name);
+
+#define EmptyPointer() new_ty_pointer (new_pointer (NULL), CONSTR_EMPTY)
+#define Pointer(ty_deco, constr) new_ty_pointer (new_pointer (ty_deco), constr)
 
 #endif

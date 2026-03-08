@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static inline var_t
 search_var (const char *name)
@@ -22,76 +23,73 @@ search_var (const char *name)
 }
 
 static inline ast_t *
-new_ast_var (var_t var)
+new_ast_var (var_t var, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->var = var;
+  ast->ty = ty;
   return ast;
 }
 
 static inline ast_t *
-new_ast_literal (ast_tag_t type, literal_t literal)
+new_ast_literal (ast_tag_t type, literal_t literal, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->literal = literal;
+  ast->ty = ty;
   return ast;
 }
 
 static inline ast_t *
-new_ast_arr_access (array_access_t arr_access)
+new_ast_arr_access (array_access_t arr_access, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->tag = AST_ARRAY_ACCESS;
   ast->arr_access = arr_access;
+  ast->ty = ty;
   return ast;
 }
 
 static inline ast_t *
-new_ast_member_access (member_access_t member_access)
+new_ast_member_access (member_access_t member_access, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->tag = AST_MEMBER_ACCESS;
   ast->member_access = member_access;
+  ast->ty = ty;
   return ast;
 }
 
 static inline ast_t *
-new_ast_app (app_t app)
+new_ast_app (app_t app, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->app = app;
+  ast->ty = ty;
   return ast;
 }
 
 static inline ast_t *
-new_ast_unary_expr (ast_tag_t type, expr_unary_t unary)
+new_ast_unary_expr (ast_tag_t type, expr_unary_t unary, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
   ast->tag = type;
   ast->expr_unary = unary;
-  return ast;
-}
-
-static inline ast_t *
-new_ast_pointer (pointer_t ptr)
-{
-  ast_t *ast = new_ast ();
-  ast->tag = AST_POINTER;
-  ast->pointer = ptr;
+  ast->ty = ty;
   return ast;
 }
 
 static inline const struct_field_t *
-search_struct_member (ast_t *strct, const char *name)
+search_struct_member (type_t *strct, const char *name)
 {
   struct_field_t *it;
-  if (strct->tag != AST_STRUCT)
+  if (strct->tag != TY_STRUCT)
     {
       return NULL;
     }
 
-  for (it = cvector_begin (strct->struct_t.field);
-       it != cvector_end (strct->struct_t.field); it++)
+  for (it = cvector_begin (strct->ty.ty_struct.fields);
+       it != cvector_end (strct->ty.ty_struct.fields); it++)
     {
       if (!strcmp (it->var.var.name, name))
         {
@@ -103,14 +101,14 @@ search_struct_member (ast_t *strct, const char *name)
 }
 
 static inline ast_t *
-from_struct_member (ast_t *strct, const char *name)
+from_struct_member (ty_deco_t *strct, const char *name)
 {
   if (!strct)
     {
-      warn ("Struct is null");
+      warn ("Struct type is null");
       return NULL;
     }
-  struct_field_t *field = search_struct_member (strct, name);
+  struct_field_t *field = search_struct_member (strct->ty, name);
   if (!field)
     {
       warn ("%s is not a member of struct", name);
@@ -120,37 +118,54 @@ from_struct_member (ast_t *strct, const char *name)
   return new_ast_var (field->var.var);
 }
 
-static inline ast_t *
-ref_pointer (ast_t *ptr)
+static inline ty_pointer_t *
+pointer_tail (ty_pointer_t *ptr)
 {
-  if (ptr->tag != AST_POINTER)
+  for (; ptr->ref; ptr = &ptr->ref->ty->ty.ty_pointer)
+    ;
+
+  return ptr;
+}
+
+static inline ty_deco_t *
+ref_pointer (ty_deco_t *ty)
+{
+  if (ty->ty->tag != TY_POINTER)
     {
-      warn ("Expected pointer but found");
+
+      warn ("Could not ref non-pointer type");
       return NULL;
     }
 
-  return ptr->pointer.ref;
+  return ty->ty->ty.ty_pointer.ref;
 }
 
-static inline pointer_t *
-find_tail_pointer (pointer_t *ptr)
+static inline decl_t *
+begin_decl (const char *name)
 {
-  while (1)
-    {
-      if (!ptr->ref)
-        {
-          return ptr;
-        }
+  decl_t *decl = IALLOC (decl_t);
+  decl->has_name = TRUE;
+  strncpy (decl->name, name, SYM_MAXLEN);
+  return decl;
+}
 
-      if (ptr->ref->tag != AST_POINTER)
-        {
-          return ptr;
-        }
+static inline decl_t *
+decl_array (decl_t *decl, int size)
+{
+  ty_deco_t *deco = new_ty_array (
+      (ty_array_t){ .ref = decl->type, .size = size }, CONSTR_EMPTY);
+  decl->type = deco;
+  return decl;
+}
 
-      ptr = &ptr->ref->pointer;
-    }
+static inline int
+fold_assignment_expr ()
+{
+}
 
-  return NULL;
+static int
+ast_sizeof (ast_t *expr)
+{
 }
 
 #endif

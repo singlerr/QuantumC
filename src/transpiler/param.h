@@ -10,4 +10,5 @@
 #define CONSTR_STATIC (1 << 6)
 #define CONSTR_AUTO (1 << 7)
 #define CONSTR_REGISTER (1 << 8)
+#define CONSTR_EMPTY 0
 #endif

@@ -30,11 +30,23 @@ search_symbol (const char *name, int only_current_scope)
   return NULL;
 }
 
+const ty_deco_t *
+search_symbol_type (const char *name, int only_current_scope)
+{
+  const symtab_t *sym = search_symbol (name, only_current_scope);
+  if (!sym)
+    {
+      return NULL;
+    }
+
+  return sym->ty;
+}
+
 const symtab_t *
-put_symbol (const char *name, uint32_t id)
+put_symbol (const char *name, ty_deco_t *ty)
 {
   symtab_t *s = (symtab_t *)malloc (sizeof (symtab_t));
-  s->id = var_id++;
+  s->ty = ty;
   s->scope = scope;
   strncpy (s->name, name, SYM_MAXLEN);
 
