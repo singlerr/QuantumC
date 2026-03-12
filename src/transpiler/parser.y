@@ -46,6 +46,7 @@
 	int constr;
 	float f;
 	char *str;
+	ast_tag_t ast_tag;
 	ast_t* ast;
 	type_t* type;
 	ty_deco_t* ty_deco;
@@ -69,7 +70,7 @@
 
 
 %token <str> IDENTIFIER
-%token STRING_LITERAL SIZEOF
+%token SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
@@ -87,34 +88,59 @@
 %start program
 
 %type<ast> primary_expression
+%type<ast> postfix_expression
+%type<ast> unary_expression
+%type<ast> cast_expression
+%type<ast> multiplicative_expression
+%type<ast> additive_expression
+%type<ast> shift_expression
+%type<ast> relational_expression
+%type<ast> equality_expression
+%type<ast> and_expression
+%type<ast> exclusive_or_expression
+%type<ast> inclusive_or_expression
+%type<ast> logical_or_expression
+%type<ast> logical_and_expression
+%type<ast> conditional_expression
+%type<ast> assignment_expression
+%type<ast> expression
+%type<ast> constant_expression
+
 %type<constr> type_qualifier
 %type<constr> type_qualifier_list
+
 %type<type> type_specifier
+
 %type<struct_fields> struct_declaration_list
 %type<struct_field> struct_declaration
+
 %type<args> parameter_type_list
 %type<arg_list> parameter_list
 %type<args> identifier_list
 %type<arg> parameter_declaration
+
 %type<decl> direct_declarator
 %type<decl> declarator
+
 %type<ty_deco> pointer
 %type<ty_deco> declaration_specifiers
 %type<ty_deco> specifier_qualifier_list
 %type<ty_deco> direct_abstract_declarator
 %type<ty_deco> abstract_declarator
+%type<ty_deco> type_name
 
+%type<ast_tag> unary_operator
 %%
 
 program: translation_unit
 
 primary_expression
 	: IDENTIFIER { $$ = new_ast_var(search_var(yylval.str), search_symbol_type(yylval.str, FALSE)); }
-	| INTCONSTANT { $$ = new_ast_literal(AST_INT, Int(yylval.i), Deco(Type(TY_INT), CONSTR_EMPTY)); }
-	| FLOATCONSTANT { $$ = new_ast_literal(AST_FLOAT, Float(yylval.f), Deco(Type(TY_FLOAT), CONSTR_EMPTY)); }
+	| INTCONSTANT { $$ = new_ast_literal(AST_INT, Int(32, yylval.i), Deco(Type(TY_INT), CONSTR_EMPTY)); }
+	| FLOATCONSTANT { $$ = new_ast_literal(AST_FLOAT, Float(32, yylval.f), Deco(Type(TY_FLOAT), CONSTR_EMPTY)); }
 	/* | STRING_LITERAL  */
-	| BOOL_TRUE { $$ = new_ast_literal(AST_BOOL, Bool(TRUE), Deco(Type(TY_BOOL), CONSTR_EMPTY)); }
-	| BOOL_FALSE { $$ = new_ast_literal(AST_BOOL, Bool(FALSE), Deco(Type(TY_BOOL), CONSTR_EMPTY)); }
+	| BOOL_TRUE { $$ = new_ast_literal(AST_BOOL, Bool(TRUE), Deco(Type(8, TY_BOOL), CONSTR_EMPTY)); }
+	| BOOL_FALSE { $$ = new_ast_literal(AST_BOOL, Bool(FALSE), Deco(Type(8, TY_BOOL), CONSTR_EMPTY)); }
 	| '(' expression ')' { $$ = $1; }
 	;
 
@@ -125,8 +151,8 @@ postfix_expression
 	| postfix_expression '(' argument_expression_list ')' { $$ = new_ast_app(App($1, $2), $1); }
 	| postfix_expression '.' IDENTIFIER { $$ = from_struct_member($1, yylval.str); }
 	| postfix_expression PTR_OP IDENTIFIER { $$ = from_struct_member(ref_pointer($1), yylval.str); }
-	| postfix_expression INC_OP { $$ = new_ast_unary_expr(AST_POST_INC, Unary($1), ); }
-	| postfix_expression DEC_OP { $$ = new_ast_unary_expr(AST_POST_DEC, Unary($1)); }
+	| postfix_expression INC_OP { $$ = new_ast_unary_expr(AST_POST_INC, Unary($1), $1->ty); }
+	| postfix_expression DEC_OP { $$ = new_ast_unary_expr(AST_POST_DEC, Unary($1), $1->ty); }
 	| '(' type_name ')' '{' initializer_list '}' { $$ =  }
 	| '(' type_name ')' '{' initializer_list ',' '}'
 	;
@@ -140,18 +166,18 @@ unary_expression
 	: postfix_expression { $$ = $1; }
 	| INC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_INC, Unary($1)); }
 	| DEC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_DEC, Unary($1)); }
-	| unary_operator cast_expression { $$  }
-	| SIZEOF unary_expression { $$ =  }
+	| unary_operator cast_expression { $$ = new_ast_unary_expr($1, Unary($2), $2->ty); }
+	| SIZEOF unary_expression { $$ = new_ast_literal(AST_INT, Int())  }
 	| SIZEOF '(' type_name ')'
 	;
 
 unary_operator
-	: '&'
-	| '*'
-	| '+'
-	| '-'
-	| '~'
-	| '!'
+	: '&' { $$ = AST_UNARY_REF; }
+	| '*' { $$ = AST_UNARY_DEREF; }
+	| '+' { $$ = AST_UNARY_PLUS; }
+	| '-' { $$ = AST_UNARY_MINUS; }
+	| '~' { $$ = AST_UNARY_NOT; }
+	| '!' { $$ = AST_UNARY_LNOT; }
 	;
 
 cast_expression
@@ -283,18 +309,18 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID { $$ = Type(TY_VOID); }
-	| CHAR { $$ = Type(TY_CHAR); }
-	| SHORT { $$ = Type(TY_SHORT); }
-	| INT { $$ = Type(TY_INT); }
-	| LONG { $$ = Type(TY_LONG); }
-	| FLOAT { $$ = Type(TY_FLOAT); }
-	| DOUBLE { $$ = Type(TY_DOUBLE); }
-	| SIGNED { $$ = Type(TY_INT); }
-	| UNSIGNED { $$ = Type(TY_UINT); }
-	| COMPLEX  { $$ = Type(TY_COMPLEX); }
-	| IMAGINARY { $$ = Type(TY_IMAGINARY); }
-	| BOOL { $$ = Type(TY_BOOL); }
+	: VOID { $$ = Type(0, TY_VOID); }
+	| CHAR { $$ = Type(8, TY_CHAR); }
+	| SHORT { $$ = Type(16, TY_SHORT); }
+	| INT { $$ = Type(32, TY_INT); }
+	| LONG { $$ = Type(64, TY_LONG); }
+	| FLOAT { $$ = Type(32, TY_FLOAT); }
+	| DOUBLE { $$ = Type(64, TY_DOUBLE); }
+	| SIGNED { $$ = Type(32, TY_INT); }
+	| UNSIGNED { $$ = Type(32, TY_UINT); }
+	| COMPLEX  { $$ = Type(0, TY_COMPLEX); }
+	| IMAGINARY { $$ = Type(0, TY_IMAGINARY); }
+	| BOOL { $$ = Type(8, TY_BOOL); }
 	| struct_or_union_specifier { $$ = $1; }
 	| enum_specifier { $$ = $1; }
 	| TYPE_NAME { $$ = yylval.type; }
@@ -340,9 +366,9 @@ struct_declarator
 
 enum_specifier
 	: ENUM '{'  enumerator_list '}'
-	| ENUM IDENTIFIER <id_node> '{' enumerator_list '}'
+	| ENUM IDENTIFIER '{' enumerator_list '}'
 	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER <id_node> '{' enumerator_list ',' '}'
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
 	| ENUM IDENTIFIER
 	;
 
@@ -353,7 +379,7 @@ enumerator_list
 
 enumerator
 	: IDENTIFIER
-	| IDENTIFIER <id_node> '=' constant_expression
+	| IDENTIFIER '=' constant_expression
 	;
 
 type_qualifier

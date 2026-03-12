@@ -166,6 +166,29 @@ fold_assignment_expr ()
 static int
 ast_sizeof (ast_t *expr)
 {
+  if (!expr)
+    {
+      warn ("Sizeof argument must be not null");
+      return -1;
+    }
+
+  switch (expr->tag)
+    {
+    case AST_VAR:
+      {
+        const ty_deco_t *ty = search_symbol_type (expr->var.name);
+        if (!ty)
+          {
+            warn ("Variable \"%s\" does not exist.", expr->var.name);
+            return -1;
+          }
+
+        return type_sizeof (ty);
+      }
+      break;
+    default:
+      return type_sizeof (expr->ty);
+    }
 }
 
 #endif

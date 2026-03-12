@@ -64,18 +64,24 @@ typedef cvector_vector_type (struct stmt_case) case_vec;
   AST_TYPE (AST_OR)                                                           \
   AST_TYPE (AST_XOR)                                                          \
   AST_TYPE (AST_LAND)                                                         \
-  AST_TYPE (AST_LOR)                                                          \
-  AST_TYPE (AST_ASSIGN)                                                       \
-  AST_TYPE (AST_ASSIGN_MUL)                                                   \
-  AST_TYPE (AST_ASSIGN_DIV)                                                   \
-  AST_TYPE (AST_ASSIGN_MOD)                                                   \
-  AST_TYPE (AST_ASSIGN_ADD)                                                   \
-  AST_TYPE (AST_ASSIGN_SUB)                                                   \
-  AST_TYPE (AST_ASSIGN_LSHIFT)                                                \
-  AST_TYPE (AST_ASSIGN_RSHIFT)                                                \
-  AST_TYPE (AST_ASSIGN_AND)                                                   \
-  AST_TYPE (AST_ASSIGN_OR)                                                    \
-  AST_TYPE (AST_ASSIGN_XOR)
+  AST_TYPE (AST_LOR)
+AST_TYPE (AST_UNARY_REF)
+AST_TYPE (AST_UNARY_DEREF)
+AST_TYPE (AST_UNARY_PLUS)
+AST_TYPE (AST_UNARY_MINUS)
+AST_TYPE (AST_UNARY_NOT)
+AST_TYPE (AST_UNARY_LNOT)
+AST_TYPE (AST_ASSIGN)
+AST_TYPE (AST_ASSIGN_MUL)
+AST_TYPE (AST_ASSIGN_DIV)
+AST_TYPE (AST_ASSIGN_MOD)
+AST_TYPE (AST_ASSIGN_ADD)
+AST_TYPE (AST_ASSIGN_SUB)
+AST_TYPE (AST_ASSIGN_LSHIFT)
+AST_TYPE (AST_ASSIGN_RSHIFT)
+AST_TYPE (AST_ASSIGN_AND)
+AST_TYPE (AST_ASSIGN_OR)
+AST_TYPE (AST_ASSIGN_XOR)
 
 typedef struct ast_fun
 {
@@ -90,16 +96,25 @@ typedef struct decl
   ty_deco_t *type;
 } decl_t;
 
-typedef struct struct_field
-{
-  typed_var_t var;
-} struct_field_t;
-
 typedef struct var
 {
   char name[SYM_MAXLEN];
   uint32_t id;
 } var_t;
+
+typedef struct ast_struct_field
+{
+  char name[SYM_MAXLEN];
+  ty_deco_t *ty;
+} ast_struct_field_t;
+
+typedef cvector_vector_type (ast_struct_field_t) ast_struct_fields_t;
+
+typedef struct ast_struct
+{
+  ast_struct_fields_t fields;
+  ty_deco_t *ty;
+} ast_struct_t;
 
 typedef struct app
 {
