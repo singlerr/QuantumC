@@ -10,7 +10,6 @@ type_sizeof (type_t *ty)
       error ("Type is null");
       return -1;
     }
-
   switch (ty->tag)
     {
     case TY_STRUCT:

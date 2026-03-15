@@ -122,6 +122,8 @@ ty_struct_t *begin_struct ();
 ty_struct_t *begin_union ();
 ty_struct_t *set_struct_name (ty_struct_t *inst, const char *name);
 int type_sizeof (type_t *ty);
+ty_deco_t *clone_ty_deco (ty_deco_t *ty);
+type_t *clone_type (type_t *ty);
 
 #define EmptyPointer() new_ty_pointer (new_pointer (NULL), CONSTR_EMPTY)
 #define Pointer(ty_deco, constr) new_ty_pointer (new_pointer (ty_deco), constr)

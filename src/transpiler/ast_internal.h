@@ -3,6 +3,7 @@
 
 #include "ast.h"
 #include "common.h"
+#include "err.h"
 #include "symtab.h"
 
 #include <stdio.h>
@@ -75,6 +76,46 @@ new_ast_unary_expr (ast_tag_t type, expr_unary_t unary, ty_deco_t *ty)
   ast_t *ast = new_ast ();
   ast->tag = type;
   ast->expr_unary = unary;
+  ast->ty = ty;
+  return ast;
+}
+
+static inline ast_t *
+new_ast_binary_expr (ast_tag_t tag, expr_binary_t binary, ty_deco_t *ty)
+{
+  ast_t *ast = new_ast ();
+  ast->ty = ty;
+  ast->expr_binary = binary;
+  ast->tag = tag;
+  return ast;
+}
+
+static inline ast_t *
+new_ast_ternary_expr (ast_tag_t tag, expr_ternary_t ternary, ty_deco_t *ty)
+{
+  ast_t *ast = new_ast ();
+  ast->tag = tag;
+  ast->expr_ternary = ternary;
+  ast->ty = ty;
+  return ast;
+}
+
+static inline ast_t *
+new_ast_cast_expr (expr_cast_t cast)
+{
+  ast_t *ast = new_ast ();
+  ast->tag = AST_CAST;
+  ast->expr_cast = cast;
+  ast->ty = cast.ty_caster;
+  return ast;
+}
+
+static inline ast_t *
+new_ast_expr_list (expr_list_t list, ty_deco_t *ty)
+{
+  ast_t *ast = new_ast ();
+  ast->tag = AST_LIST;
+  ast->expr_list = list;
   ast->ty = ty;
   return ast;
 }
@@ -158,11 +199,6 @@ decl_array (decl_t *decl, int size)
   return decl;
 }
 
-static inline int
-fold_assignment_expr ()
-{
-}
-
 static int
 ast_sizeof (ast_t *expr)
 {
@@ -188,6 +224,137 @@ ast_sizeof (ast_t *expr)
       break;
     default:
       return type_sizeof (expr->ty);
+    }
+}
+
+static decl_list_t
+deco_init_declarator (decl_list_t list, ty_deco_t *type)
+{
+  decl_t *it;
+  ty_deco_t *ty;
+
+  for (it = cvector_begin (list); it != cvector_end (list); it++)
+    {
+      ty = clone_ty_deco (type);
+      if (it->type)
+        {
+          // connect type
+          ty = append_ty (it->type, ty);
+          it->type = ty;
+        }
+      else
+        {
+          it->type = ty;
+        }
+    }
+
+  return list;
+}
+
+#define CALC_OP(operator, lhs, rhs, result)                                   \
+  do                                                                          \
+    {
+if (lhs.type == AST_INT)
+}
+while (0)
+  ;
+
+static const_result_t
+join_const (ast_tag_t op, const_result_t lhs, const_result_t rhs)
+{
+  const_result_t result;
+  switch (op)
+    {
+    case AST_ADD:
+
+      break;
+    case AST_SUB:
+      break;
+    case AST_MUL:
+      break;
+    case AST_DIV:
+      break;
+    case AST_MOD:
+      break;
+    case AST_GT:
+      break;
+    case AST_LT:
+      break;
+    case AST_LEQ:
+      break;
+    case AST_GEQ:
+      break;
+    case AST_LSHIFT:
+      break;
+    case AST_RSHIFT:
+      break;
+    case AST_EQ:
+      break;
+    case AST_NEQ:
+      break;
+    case AST_AND:
+      break;
+    case AST_OR:
+      break;
+    case AST_XOR:
+      break;
+    case AST_LAND:
+      break;
+    case AST_LOR:
+      break;
+    case AST_ASSIGN_MUL:
+      break;
+    case AST_ASSIGN_DIV:
+      break;
+    case AST_ASSIGN_MOD:
+      break;
+    case AST_ASSIGN_ADD:
+      break;
+    case AST_ASSIGN_SUB:
+      break;
+    case AST_ASSIGN_LSHIFT:
+      break;
+    case AST_ASSIGN_RSHIFT:
+      break;
+    case AST_ASSIGN_AND:
+      break;
+    case AST_ASSIGN_OR:
+      break;
+    case AST_ASSIGN_XOR:
+      break;
+    default:
+      break;
+    }
+}
+
+static const_result_t
+fold_assignment_expr (ast_t *ast)
+{
+  ast_tag_t tag = ast->tag;
+  const_result_t lhs, rhs;
+  const_result_t result;
+  switch (tag)
+    {
+    case AST_INT:
+      result.type = AST_INT;
+      result.value.i = ast->literal.i;
+      return result;
+    case AST_FLOAT:
+      result.type = AST_FLOAT;
+      result.value.f = ast->literal.f;
+      return result;
+    case AST_SHORT:
+      result.type = AST_SHORT;
+      result.value.s = ast->literal.s;
+      return result;
+    default:
+      break;
+    }
+
+  if (is_assignment_operator (ast->tag))
+    {
+      lhs = fold_assignment_expr (ast->expr_binary.lhs);
+      rhs = fold_assignment_expr (ast->expr_binary.rhs);
     }
 }
 

@@ -52,9 +52,10 @@
 	ty_deco_t* ty_deco;
 	ty_struct_t* ty_struct;
 	args_t* args;
+	decl_t* decl;
+	decl_list_t decl_list;
 	arg_list_t arg_list;
 	arg_t arg;
-	decl_t* decl;
 	struct_fields_t struct_fields;
 	struct_field_t struct_field;
 	stmt_compound_t stmt_compound;
@@ -105,6 +106,11 @@
 %type<ast> assignment_expression
 %type<ast> expression
 %type<ast> constant_expression
+%type<ast> initializer
+
+%type<decl_list> declaration
+%type<decl_list> init_declarator_list
+%type<decl> init_declarator
 
 %type<constr> type_qualifier
 %type<constr> type_qualifier_list
@@ -130,6 +136,8 @@
 %type<ty_deco> type_name
 
 %type<ast_tag> unary_operator
+%type<ast_tag> assignment_operator
+
 %%
 
 program: translation_unit
@@ -167,8 +175,8 @@ unary_expression
 	| INC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_INC, Unary($1)); }
 	| DEC_OP unary_expression { $$ = new_ast_unary_expr(AST_PRE_DEC, Unary($1)); }
 	| unary_operator cast_expression { $$ = new_ast_unary_expr($1, Unary($2), $2->ty); }
-	| SIZEOF unary_expression { $$ = new_ast_literal(AST_INT, Int())  }
-	| SIZEOF '(' type_name ')'
+	| SIZEOF unary_expression { $$ = new_ast_literal(AST_UINT, UInt(ast_sizeof($1)), Deco(Type(32, TY_UINT), CONSTR_EMPTY));  }
+	| SIZEOF '(' type_name ')' { $$ = new_ast_literal(AST_UINT, UInt(type_sizeof($1)), Deco(Type(32, TY_UINT), CONSTR_EMPTY)); }
 	;
 
 unary_operator
@@ -181,104 +189,104 @@ unary_operator
 	;
 
 cast_expression
-	: unary_expression
-	| '(' type_name ')' cast_expression
+	: unary_expression { $$ = $1; }
+	| '(' type_name ')' cast_expression { $$ = new_ast_cast_expr(Cast($1, $2)); }
 	;
 
 multiplicative_expression
-	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	: cast_expression { $$ = $1; }
+	| multiplicative_expression '*' cast_expression { $$ = new_ast_binary_expr(AST_MUL, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| multiplicative_expression '/' cast_expression { $$ = new_ast_binary_expr(AST_DIV, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| multiplicative_expression '%' cast_expression { $$ = new_ast_binary_expr(AST_MOD, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 additive_expression
-	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	: multiplicative_expression { $$ = $1; }
+	| additive_expression '+' multiplicative_expression { $$ = new_ast_binary_expr(AST_ADD, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| additive_expression '-' multiplicative_expression { $$ = new_ast_binary_expr(AST_SUB, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 shift_expression
-	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+	: additive_expression { $$ = $1; }
+	| shift_expression LEFT_OP additive_expression { $$ = new_ast_binary_expr(AST_LSHIFT, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| shift_expression RIGHT_OP additive_expression { $$ = new_ast_binary_expr(AST_RSHIFT, Binary($1, $2), TypeCast($1->ty, $2->ty)); } 
 	;
 
 relational_expression
-	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
+	: shift_expression { $$ = $1; }
+	| relational_expression '<' shift_expression { $$ = new_ast_binary_expr(AST_LT, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| relational_expression '>' shift_expression { $$ = new_ast_binary_expr(AST_GT, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| relational_expression LE_OP shift_expression { $$ = new_ast_binary_expr(AST_LEQ, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| relational_expression GE_OP shift_expression { $$ = new_ast_binary_expr(AST_GEQ, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 equality_expression
-	: relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
+	: relational_expression { $$ = $1; }
+	| equality_expression EQ_OP relational_expression { $$ = new_ast_binary_expr(AST_EQ, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
+	| equality_expression NE_OP relational_expression { $$ = new_ast_binary_expr(AST_NEQ, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 and_expression
-	: equality_expression
-	| and_expression '&' equality_expression
+	: equality_expression { $$ = $1; }
+	| and_expression '&' equality_expression { $$ = new_ast_binary_expr(AST_AND, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 exclusive_or_expression
-	: and_expression
-	| exclusive_or_expression '^' and_expression
+	: and_expression { $$ = $1; }
+	| exclusive_or_expression '^' and_expression { $$ = new_ast_binary_expr(AST_XOR, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 inclusive_or_expression
-	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	: exclusive_or_expression { $$ = $1; }
+	| inclusive_or_expression '|' exclusive_or_expression { $$ = new_ast_binary_expr(AST_OR, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 logical_and_expression
-	: inclusive_or_expression
-	| logical_and_expression AND_OP inclusive_or_expression
+	: inclusive_or_expression { $$ = $1; }
+	| logical_and_expression AND_OP inclusive_or_expression { $$ = new_ast_binary_expr(AST_LAND, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 logical_or_expression
-	: logical_and_expression
-	| logical_or_expression OR_OP logical_and_expression
+	: logical_and_expression { $$ = $1; }
+	| logical_or_expression OR_OP logical_and_expression { $$ = new_ast_binary_expr(AST_LOR, Binary($1, $2), TypeCast($1->ty, $2->ty)); }
 	;
 
 conditional_expression
-	: logical_or_expression
-	| logical_or_expression '?' expression ':' conditional_expression
+	: logical_or_expression { $$ = $1; }
+	| logical_or_expression '?' expression ':' conditional_expression { $$ = new_ast_ternary_expr(AST_COND, Ternary($1, $2, $3), TypeCast($2->ty, $3->ty)); }
 	;
 
 assignment_expression
-	: conditional_expression  
-	| unary_expression assignment_operator assignment_expression
+	: conditional_expression { $$ = $1; }
+	| unary_expression assignment_operator assignment_expression { $$ = new_ast_binary_expr($2, Binary($1, $2), $1->ty); }
 	;
 
 assignment_operator
-	: '='
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	: '=' { $$ = AST_ASSIGN; }
+	| MUL_ASSIGN { $$ = AST_ASSIGN_MUL; }
+	| DIV_ASSIGN { $$ = AST_ASSIGN_DIV; }
+	| MOD_ASSIGN { $$ = AST_ASSIGN_MOD; }
+	| ADD_ASSIGN { $$ = AST_ASSIGN_ADD; }
+	| SUB_ASSIGN { $$ = AST_ASSIGN_SUB; }
+	| LEFT_ASSIGN { $$ = AST_ASSIGN_LSHIFT; }
+	| RIGHT_ASSIGN { $$ = AST_ASSIGN_RSHIFT; }
+	| AND_ASSIGN { $$ = AST_ASSIGN_AND; }
+	| XOR_ASSIGN { $$ = AST_ASSIGN_XOR; }
+	| OR_ASSIGN  { $$ = AST_ASSIGN_OR; }
 	;
 
 expression
-	: assignment_expression
-	| expression ',' assignment_expression
+	: assignment_expression { $$ = $1; }
+	| expression ',' assignment_expression { $$ = new_ast_expr_list(List($1, $2), $1->ty); }
 	;
 
 constant_expression
-	: conditional_expression
+	: conditional_expression { $$ = $1; }
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	: declaration_specifiers ';' { $$ = NULL; }
+	| declaration_specifiers init_declarator_list ';' { $$ = deco_init_declarator($2, $1);  }
 	;
 
 declaration_specifiers
@@ -291,13 +299,13 @@ declaration_specifiers
     ;
 
 init_declarator_list
-	: init_declarator
-	| init_declarator_list ',' init_declarator
+	: init_declarator { $$ = (decl_list_t) $1; }
+	| init_declarator_list ',' init_declarator { cvector_push_back($1, $2); $$ = $1; }
 	;
 
 init_declarator
-	: declarator
-	| declarator '=' initializer
+	: declarator { $$ = $1; }
+	| declarator '=' initializer { $1->init = $2; $$ = $1; }
 	;
 
 storage_class_specifier
@@ -427,7 +435,7 @@ parameter_list
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator { $$ = new_arg() } 
+	: declaration_specifiers declarator {  } 
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
 	;
@@ -462,14 +470,14 @@ direct_abstract_declarator
     ;
 
 initializer
-	: assignment_expression
-	| '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	: assignment_expression { $$ = $1; }
+	| '{' initializer_list '}' { $$ = $1; }
+	| '{' initializer_list ',' '}' { $$ = $1; }
 	;
 
 initializer_list
-	: initializer
-	| designation initializer
+	: initializer { $$ = $1; }
+	| designation initializer {  }
 	| initializer_list ',' initializer
 	| initializer_list ',' designation initializer
 	;
@@ -484,8 +492,8 @@ designator_list
 	;
 
 designator
-	: '[' constant_expression ']'
-	| '.' IDENTIFIER
+	: '[' constant_expression ']' { $$ = $1; }
+	| '.' IDENTIFIER { $$ =  }
 	;
 
 statement

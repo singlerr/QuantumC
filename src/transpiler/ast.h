@@ -64,24 +64,38 @@ typedef cvector_vector_type (struct stmt_case) case_vec;
   AST_TYPE (AST_OR)                                                           \
   AST_TYPE (AST_XOR)                                                          \
   AST_TYPE (AST_LAND)                                                         \
-  AST_TYPE (AST_LOR)
-AST_TYPE (AST_UNARY_REF)
-AST_TYPE (AST_UNARY_DEREF)
-AST_TYPE (AST_UNARY_PLUS)
-AST_TYPE (AST_UNARY_MINUS)
-AST_TYPE (AST_UNARY_NOT)
-AST_TYPE (AST_UNARY_LNOT)
-AST_TYPE (AST_ASSIGN)
-AST_TYPE (AST_ASSIGN_MUL)
-AST_TYPE (AST_ASSIGN_DIV)
-AST_TYPE (AST_ASSIGN_MOD)
-AST_TYPE (AST_ASSIGN_ADD)
-AST_TYPE (AST_ASSIGN_SUB)
-AST_TYPE (AST_ASSIGN_LSHIFT)
-AST_TYPE (AST_ASSIGN_RSHIFT)
-AST_TYPE (AST_ASSIGN_AND)
-AST_TYPE (AST_ASSIGN_OR)
-AST_TYPE (AST_ASSIGN_XOR)
+  AST_TYPE (AST_LOR)                                                          \
+  AST_TYPE (AST_UNARY_REF)                                                    \
+  AST_TYPE (AST_UNARY_DEREF)                                                  \
+  AST_TYPE (AST_UNARY_PLUS)                                                   \
+  AST_TYPE (AST_UNARY_MINUS)                                                  \
+  AST_TYPE (AST_UNARY_NOT)                                                    \
+  AST_TYPE (AST_UNARY_LNOT)                                                   \
+  AST_TYPE (AST_ASSIGN)                                                       \
+  AST_TYPE (AST_ASSIGN_MUL)                                                   \
+  AST_TYPE (AST_ASSIGN_DIV)                                                   \
+  AST_TYPE (AST_ASSIGN_MOD)                                                   \
+  AST_TYPE (AST_ASSIGN_ADD)                                                   \
+  AST_TYPE (AST_ASSIGN_SUB)                                                   \
+  AST_TYPE (AST_ASSIGN_LSHIFT)                                                \
+  AST_TYPE (AST_ASSIGN_RSHIFT)                                                \
+  AST_TYPE (AST_ASSIGN_AND)                                                   \
+  AST_TYPE (AST_ASSIGN_OR)                                                    \
+  AST_TYPE (AST_ASSIGN_XOR)                                                   \
+  AST_TYPE (AST_COND)                                                         \
+  AST_TYPE (AST_LIST)
+
+typedef struct const_result
+{
+  ast_tag_t type;
+  union
+  {
+    int i;
+    float f;
+    double d;
+    short s;
+  } value;
+} const_result_t;
 
 typedef struct ast_fun
 {
@@ -94,7 +108,10 @@ typedef struct decl
   int has_name;
   char name[SYM_MAXLEN];
   ty_deco_t *type;
+  struct ast *init;
 } decl_t;
+
+typedef cvector_vector_type (decl_t) decl_list_t;
 
 typedef struct var
 {
@@ -115,6 +132,12 @@ typedef struct ast_struct
   ast_struct_fields_t fields;
   ty_deco_t *ty;
 } ast_struct_t;
+
+typedef struct init
+{
+  ast_vec designator_list;
+  struct ast *init;
+} init_t;
 
 typedef struct app
 {
@@ -137,7 +160,7 @@ typedef struct member_access
 typedef struct typed_var
 {
   var_t var;
-  struct type type;
+  ty_deco_t *type;
 } typed_var_t;
 
 typedef struct qubit
@@ -226,12 +249,24 @@ typedef struct expr_unary
   struct ast *value;
 } expr_unary_t;
 
+typedef struct expr_cast
+{
+  ty_deco_t *ty_caster;
+  struct ast *value;
+} expr_cast_t;
+
 typedef struct expr_ternary
 {
   struct ast *lhs;
   struct ast *mhs;
   struct ast *rhs;
 } expr_ternary_t;
+
+typedef struct expr_list
+{
+  struct ast *prev;
+  struct ast *value;
+} expr_list_t;
 
 #define ENUM_GEN(ENUM) ENUM,
 
@@ -267,8 +302,10 @@ typedef struct ast
     stmt_while_t stmt_while;
     stmt_for_t stmt_for;
     expr_unary_t expr_unary;
+    expr_cast_t expr_cast;
     expr_binary_t expr_binary;
     expr_ternary_t expr_ternary;
+    expr_list_t expr_list;
   };
 
 } ast_t;
@@ -287,11 +324,18 @@ app_t new_app (struct ast *fun, struct ast *arg);
 array_access_t new_arr_access (struct ast *array, struct ast *index);
 member_access_t new_member_access (struct ast *aggregate, struct ast *member);
 expr_unary_t new_unary_expr (ast_t *value);
+expr_binary_t new_binary_expr (ast_t *lhs, ast_t *rhs);
+expr_ternary_t new_ternary_expr (ast_t *lhs, ast_t *mhs, ast_t *rhs);
+expr_cast_t new_cast_expr (ty_deco_t *ty, ast_t *value);
+expr_list_t new_expr_list (ast_t *prev, ast_t *value, ty_deco_t *ty);
 ast_t *new_ast ();
 void init_ast_ctx ();
 node_id_t next_id ();
 uint32_t next_var_id ();
 const char *to_ast_string (ast_tag_t tag);
+
+int is_assignment_operator (ast_tag_t tag);
+int is_binary_operator (ast_tag_t tag);
 
 #define Int(i) new_literal_int (i)
 #define Float(f) new_literal_float (f)
@@ -303,6 +347,10 @@ const char *to_ast_string (ast_tag_t tag);
 #define MemAccess(aggregate, member) new_member_access (aggregate, member)
 #define Id(i) new_node_id (i)
 #define Unary(ast) new_unary_expr (ast)
+#define Binary(lhs, rhs) new_binary_expr (lhs, rhs)
+#define Ternary(lhs, mhs, rhs) new_ternary_expr (lhs, mhs, rhs)
+#define Cast(ty, ast) new_cast_expr (ty, ast)
+#define List(prev, value) new_expr_list (prev, value)
 #define AST_NAME(ast_tag) to_ast_string (ast_tag)
 
 #endif
