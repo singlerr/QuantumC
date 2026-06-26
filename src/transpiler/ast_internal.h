@@ -29,6 +29,7 @@ static inline ast_t *
 new_ast_literal (ast_tag_t type, literal_t literal, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
+  ast->tag = type;
   ast->literal = literal;
   ast->ty = ty;
   return ast;
@@ -58,6 +59,7 @@ static inline ast_t *
 new_ast_app (app_t app, ty_deco_t *ty)
 {
   ast_t *ast = new_ast ();
+  ast->tag = AST_APP;
   ast->app = app;
   ast->ty = ty;
   return ast;
@@ -245,5 +247,106 @@ deco_init_declarator (decl_list_t list, ty_deco_t *type)
   return list;
 }
 
+static inline ast_t *
+new_ast_compound (stmt_compound_t c)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_COMPOUND;
+  a->stmt_compound = c;
+  return a;
+}
+
+static inline ast_t *
+new_ast_if (ast_t *cond, ast_t *body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_IF;
+  a->stmt_if.condition = cond;
+  a->stmt_if.body = body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_if_else (ast_t *cond, ast_t *body, ast_t *else_body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_IF_ELSE;
+  a->stmt_if_else.condition = cond;
+  a->stmt_if_else.body = body;
+  a->stmt_if_else.else_body = else_body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_while (ast_t *cond, ast_t *body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_WHILE;
+  a->stmt_while.condition = cond;
+  a->stmt_while.body = body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_do_while (ast_t *cond, ast_t *body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_DO_WHILE;
+  a->stmt_while.condition = cond;
+  a->stmt_while.body = body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_for (ast_t *lhs, ast_t *mhs, ast_t *rhs, ast_t *body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_FOR;
+  a->stmt_for.lhs = lhs;
+  a->stmt_for.mhs = mhs;
+  a->stmt_for.rhs = rhs;
+  a->stmt_for.body = body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_return (ast_t *val)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_RETURN;
+  a->expr_unary.value = val;
+  return a;
+}
+
+static inline ast_t *
+new_ast_simple (ast_tag_t tag)
+{
+  ast_t *a = new_ast ();
+  a->tag = tag;
+  return a;
+}
+
+static inline ast_t *
+new_ast_fun_node (ty_deco_t *ret_ty, decl_t *decl, ast_t *body)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_FUN;
+  if (decl && decl->has_name)
+    strncpy (a->fun.name, decl->name, SYM_MAXLEN);
+  else
+    a->fun.name[0] = '\0';
+  a->fun.ty_fun = ret_ty ? ret_ty->ty : NULL;
+  a->fun.body = body;
+  return a;
+}
+
+static inline ast_t *
+new_ast_decl (decl_list_t list)
+{
+  ast_t *a = new_ast ();
+  a->tag = AST_DECL;
+  a->decl_list = list;
+  return a;
+}
 
 #endif

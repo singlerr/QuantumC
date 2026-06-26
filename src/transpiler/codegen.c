@@ -22,7 +22,7 @@ void error(const char *msg, ...);
 
 void gen_array_type(const array_type *);
 void gen_scalar_type(const classical_type *);
-void gen_type(const type *);
+void gen_type(const ir_type *);
 void gen_classical_type(const classical_type *);
 void gen_quantum_type(const quantum_type *);
 void gen_operator(const operator op_type);
@@ -273,7 +273,7 @@ void gen_statement(const statement *stmt, BOOL do_indent)
     }
 }
 
-void gen_type(const type *type)
+void gen_type(const ir_type *type)
 {
     if (type->kind == CLASSICAL_TYPE)
     {

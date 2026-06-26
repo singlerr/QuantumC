@@ -241,7 +241,7 @@ typedef enum
 typedef struct
 {
   type_kind kind;
-  struct type *base_type;
+  struct ir_type *base_type;
 
   dimension_kind dimension_kind;
 
@@ -283,7 +283,7 @@ typedef struct qubit_type
   struct expression *size;
 } qubit_type;
 
-typedef struct type
+typedef struct ir_type
 {
   enum
   {
@@ -297,7 +297,7 @@ typedef struct type
     struct quantum_type *quantum_type;
   };
 
-} type;
+} ir_type;
 
 typedef struct classical_type
 {

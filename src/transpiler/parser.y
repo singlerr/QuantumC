@@ -144,10 +144,25 @@
 %type<ast_tag> unary_operator
 %type<ast_tag> assignment_operator
 
+%type<ast> statement
+%type<ast> labeled_statement
+%type<ast> compound_statement
+%type<ast> block_item
+%type<ast> expression_statement
+%type<ast> selection_statement
+%type<ast> iteration_statement
+%type<ast> jump_statement
+%type<ast> if_head
+%type<ast> external_declaration
+%type<ast> translation_unit
+%type<ast> function_definition
+%type<stmt_if> if_then
+%type<stmt_compound> block_item_list
+
 %%
 
 program
-	: translation_unit { *root = NULL; }
+	: translation_unit { *root = $1; }
 	;
 
 primary_expression
@@ -429,7 +444,7 @@ type_qualifier_list
 direct_declarator
 	: IDENTIFIER { $$ = begin_decl($1); }
 	| '(' declarator ')' { $$ = $2; }
-	| direct_declarator '[' assignment_expression ']' { $$ = decl_array($1, -1); }
+	| direct_declarator '[' assignment_expression ']' { $$ = decl_array($1, ($3 && $3->tag == AST_INT) ? (int)$3->literal.i : -1); }
 	| direct_declarator '[' ']' { $$ = decl_array($1, -1); }
 	| direct_declarator '(' parameter_type_list ')' { $$ = $1; }
 	| direct_declarator '(' identifier_list ')' { $$ = $1; }
@@ -529,84 +544,87 @@ designator
 	;
 
 statement
-	: labeled_statement
-	| compound_statement
-	| expression_statement
-	| selection_statement
-	| iteration_statement
-	| jump_statement
+	: labeled_statement { $$ = $1; }
+	| compound_statement { $$ = $1; }
+	| expression_statement { $$ = $1; }
+	| selection_statement { $$ = $1; }
+	| iteration_statement { $$ = $1; }
+	| jump_statement { $$ = $1; }
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement
-	| CASE constant_expression ':' statement
-	| DEFAULT ':' statement
+	: IDENTIFIER ':' statement { $$ = $3; }
+	| CASE constant_expression ':' statement { $$ = $4; }
+	| DEFAULT ':' statement { $$ = $3; }
 	;
 
 compound_statement
-	: '{' '}'
-	| '{' block_item_list '}'
+	: '{' '}' { stmt_compound_t c; c.ast = NULL; $$ = new_ast_compound(c); }
+	| '{' block_item_list '}' { $$ = new_ast_compound($2); }
 	;
 
 block_item_list
-	: block_item
-	| block_item_list block_item
+	: block_item { $$.ast = NULL; if ($1) cvector_push_back($$.ast, $1); }
+	| block_item_list block_item { $$ = $1; if ($2) cvector_push_back($$.ast, $2); }
 	;
 
 block_item
-	: declaration
-	| statement
+	: declaration { $$ = new_ast_decl($1); }
+	| statement { $$ = $1; }
 	;
 
 expression_statement
-	: ';'
-	| expression ';'
+	: ';' { $$ = NULL; }
+	| expression ';' { $$ = $1; }
 	;
 
 if_head
-	: IF '(' expression ')' { affine_snap_push(); }
+	: IF '(' expression ')' { affine_snap_push(); $$ = $3; }
 	;
 
 if_then
-	: if_head statement
+	: if_head statement { $$.condition = $1; $$.body = $2; }
 	;
 
 selection_statement
-	: if_then { affine_if_noelse(); }
-	| if_then ELSE { affine_prep_else(); } statement { affine_join(); }
-	| SWITCH '(' expression ')' statement
+	: if_then { affine_if_noelse(); $$ = new_ast_if($1.condition, $1.body); }
+	| if_then ELSE { affine_prep_else(); } statement { affine_join(); $$ = new_ast_if_else($1.condition, $1.body, $4); }
+	| SWITCH '(' expression ')' statement { $$ = NULL; }
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' { affine_loop_push(); } statement { affine_loop_pop(); }
-	| DO { affine_loop_push(); } statement WHILE '(' expression ')' ';' { affine_loop_pop(); }
-	| FOR '(' expression_statement expression_statement ')' { affine_loop_push(); } statement { affine_loop_pop(); }
-	| FOR '(' expression_statement expression_statement expression ')' { affine_loop_push(); } statement { affine_loop_pop(); }
-	| FOR '(' declaration expression_statement ')' { affine_loop_push(); } statement { affine_loop_pop(); }
-	| FOR '(' declaration expression_statement expression ')' { affine_loop_push(); } statement { affine_loop_pop(); }
+	: WHILE '(' expression ')' { affine_loop_push(); } statement { affine_loop_pop(); $$ = new_ast_while($3, $6); }
+	| DO { affine_loop_push(); } statement WHILE '(' expression ')' ';' { affine_loop_pop(); $$ = new_ast_do_while($6, $3); }
+	| FOR '(' expression_statement expression_statement ')' { affine_loop_push(); } statement { affine_loop_pop(); $$ = new_ast_for($3, $4, NULL, $7); }
+	| FOR '(' expression_statement expression_statement expression ')' { affine_loop_push(); } statement { affine_loop_pop(); $$ = new_ast_for($3, $4, $5, $8); }
+	| FOR '(' declaration expression_statement ')' { affine_loop_push(); } statement { affine_loop_pop(); $$ = new_ast_for(new_ast_decl($3), $4, NULL, $7); }
+	| FOR '(' declaration expression_statement expression ')' { affine_loop_push(); } statement { affine_loop_pop(); $$ = new_ast_for(new_ast_decl($3), $4, $5, $8); }
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'
-	| CONTINUE ';'
-	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
+	: GOTO IDENTIFIER ';' { $$ = NULL; }
+	| CONTINUE ';' { $$ = new_ast_simple(AST_CONTINUE); }
+	| BREAK ';' { $$ = new_ast_simple(AST_BREAK); }
+	| RETURN ';' { $$ = new_ast_return(NULL); }
+	| RETURN expression ';' { $$ = new_ast_return($2); }
 	;
 
 translation_unit
-	: external_declaration
-	| translation_unit external_declaration
+	: external_declaration { $$ = $1; }
+	| translation_unit external_declaration {
+		if ($1 && $2) $$ = new_ast_expr_list(List($1, $2), NULL);
+		else $$ = $1 ? $1 : $2;
+	}
 	;
 
 external_declaration
-	: function_definition
-	| declaration
+	: function_definition { $$ = $1; }
+	| declaration { $$ = new_ast_decl($1); }
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list { affine_fn_enter(); } compound_statement { affine_fn_exit(); }
-	| declaration_specifiers declarator { affine_fn_enter(); } compound_statement { affine_fn_exit(); }
+	: declaration_specifiers declarator declaration_list { affine_fn_enter(); } compound_statement { affine_fn_exit(); $$ = new_ast_fun_node($1, $2, $5); }
+	| declaration_specifiers declarator { affine_fn_enter(); } compound_statement { affine_fn_exit(); $$ = new_ast_fun_node($1, $2, $4); }
 	;
 
 declaration_list

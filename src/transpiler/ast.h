@@ -86,10 +86,12 @@ typedef cvector_vector_type (struct stmt_case) case_vec;
   AST_TYPE (AST_ASSIGN_OR)                                                    \
   AST_TYPE (AST_ASSIGN_XOR)                                                   \
   AST_TYPE (AST_COND)                                                         \
-  AST_TYPE (AST_LIST)
+  AST_TYPE (AST_LIST)                                                          \
+  AST_TYPE (AST_DECL)
 
 typedef struct ast_fun
 {
+  char name[SYM_MAXLEN];
   type_t *ty_fun;
   ast_t *body;
 } ast_fun_t;
@@ -154,7 +156,7 @@ typedef struct typed_var
   ty_deco_t *type;
 } typed_var_t;
 
-typedef struct qubit
+typedef struct c_qubit
 {
 } qubit_t;
 
@@ -297,6 +299,7 @@ typedef struct ast
     expr_binary_t expr_binary;
     expr_ternary_t expr_ternary;
     expr_list_t expr_list;
+    decl_list_t decl_list;
   };
 
 } ast_t;

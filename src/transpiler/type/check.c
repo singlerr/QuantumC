@@ -187,7 +187,7 @@ type_t *
 synth_expr (check_ctx_t *ctx, ast_t *e)
 {
   if (!e) return NULL;
-  if (e->ty) return e->ty->ty;
+  if (e->ty && !e->ty->is_cast) return e->ty->ty;
 
   switch (e->tag)
     {
