@@ -1,10 +1,11 @@
 #ifndef _AST_SEM_H_
 #define _AST_SEM_H_
 
-#include "ast_common_types.h"
 #include "common.h"
-#include "symrec.h"
-#include "type.h"
+
+/* forward-declare ast_t to avoid pulling in type/base.h which conflicts */
+struct ast;
+typedef struct ast ast_t;
 
 #define INIT_LIST(_type)                                                      \
   _type *prev;                                                                \
@@ -813,6 +814,6 @@ typedef struct program
   statement_list *stmts;
 } program;
 
-void convert_program (const struct _sqz_program *p, program **out);
+void convert_program (ast_t *root, program **out);
 
 #endif

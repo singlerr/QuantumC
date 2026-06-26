@@ -14,9 +14,10 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 	#include <stdio.h>
 	#include <stdlib.h>
 	#include <string.h>
+	#include <errno.h>
 	#include "type/tytab.h"
 	#include "stringlib.h"
-	#include "symrec.h"
+	#include "symtab.h"
 	#include "ast.h"
 	#include "preprocessor/preprocessor.h"
 	#include "preprocessor_link.h"
@@ -85,7 +86,7 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 
 "auto"			{ count(yyscanner); return(AUTO); }
-"bool"			{ count(yyscanner); return(BOOL); }
+"bool"			{ count(yyscanner); return(KW_BOOL); }
 "break"			{ count(yyscanner); return(BREAK); }
 "case"			{ count(yyscanner); return(CASE); }
 "char"			{ count(yyscanner); return(CHAR); }
@@ -233,52 +234,48 @@ int check_type(yyscan_t scanner, YYSTYPE* out)
 	ty = find_type_by_name(text);
 	out->str = strdup(text);
 	if(ty){
-		yylval.type = ty;
+		out->type = ty;
 		return TYPE_NAME;
 	}
 
 	return IDENTIFIER;
 }
 
+/* ponytail: sized-type lookup not yet migrated; fall back to check_type */
 int check_sized_type(yyscan_t scanner, YYSTYPE* out){
-	char namebuf[64];
-	int size;
-	typerec_t* prim_type;
-
-	int ret = sscanf(yyget_text(scanner), "%[^0-9]%d_t", namebuf, &size);
-
-	if(ret < 2){
-		return check_type(scanner, out);
-	}
-
-	if(! (prim_type = gettype(namebuf))){
-		return check_type(scanner, out);
-	}
-
-	if(! getsizedtype(namebuf, size)){
-		PUT_SIZED_TYPE(namebuf, prim_type->type_type, size);
-	}
-
-	out->str = strdup(namebuf);
-	type_size = size;
-	return TYPE_NAME;
+	return check_type(scanner, out);
 }
 
 size_t min(size_t a, size_t b) {
     return b < a ? b : a;
 }
 
-int tr_process(const char* content, ast_node** out){
+int tr_process(const char* content, ast_t** out){
     if(yylex_init(&scanner)){
 		fprintf(stderr, "Failed to init lex: %d", errno);
 		exit(1);
 	}
     YY_BUFFER_STATE buffer = yy_scan_string(content, scanner);
 	yy_switch_to_buffer(buffer, scanner);
-    if(! yyparse(scanner, out)){
+    if(! trparse(scanner, out)){
         yy_delete_buffer(buffer, scanner);
         return 0;
     }
     yy_delete_buffer(buffer, scanner);
 	return 1;
+}
+
+ast_t* compile(FILE* input){
+    ast_t *root = NULL;
+    struct string_builder sb;
+    init_str_builder(&sb);
+    if(init_ctx(&sb, input)){
+        fprintf(stderr, "Preprocessor init failed\n");
+        return NULL;
+    }
+    preprocessor_lex();
+    if(!sb.buffer || sb.buffer[0] == '\0')
+        return NULL;
+    tr_process(sb.buffer, &root);
+    return root;
 }

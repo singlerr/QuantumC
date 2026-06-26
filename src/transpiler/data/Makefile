@@ -7,7 +7,10 @@ LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 all: $(LIB)
 
 $(LIB): $(LIBS)
-	$(AR) rcs $@ $^
+	@tmpdir=$$(mktemp -d) && \
+	for lib in $^; do (cd $$tmpdir && $(AR) x $$(cd $(CURDIR) && pwd)/$$lib); done && \
+	$(AR) rcs $@ $$tmpdir/*.o && \
+	rm -rf $$tmpdir
 
 $(LIBS): $(SUBDIRS)
 

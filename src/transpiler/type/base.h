@@ -1,9 +1,10 @@
 #ifndef _BASE_H_
 #define _BASE_H_
 
-#include "data/vec/cvector.h"
+#include <stdint.h>
+#include "../data/vec/cvector.h"
 #include "deco.h"
-#include "param.h"
+#include "../param.h"
 
 #define FOREACH_TYPE(TYPE)                                                    \
   TYPE (TY_ARRAY)                                                             \
@@ -104,6 +105,7 @@ typedef struct type
     ty_struct_t ty_struct;
     ty_fun_t ty_fun;
     ty_pointer_t ty_pointer;
+    ty_array_t ty_array;
     ty_qubit_t ty_qubit;
   } ty;
 
@@ -111,6 +113,7 @@ typedef struct type
 
 const char *type_to_str (type_tag_t tag);
 type_t *new_simple_type (int size, type_tag_t tag);
+type_t *new_struct_type (ty_struct_t *s);
 ty_pointer_t new_pointer (ty_deco_t *ty);
 ty_deco_t *new_ty_pointer (ty_pointer_t ptr, int constr);
 ty_deco_t *new_ty_array (ty_array_t arr, int constr);

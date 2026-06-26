@@ -1,4 +1,4 @@
-OBJS = infer.o
+OBJS = btype.o typesize.o tytab.o deco.o base.o intern.o check.o affine.o
 LIB = libtype.a
 
 .PHONY: all clean
@@ -6,7 +6,7 @@ LIB = libtype.a
 all: $(LIB)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -I.. -c -o $@ $<
 
 $(LIB): $(OBJS)
 	$(AR) rcs $@ $^

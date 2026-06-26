@@ -6,9 +6,12 @@
 #include "type/base.h"
 #include <stdint.h>
 
+/* forward declaration so structs below can use ast_t before the typedef */
+typedef struct ast ast_t;
+
 typedef cvector_vector_type (struct typed_var) typed_var_vec;
 typedef cvector_vector_type (struct struct_field) field_vec;
-typedef cvector_vector_type (struct ast) ast_vec;
+typedef cvector_vector_type (struct ast *) ast_vec;
 typedef cvector_vector_type (struct stmt_case) case_vec;
 
 #define FOREACH_AST_TYPE(AST_TYPE)                                            \
@@ -84,18 +87,6 @@ typedef cvector_vector_type (struct stmt_case) case_vec;
   AST_TYPE (AST_ASSIGN_XOR)                                                   \
   AST_TYPE (AST_COND)                                                         \
   AST_TYPE (AST_LIST)
-
-typedef struct const_result
-{
-  ast_tag_t type;
-  union
-  {
-    int i;
-    float f;
-    double d;
-    short s;
-  } value;
-} const_result_t;
 
 typedef struct ast_fun
 {
@@ -340,6 +331,7 @@ int is_binary_operator (ast_tag_t tag);
 #define Int(i) new_literal_int (i)
 #define Float(f) new_literal_float (f)
 #define Bool(b) new_literal_bool (b)
+#define UInt(i) new_literal_int (i)
 #define Var(name) new_var (next_var_id (), name)
 #define Fun(arg, body) new_fun (arg, body)
 #define App(fun, arg) new_app (fun, arg)
@@ -350,7 +342,7 @@ int is_binary_operator (ast_tag_t tag);
 #define Binary(lhs, rhs) new_binary_expr (lhs, rhs)
 #define Ternary(lhs, mhs, rhs) new_ternary_expr (lhs, mhs, rhs)
 #define Cast(ty, ast) new_cast_expr (ty, ast)
-#define List(prev, value) new_expr_list (prev, value)
+#define List(prev, value) new_expr_list (prev, value, NULL)
 #define AST_NAME(ast_tag) to_ast_string (ast_tag)
 
 #endif

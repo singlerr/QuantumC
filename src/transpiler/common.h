@@ -1,6 +1,8 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <stdlib.h>
+
 typedef int BOOL;
 
 #define FALSE 0

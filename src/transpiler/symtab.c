@@ -7,7 +7,6 @@
 
 cvector_vector_type (symtab_t) symbols;
 int scope = 0;
-int var_id = 0;
 
 const symtab_t *
 search_symbol (const char *name, int only_current_scope)
@@ -17,71 +16,45 @@ search_symbol (const char *name, int only_current_scope)
   for (it = cvector_begin (symbols); it != cvector_end (symbols); it++)
     {
       if (it->scope < scope && only_current_scope)
-        {
-          return NULL;
-        }
+        return NULL;
 
       if (!strcmp (it->name, name))
-        {
-          return it;
-        }
+        return it;
     }
 
   return NULL;
 }
 
-const ty_deco_t *
+ty_deco_t *
 search_symbol_type (const char *name, int only_current_scope)
 {
   const symtab_t *sym = search_symbol (name, only_current_scope);
-  if (!sym)
-    {
-      return NULL;
-    }
-
-  return sym->ty;
+  return sym ? sym->ty : NULL;
 }
 
 const symtab_t *
 put_symbol (const char *name, ty_deco_t *ty)
 {
-  symtab_t *s = (symtab_t *)malloc (sizeof (symtab_t));
-  s->ty = ty;
-  s->scope = scope;
-  strncpy (s->name, name, SYM_MAXLEN);
-
-  return s;
+  symtab_t s;
+  s.ty = ty;
+  s.scope = scope;
+  strncpy (s.name, name, SYM_MAXLEN);
+  cvector_push_back (symbols, s);
+  return &symbols[cvector_size (symbols) - 1];
 }
 
 void
 pop_symbols ()
 {
-  symtab_t *back = cvector_back (symbols);
+  size_t sz = cvector_size (symbols);
+  if (sz == 0)
+    return;
 
-  if (!back)
-    {
-      return;
-    }
+  while (cvector_size (symbols) > 0
+         && symbols[cvector_size (symbols) - 1].scope == scope)
+    cvector_pop_back (symbols);
 
-  if (back->scope > scope)
-    {
-      error ("Symtab scope must be equal or lower than current scope; "
-             "expected: %d, current: %d",
-             scope, back->scope);
-    }
-
-  if (back->scope < scope)
-    {
-      // if symtab scope is smaller than current scope, just decrease
-      dec_scope ();
-      return;
-    }
-
-  while (back && back->scope == scope)
-    {
-      cvector_pop_back (symbols);
-      back = cvector_back (symbols);
-    }
+  dec_scope ();
 }
 
 void
@@ -93,11 +66,12 @@ inc_scope ()
 void
 dec_scope ()
 {
-  scope--;
+  if (scope > 0)
+    scope--;
 }
 
 void
 init_symtab ()
 {
-  symbols = vector_create ();
+  symbols = NULL;
 }

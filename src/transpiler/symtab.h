@@ -13,7 +13,7 @@ typedef struct symtab
 } symtab_t;
 
 const symtab_t *search_symbol (const char *name, int only_current_scope);
-const ty_deco_t *search_symbol_type (const char *name, int only_current_scope);
+ty_deco_t *search_symbol_type (const char *name, int only_current_scope);
 const symtab_t *put_symbol (const char *name, ty_deco_t *ty);
 void pop_symbols ();
 

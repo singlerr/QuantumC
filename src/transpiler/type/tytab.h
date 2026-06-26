@@ -5,7 +5,8 @@
 
 #define Type(size, tag) new_simple_type (size, tag)
 
-const type_t *find_type_by_name (const char *name);
-void push_type (const char *name, const type_t *origin);
+type_t *find_type_by_name (const char *name);
+void push_type (const char *name, type_t *origin);
+void init_type_table (void);
 
 #endif

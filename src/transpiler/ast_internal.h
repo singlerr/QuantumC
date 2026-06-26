@@ -13,14 +13,7 @@
 static inline var_t
 search_var (const char *name)
 {
-  const symtab_t *s = search_symbol (name, FALSE);
-  if (!s)
-    {
-      // TODO: How to handle var id
-      return Var (-1);
-    }
-
-  return Var (s->id);
+  return new_var (next_var_id (), name);
 }
 
 static inline ast_t *
@@ -120,7 +113,7 @@ new_ast_expr_list (expr_list_t list, ty_deco_t *ty)
   return ast;
 }
 
-static inline const struct_field_t *
+static inline struct_field_t *
 search_struct_member (type_t *strct, const char *name)
 {
   struct_field_t *it;
@@ -132,7 +125,7 @@ search_struct_member (type_t *strct, const char *name)
   for (it = cvector_begin (strct->ty.ty_struct.fields);
        it != cvector_end (strct->ty.ty_struct.fields); it++)
     {
-      if (!strcmp (it->var.var.name, name))
+      if (!strcmp (it->name, name))
         {
           return it;
         }
@@ -156,7 +149,7 @@ from_struct_member (ty_deco_t *strct, const char *name)
       return NULL;
     }
 
-  return new_ast_var (field->var.var);
+  return new_ast_var (Var (field->name), field->ty);
 }
 
 static inline ty_pointer_t *
@@ -212,18 +205,18 @@ ast_sizeof (ast_t *expr)
     {
     case AST_VAR:
       {
-        const ty_deco_t *ty = search_symbol_type (expr->var.name);
+        ty_deco_t *ty = search_symbol_type (expr->var.name, FALSE);
         if (!ty)
           {
             warn ("Variable \"%s\" does not exist.", expr->var.name);
             return -1;
           }
 
-        return type_sizeof (ty);
+        return type_sizeof (ty->ty);
       }
       break;
     default:
-      return type_sizeof (expr->ty);
+      return expr->ty ? type_sizeof (expr->ty->ty) : -1;
     }
 }
 
@@ -232,130 +225,25 @@ deco_init_declarator (decl_list_t list, ty_deco_t *type)
 {
   decl_t *it;
   ty_deco_t *ty;
+  int is_typedef = type && (type->constr & CONSTR_TYPEDEF);
 
   for (it = cvector_begin (list); it != cvector_end (list); it++)
     {
       ty = clone_ty_deco (type);
       if (it->type)
-        {
-          // connect type
-          ty = append_ty (it->type, ty);
-          it->type = ty;
-        }
+        ty = append_ty (it->type, ty);
+      it->type = ty;
+
+      if (!it->has_name)
+        continue;
+      if (is_typedef)
+        push_type (it->name, ty ? ty->ty : NULL);
       else
-        {
-          it->type = ty;
-        }
+        put_symbol (it->name, ty);
     }
 
   return list;
 }
 
-#define CALC_OP(operator, lhs, rhs, result)                                   \
-  do                                                                          \
-    {
-if (lhs.type == AST_INT)
-}
-while (0)
-  ;
-
-static const_result_t
-join_const (ast_tag_t op, const_result_t lhs, const_result_t rhs)
-{
-  const_result_t result;
-  switch (op)
-    {
-    case AST_ADD:
-
-      break;
-    case AST_SUB:
-      break;
-    case AST_MUL:
-      break;
-    case AST_DIV:
-      break;
-    case AST_MOD:
-      break;
-    case AST_GT:
-      break;
-    case AST_LT:
-      break;
-    case AST_LEQ:
-      break;
-    case AST_GEQ:
-      break;
-    case AST_LSHIFT:
-      break;
-    case AST_RSHIFT:
-      break;
-    case AST_EQ:
-      break;
-    case AST_NEQ:
-      break;
-    case AST_AND:
-      break;
-    case AST_OR:
-      break;
-    case AST_XOR:
-      break;
-    case AST_LAND:
-      break;
-    case AST_LOR:
-      break;
-    case AST_ASSIGN_MUL:
-      break;
-    case AST_ASSIGN_DIV:
-      break;
-    case AST_ASSIGN_MOD:
-      break;
-    case AST_ASSIGN_ADD:
-      break;
-    case AST_ASSIGN_SUB:
-      break;
-    case AST_ASSIGN_LSHIFT:
-      break;
-    case AST_ASSIGN_RSHIFT:
-      break;
-    case AST_ASSIGN_AND:
-      break;
-    case AST_ASSIGN_OR:
-      break;
-    case AST_ASSIGN_XOR:
-      break;
-    default:
-      break;
-    }
-}
-
-static const_result_t
-fold_assignment_expr (ast_t *ast)
-{
-  ast_tag_t tag = ast->tag;
-  const_result_t lhs, rhs;
-  const_result_t result;
-  switch (tag)
-    {
-    case AST_INT:
-      result.type = AST_INT;
-      result.value.i = ast->literal.i;
-      return result;
-    case AST_FLOAT:
-      result.type = AST_FLOAT;
-      result.value.f = ast->literal.f;
-      return result;
-    case AST_SHORT:
-      result.type = AST_SHORT;
-      result.value.s = ast->literal.s;
-      return result;
-    default:
-      break;
-    }
-
-  if (is_assignment_operator (ast->tag))
-    {
-      lhs = fold_assignment_expr (ast->expr_binary.lhs);
-      rhs = fold_assignment_expr (ast->expr_binary.rhs);
-    }
-}
 
 #endif

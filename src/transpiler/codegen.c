@@ -5,7 +5,6 @@
 #include "diagnostics.h"
 #include "codegen.h"
 #include "ast_sem.h"
-#include "ast_typing.h"
 
 #define GEN_SIZE(type)        \
     do                        \

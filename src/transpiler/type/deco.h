@@ -32,6 +32,6 @@ ty_deco_t *new_deco (struct type *ty, int constr);
 ty_deco_t *new_deco_cast (ty_deco_t *lhs, ty_deco_t *rhs);
 
 #define Deco(ty, constr) new_deco (ty, constr)
-#define TypeCast(lhs, rhs) new_deco_cast (lhs, rhs);
+#define TypeCast(lhs, rhs) new_deco_cast (lhs, rhs)
 
 #endif
