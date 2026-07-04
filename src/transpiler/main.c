@@ -44,7 +44,7 @@ main (int argc, char *argv[])
   optind = 1;
   flags = 0;
 
-  while ((opt = getopt_long (argc, argv, "hc:")) != -1)
+  while ((opt = getopt_long (argc, argv, "hc:", cmd_opts, 0)) != -1)
     {
       switch (opt)
         {
@@ -90,7 +90,7 @@ main (int argc, char *argv[])
 
   if (!(flags & FLAG_COMPILE))
     {
-      fprintf (stderr, "Specify a compile target");
+      fprintf (stderr, "Specify a compile target.\n");
       return -1;
     }
 
