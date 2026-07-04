@@ -1,183 +1,203 @@
 #include "ast.h"
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include "stringlib.h"
 #include "common.h"
-int scope_level = 0;
+#include "param.h"
+#include <string.h>
 
-ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right)
+#define STRING_GEN(STRING) #STRING,
+const char *ast_to_str[] = { FOREACH_AST_TYPE (STRING_GEN) };
+#undef STRING_GEN
+
+static struct
 {
-    ast_node *node = IALLOC(ast_node);
-    node->node_type = node_type;
-    node->identifier = (ast_identifier_node *)id_node;
-    node->left = (ast_node *)left;
-    node->right = (ast_node *)right;
-    node->middle = (ast_node *)middle;
-    node->type = (typerec_t *)type;
-    node->constant = (ast_const_node *)const_node;
-    return node;
+  uint32_t node_id;
+} ast_ctx = { .node_id = 0 };
+
+static uint32_t var_id_counter = 0;
+
+ast_t *
+new_ast ()
+{
+  ast_t *ast = IALLOC (ast_t);
+  ast->id = next_id ();
+  return ast;
 }
 
-int register_type_if_required(ast_node *decl, ast_node *identifier)
+void
+init_ast_ctx ()
 {
-    ast_node *node = decl;
-    BOOL has_typedef = FALSE;
-    while (node)
-    {
-        if (node->node_type == AST_STG_TYPEDEF)
-        {
-            has_typedef = TRUE;
-            break;
-        }
-        node = node->left;
-    }
-
-    if (!has_typedef)
-    {
-        return VAL_FAILED;
-    }
-
-    identifier = identifier->middle;
-
-    if (!identifier || identifier->node_type != AST_VARIABLE_DECLARATOR)
-    {
-        perror("typedef requires its type name");
-    }
-
-    node = decl;
-    while (node->right)
-    {
-        if (node->right->middle->type)
-        {
-            node = node->right;
-            break;
-        }
-
-        node = node->right->right;
-    }
-
-    int size = 0;
-    type_t *t = NULL, *root = NULL;
-    typerec_t *root_rec = NULL;
-    while (node && node->middle->type)
-    {
-        ast_node *type_node = node->middle;
-        if (!type_node->type)
-        {
-            perror("unknown type");
-        }
-
-        type_t *sub = type_node->type->handle;
-        if (!t)
-        {
-            t = sub;
-            root = sub;
-            root_rec = type_node->type;
-        }
-        else
-        {
-            t->next = sub;
-            t = sub;
-        }
-
-        size = sub->meta->size;
-        node = node->right;
-    }
-
-    puttype(identifier->middle->identifier->sym->name, root_rec->type_type, root);
-    return VAL_OK;
+  ast_ctx.node_id = 0;
+  var_id_counter = 0;
 }
 
-void append_left_child(ast_node *parent, const ast_node *child)
+node_id_t
+next_id ()
 {
-    parent->left = (ast_node *)child;
-}
-void append_right_child(ast_node *parent, const ast_node *child)
-{
-    parent->right = (ast_node *)child;
-}
-void append_middle_child(ast_node *parent, const ast_node *child)
-{
-    parent->middle = (ast_node *)child;
+  return Id (ast_ctx.node_id++);
 }
 
-const ast_node *find_last_left_child(const ast_node *parent)
+uint32_t
+next_var_id ()
 {
-    ast_node *node = (ast_node *)parent;
-    while (node->left)
-    {
-        node = node->left;
-    }
-
-    return node;
-}
-const ast_node *find_last_right_child(const ast_node *parent)
-{
-    ast_node *node = (ast_node *)parent;
-    while (node->right)
-    {
-        node = node->right;
-    }
-
-    return node;
-}
-const ast_node *find_last_middle_child(const ast_node *parent)
-{
-    ast_node *node = (ast_node *)parent;
-    while (node->middle)
-    {
-        node = node->middle;
-    }
-
-    return node;
+  return ++var_id_counter;
 }
 
-ast_const_node *new_ast_int_const(int i)
+node_id_t
+new_node_id (uint32_t id)
 {
-    ast_const_node *n = IALLOC(ast_const_node);
-    n->data.i = i;
-    return n;
-}
-ast_const_node *new_ast_float_const(float f)
-{
-    ast_const_node *n = IALLOC(ast_const_node);
-    n->data.f = f;
-    return n;
-}
-ast_const_node *new_ast_str_const(const char *s)
-{
-    ast_const_node *n = IALLOC(ast_const_node);
-    n->data.s = (char *)s;
-    return n;
+  return (node_id_t){ .id = id };
 }
 
-ast_const_node *new_ast_bool_const(int b)
+const char *
+to_ast_string (ast_tag_t tag)
 {
-    ast_const_node *n = IALLOC(ast_const_node);
-    n->data.i = b;
-
-    return n;
+  return ast_to_str[tag];
 }
 
-ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level)
+literal_t
+new_literal_int (int i)
 {
-    ast_identifier_node *node = IALLOC(ast_identifier_node);
-    node->scope_level = scope_level;
-    node->sym = symbol;
-    node->type = type;
-    return node;
+  literal_t l;
+  memset (&l, 0, sizeof (l));
+  l.i = i;
+  return l;
 }
-int get_scope_level()
+
+literal_t
+new_literal_float (float f)
 {
-    return scope_level;
+  literal_t l;
+  memset (&l, 0, sizeof (l));
+  l.f = f;
+  return l;
 }
-void inc_scope_level()
+
+literal_t
+new_literal_short (short s)
 {
-    scope_level++;
+  literal_t l;
+  memset (&l, 0, sizeof (l));
+  l.s = s;
+  return l;
 }
-void dec_scope_level()
+
+literal_t
+new_literal_bool (int b)
 {
-    scope_level--;
+  literal_t l;
+  memset (&l, 0, sizeof (l));
+  l.b = b;
+  return l;
+}
+
+var_t
+new_var (uint32_t id, const char *name)
+{
+  var_t v;
+  v.id = id;
+  if (name)
+    strncpy (v.name, name, SYM_MAXLEN);
+  else
+    v.name[0] = '\0';
+  return v;
+}
+
+qubit_t
+new_qubit (uint32_t size)
+{
+  (void)size;
+  return (qubit_t){};
+}
+
+angle_t
+new_angle (uint32_t size, uint32_t value)
+{
+  (void)size;
+  return (angle_t){ .value = value };
+}
+
+duration_t
+new_duration (uint32_t value)
+{
+  return (duration_t){ .value = value };
+}
+
+ast_fun_t
+new_fun (var_t arg, struct ast *body)
+{
+  (void)arg;
+  return (ast_fun_t){ .body = body };
+}
+
+app_t
+new_app (struct ast *fun, struct ast *arg)
+{
+  app_t a;
+  a.fun = fun;
+  a.args = NULL;
+  if (arg)
+    cvector_push_back (a.args, arg);
+  return a;
+}
+
+array_access_t
+new_arr_access (struct ast *array, struct ast *index)
+{
+  return (array_access_t){ .array = array, .index = index };
+}
+
+member_access_t
+new_member_access (struct ast *aggregate, struct ast *member)
+{
+  return (member_access_t){ .aggregate = aggregate, .member = member };
+}
+
+expr_unary_t
+new_unary_expr (ast_t *value)
+{
+  return (expr_unary_t){ .value = value };
+}
+
+expr_binary_t
+new_binary_expr (ast_t *lhs, ast_t *rhs)
+{
+  return (expr_binary_t){ .lhs = lhs, .rhs = rhs };
+}
+
+expr_ternary_t
+new_ternary_expr (ast_t *lhs, ast_t *mhs, ast_t *rhs)
+{
+  return (expr_ternary_t){ .lhs = lhs, .mhs = mhs, .rhs = rhs };
+}
+
+expr_cast_t
+new_cast_expr (ty_deco_t *ty, ast_t *value)
+{
+  return (expr_cast_t){ .ty_caster = ty, .value = value };
+}
+
+expr_list_t
+new_expr_list (ast_t *prev, ast_t *value, ty_deco_t *ty)
+{
+  (void)ty;
+  return (expr_list_t){ .prev = prev, .value = value };
+}
+
+int
+is_assignment_operator (ast_tag_t tag)
+{
+  return tag == AST_ASSIGN || tag == AST_ASSIGN_MUL || tag == AST_ASSIGN_DIV
+         || tag == AST_ASSIGN_MOD || tag == AST_ASSIGN_ADD
+         || tag == AST_ASSIGN_SUB || tag == AST_ASSIGN_LSHIFT
+         || tag == AST_ASSIGN_RSHIFT || tag == AST_ASSIGN_AND
+         || tag == AST_ASSIGN_OR || tag == AST_ASSIGN_XOR;
+}
+
+int
+is_binary_operator (ast_tag_t tag)
+{
+  return tag == AST_MUL || tag == AST_DIV || tag == AST_MOD || tag == AST_ADD
+         || tag == AST_SUB || tag == AST_LSHIFT || tag == AST_RSHIFT
+         || tag == AST_LT || tag == AST_GT || tag == AST_LEQ || tag == AST_GEQ
+         || tag == AST_EQ || tag == AST_NEQ || tag == AST_AND || tag == AST_OR
+         || tag == AST_XOR || tag == AST_LAND || tag == AST_LOR;
 }

@@ -31,26 +31,12 @@
 
 struct if_stack *if_stack = NULL;
 struct directive *directives = NULL;
-static struct placeholder *
-append_placeholder (struct placeholder *__dest, struct placeholder *__new)
-{
-
-  if (!__dest)
-    {
-      return __new;
-    }
-
-  __new->prev = __dest;
-  __dest->next = __new;
-
-  return __new;
-}
 
 static struct macro_args *
 new_macro_arg (const char *name)
 {
   struct macro_args *inst
-      = (struct macro_args *)malloc (sizeof (struct macro_args));
+      = (struct macro_args *)calloc (1, sizeof (struct macro_args));
   strncpy (inst->name, name, NAMELEN);
   inst->next = NULL;
   inst->prev = NULL;
@@ -109,13 +95,7 @@ free_directive (struct directive *dir)
 static struct directive *
 push_directive (struct directive *__dest, struct directive *__new)
 {
-  if (!__dest)
-    {
-      return __new;
-    }
-
-  __new->prev = __dest;
-
+  __new->prev = __dest; /* always set, even NULL for first entry */
   return __new;
 }
 
@@ -171,10 +151,11 @@ expand_placeholder (char **out, struct placeholder *body)
           str_append (&sb, ph->name);
           break;
         case PH_STRINGIFIED:
-          buf = (char *)malloc (strlen (ph->name) + 2 + 1);
-          snprintf (buf, sizeof (buf), "\"%s\"", ph->name);
+          { size_t len = strlen (ph->name) + 3;
+          buf = (char *)malloc (len);
+          snprintf (buf, len, "\"%s\"", ph->name);
           str_append (&sb, buf);
-          free (buf);
+          free (buf); }
           break;
         }
       ph = ph->next;

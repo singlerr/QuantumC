@@ -220,6 +220,7 @@ if_expression
 int init_ctx(struct string_builder* sb, FILE* in){
     ctx = sb;
     prin = in;
+    return 0;
 }
 
 void prerror(const char *str)

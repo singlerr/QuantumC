@@ -1,7 +1,7 @@
-OBJS = c.parser.o c.lexer.o main.o ast.o ast_sqz.o symrec.o type.o stringlib.o diagnostics.o ast_sem.o ast_typing.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
+OBJS = c.parser.o c.lexer.o main.o ast.o symtab.o stringlib.o diagnostics.o ast_sem.o codegen.o builtin_func.o builtin_measure.o builtin_gate.o
 LEX = flex
 YACC = bison
-SUBDIRS := preprocessor
+SUBDIRS := preprocessor ena data type
 LIBS := $(foreach dir,$(SUBDIRS),$(dir)/lib$(dir).a)
 
 YACC_ARGS =
@@ -36,6 +36,7 @@ c.lexer.c: scanner.l
 	$(LEX) $(LEX_ARGS) -d --header-file=c.lexer.h -o $@ $<
 
 c.parser.o: ast.h c.lexer.c c.parser.c
+	$(CC) $(CFLAGS) -Wno-unused-but-set-variable -c c.parser.c -o c.parser.o
 
 c.lexer.o: c.parser.c ast.h
 

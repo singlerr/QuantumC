@@ -15,7 +15,6 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "../ast.h"
 #include "../preprocessor_link.h"
 #include "preprocessor.parser.h"
 #include "preprocessor.h"
@@ -40,7 +39,7 @@ int handle_text(const char* str);
 
 %}
 %option prefix="pr"
-%option nounput
+%option nounput noinput
 %option yylineno
 %option noyywrap
 %option stack
@@ -197,6 +196,7 @@ L?\"(\\.|[^\\"\n])*\"      { return handle_text(yytext); }
 <STATE_BODY_EXT>"#"{ID}     { yylval.str = strdup(yytext + 1); return(STRINGIFIED); }
 <STATE_BODY_EXT>[^ \t\v\n\f\r(),"]+ { yylval.str = strdup(yytext); return(TEXT); }
 
+<STATE_INCLUDE>[ \t]+       { /* skip whitespace before include name */ }
 <STATE_INCLUDE>{STR}        {
     char* filename = strndup(yytext + 1, strlen(yytext) - 2);
     

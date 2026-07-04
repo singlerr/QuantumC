@@ -1,84 +1,351 @@
 #ifndef _AST_H_
 #define _AST_H_
 
-#include "ast_types.h"
-#include "symrec.h"
-#include "type.h"
+#include "data/vec/cvector.h"
+#include "param.h"
+#include "type/base.h"
+#include <stdint.h>
 
-#ifndef AST_SIMPLE_NODE
-#define AST_SIMPLE_NODE(node_type) new_ast_node(node_type, NULL, NULL, NULL, NULL, NULL, NULL)
-#endif
+/* forward declaration so structs below can use ast_t before the typedef */
+typedef struct ast ast_t;
 
-#ifndef AST_GENERAL_NODE
-#define AST_GENERAL_NODE(node_type, left, middle, right) new_ast_node(node_type, NULL, NULL, NULL, left, middle, right)
-#endif
+typedef cvector_vector_type (struct typed_var) typed_var_vec;
+typedef cvector_vector_type (struct struct_field) field_vec;
+typedef cvector_vector_type (struct ast *) ast_vec;
+typedef cvector_vector_type (struct stmt_case) case_vec;
 
-#ifndef AST_IDENTIFIER_NODE
-#define AST_IDENTIFIER_NODE(node_type, id, left, middle, right) new_ast_node(node_type, id, NULL, NULL, left, middle, right)
-#endif
+#define FOREACH_AST_TYPE(AST_TYPE)                                            \
+  AST_TYPE (AST_VAR)                                                          \
+  AST_TYPE (AST_INT)                                                          \
+  AST_TYPE (AST_FLOAT)                                                        \
+  AST_TYPE (AST_SHORT)                                                        \
+  AST_TYPE (AST_QUBIT)                                                        \
+  AST_TYPE (AST_ANGLE)                                                        \
+  AST_TYPE (AST_DURATION)                                                     \
+  AST_TYPE (AST_FUN)                                                          \
+  AST_TYPE (AST_APP)                                                          \
+  AST_TYPE (AST_STRUCT)                                                       \
+  AST_TYPE (AST_UNION)                                                        \
+  AST_TYPE (AST_ENUM)                                                         \
+  AST_TYPE (AST_POINTER)                                                      \
+  AST_TYPE (AST_IF)                                                           \
+  AST_TYPE (AST_IF_ELSE)                                                      \
+  AST_TYPE (AST_SWITCH)                                                       \
+  AST_TYPE (AST_WHILE)                                                        \
+  AST_TYPE (AST_DO_WHILE)                                                     \
+  AST_TYPE (AST_FOR)                                                          \
+  AST_TYPE (AST_COMPOUND)                                                     \
+  AST_TYPE (AST_RETURN)                                                       \
+  AST_TYPE (AST_BREAK)                                                        \
+  AST_TYPE (AST_CONTINUE)                                                     \
+  AST_TYPE (AST_LABEL)                                                        \
+  AST_TYPE (AST_CASE)                                                         \
+  AST_TYPE (AST_DEFAULT)                                                      \
+  AST_TYPE (AST_GOTO)                                                         \
+  AST_TYPE (AST_ARRAY_ACCESS)                                                 \
+  AST_TYPE (AST_MEMBER_ACCESS)                                                \
+  AST_TYPE (AST_POST_INC)                                                     \
+  AST_TYPE (AST_POST_DEC)                                                     \
+  AST_TYPE (AST_PRE_INC)                                                      \
+  AST_TYPE (AST_PRE_DEC)                                                      \
+  AST_TYPE (AST_CAST)                                                         \
+  AST_TYPE (AST_SIZEOF)                                                       \
+  AST_TYPE (AST_MUL)                                                          \
+  AST_TYPE (AST_DIV)                                                          \
+  AST_TYPE (AST_MOD)                                                          \
+  AST_TYPE (AST_ADD)                                                          \
+  AST_TYPE (AST_SUB)                                                          \
+  AST_TYPE (AST_LSHIFT)                                                       \
+  AST_TYPE (AST_RSHIFT)                                                       \
+  AST_TYPE (AST_LT)                                                           \
+  AST_TYPE (AST_GT)                                                           \
+  AST_TYPE (AST_GEQ)                                                          \
+  AST_TYPE (AST_LEQ)                                                          \
+  AST_TYPE (AST_EQ)                                                           \
+  AST_TYPE (AST_NEQ)                                                          \
+  AST_TYPE (AST_AND)                                                          \
+  AST_TYPE (AST_OR)                                                           \
+  AST_TYPE (AST_XOR)                                                          \
+  AST_TYPE (AST_LAND)                                                         \
+  AST_TYPE (AST_LOR)                                                          \
+  AST_TYPE (AST_UNARY_REF)                                                    \
+  AST_TYPE (AST_UNARY_DEREF)                                                  \
+  AST_TYPE (AST_UNARY_PLUS)                                                   \
+  AST_TYPE (AST_UNARY_MINUS)                                                  \
+  AST_TYPE (AST_UNARY_NOT)                                                    \
+  AST_TYPE (AST_UNARY_LNOT)                                                   \
+  AST_TYPE (AST_ASSIGN)                                                       \
+  AST_TYPE (AST_ASSIGN_MUL)                                                   \
+  AST_TYPE (AST_ASSIGN_DIV)                                                   \
+  AST_TYPE (AST_ASSIGN_MOD)                                                   \
+  AST_TYPE (AST_ASSIGN_ADD)                                                   \
+  AST_TYPE (AST_ASSIGN_SUB)                                                   \
+  AST_TYPE (AST_ASSIGN_LSHIFT)                                                \
+  AST_TYPE (AST_ASSIGN_RSHIFT)                                                \
+  AST_TYPE (AST_ASSIGN_AND)                                                   \
+  AST_TYPE (AST_ASSIGN_OR)                                                    \
+  AST_TYPE (AST_ASSIGN_XOR)                                                   \
+  AST_TYPE (AST_COND)                                                         \
+  AST_TYPE (AST_LIST)                                                          \
+  AST_TYPE (AST_DECL)
 
-#ifndef AST_TYPE_NODE
-#define AST_TYPE_NODE(node_type, type, left, middle, right) new_ast_node(node_type, NULL, NULL, type, left, middle, right)
-#endif
-
-#ifndef AST_CONST_NODE
-#define AST_CONST_NODE(node_type, constant) new_ast_node(node_type, NULL, constant, NULL, NULL, NULL, NULL)
-#endif
-
-#ifndef AST_ID_CURSCOPE
-#define AST_ID_CURSCOPE(symbol, type) new_identifier_node(symbol, type, get_scope_level())
-#endif
-
-#ifndef AST_ID_NONSCOPE
-#define AST_ID_NONSCOPE(symbol, type) new_identifier_node(symbol, type, -1)
-#endif
-
-typedef struct _ast_identifier
+typedef struct ast_fun
 {
-    symrec_t *sym;
-    type_t *type;
-    int scope_level;
-} ast_identifier_node;
+  char name[SYM_MAXLEN];
+  type_t *ty_fun;
+  ast_t *body;
+} ast_fun_t;
 
-typedef struct _ast_constant
+typedef struct decl
 {
-    union data
-    {
-        int i;
-        char c;
-        float f;
-        double d;
-        char *s;
-    } data;
-} ast_const_node;
+  int has_name;
+  char name[SYM_MAXLEN];
+  ty_deco_t *type;
+  struct ast *init;
+} decl_t;
 
-typedef struct _ast_node
+typedef cvector_vector_type (decl_t) decl_list_t;
+
+typedef struct var
 {
-    ast_node_type node_type;
-    ast_identifier_node *identifier;
-    ast_const_node *constant;
-    typerec_t *type;
-    struct _ast_node *left;
-    struct _ast_node *right;
-    struct _ast_node *middle;
-} ast_node;
+  char name[SYM_MAXLEN];
+  uint32_t id;
+} var_t;
 
-int get_scope_level();
-void inc_scope_level();
-void dec_scope_level();
+typedef struct ast_struct_field
+{
+  char name[SYM_MAXLEN];
+  ty_deco_t *ty;
+} ast_struct_field_t;
 
-ast_identifier_node *new_identifier_node(symrec_t *symbol, type_t *type, int scope_level);
-ast_node *new_ast_node(ast_node_type node_type, const ast_identifier_node *id_node, const ast_const_node *const_node, const typerec_t *type, const ast_node *left, const ast_node *middle, const ast_node *right);
-ast_const_node *new_ast_int_const(int i);
-ast_const_node *new_ast_float_const(float f);
-ast_const_node *new_ast_str_const(const char *s);
-ast_const_node *new_ast_bool_const(int b);
-int register_type_if_required(ast_node *decl, ast_node *identifier);
+typedef cvector_vector_type (ast_struct_field_t) ast_struct_fields_t;
 
-void append_left_child(ast_node *parent, const ast_node *child);
-void append_right_child(ast_node *parent, const ast_node *child);
-void append_middle_child(ast_node *parent, const ast_node *child);
-const ast_node *find_last_left_child(const ast_node *parent);
-const ast_node *find_last_right_child(const ast_node *parent);
-const ast_node *find_last_middle_child(const ast_node *parent);
+typedef struct ast_struct
+{
+  ast_struct_fields_t fields;
+  ty_deco_t *ty;
+} ast_struct_t;
+
+typedef struct init
+{
+  ast_vec designator_list;
+  struct ast *init;
+} init_t;
+
+typedef struct app
+{
+  struct ast *fun;
+  ast_vec args;
+} app_t;
+
+typedef struct array_access
+{
+  struct ast *array;
+  struct ast *index;
+} array_access_t;
+
+typedef struct member_access
+{
+  struct ast *aggregate;
+  struct ast *member;
+} member_access_t;
+
+typedef struct typed_var
+{
+  var_t var;
+  ty_deco_t *type;
+} typed_var_t;
+
+typedef struct c_qubit
+{
+} qubit_t;
+
+typedef struct angle
+{
+  uint32_t value;
+} angle_t;
+
+typedef struct duration
+{
+  uint32_t value;
+} duration_t;
+
+typedef union literal
+{
+  int i;
+  float f;
+  short s;
+  int b;
+  duration_t duration;
+} literal_t;
+
+typedef struct stmt_compound
+{
+  ast_vec ast;
+} stmt_compound_t;
+
+typedef struct stmt_if
+{
+  struct ast *condition;
+  struct ast *body;
+} stmt_if_t;
+
+typedef struct stmt_if_else
+{
+  struct ast *condition;
+  struct ast *body;
+  struct ast *else_body;
+} stmt_if_else_t;
+
+typedef struct stmt_case
+{
+  struct ast *body;
+  struct ast *constant;
+} stmt_case_t;
+
+typedef struct stmt_switch
+{
+  struct ast *expr;
+  case_vec body;
+} stmt_switch_t;
+
+typedef struct stmt_while
+{
+  struct ast *condition;
+  struct ast *body;
+} stmt_while_t;
+
+typedef struct stmt_for
+{
+  struct ast *lhs;
+  struct ast *mhs;
+  struct ast *rhs;
+  struct ast *body;
+} stmt_for_t;
+
+typedef struct node_id
+{
+  uint32_t id;
+} node_id_t;
+
+typedef struct expr_binary
+{
+  struct ast *lhs;
+  struct ast *rhs;
+} expr_binary_t;
+
+// FEAT:
+// virtualize array access as function application
+// e.g. array_access(arr, index)
+typedef struct expr_unary
+{
+  struct ast *value;
+} expr_unary_t;
+
+typedef struct expr_cast
+{
+  ty_deco_t *ty_caster;
+  struct ast *value;
+} expr_cast_t;
+
+typedef struct expr_ternary
+{
+  struct ast *lhs;
+  struct ast *mhs;
+  struct ast *rhs;
+} expr_ternary_t;
+
+typedef struct expr_list
+{
+  struct ast *prev;
+  struct ast *value;
+} expr_list_t;
+
+#define ENUM_GEN(ENUM) ENUM,
+
+typedef enum ast_tag
+{
+  FOREACH_AST_TYPE (ENUM_GEN) AST_TYPE_MAX
+} ast_tag_t;
+
+#undef ENUM_GEN
+
+typedef struct ast
+{
+  ast_tag_t tag;
+  node_id_t id;
+  ty_deco_t *ty;
+  int lineno;
+  union
+  {
+    var_t var;
+    literal_t literal;
+    qubit_t qubit;
+    angle_t angle;
+    duration_t duration;
+    app_t app;
+    ast_fun_t fun;
+    array_access_t arr_access;
+    member_access_t member_access;
+
+    stmt_compound_t stmt_compound;
+    stmt_if_t stmt_if;
+    stmt_if_else_t stmt_if_else;
+    stmt_switch_t stmt_switch;
+    stmt_while_t stmt_while;
+    stmt_for_t stmt_for;
+    expr_unary_t expr_unary;
+    expr_cast_t expr_cast;
+    expr_binary_t expr_binary;
+    expr_ternary_t expr_ternary;
+    expr_list_t expr_list;
+    decl_list_t decl_list;
+  };
+
+} ast_t;
+
+node_id_t new_node_id (uint32_t id);
+literal_t new_literal_int (int i);
+literal_t new_literal_float (float f);
+literal_t new_literal_short (short s);
+literal_t new_literal_bool (int b);
+qubit_t new_qubit (uint32_t size);
+angle_t new_angle (uint32_t size, uint32_t value);
+duration_t new_duration (uint32_t value);
+var_t new_var (uint32_t id, const char *name);
+ast_fun_t new_fun (var_t arg, struct ast *body);
+app_t new_app (struct ast *fun, struct ast *arg);
+array_access_t new_arr_access (struct ast *array, struct ast *index);
+member_access_t new_member_access (struct ast *aggregate, struct ast *member);
+expr_unary_t new_unary_expr (ast_t *value);
+expr_binary_t new_binary_expr (ast_t *lhs, ast_t *rhs);
+expr_ternary_t new_ternary_expr (ast_t *lhs, ast_t *mhs, ast_t *rhs);
+expr_cast_t new_cast_expr (ty_deco_t *ty, ast_t *value);
+expr_list_t new_expr_list (ast_t *prev, ast_t *value, ty_deco_t *ty);
+ast_t *new_ast ();
+void init_ast_ctx ();
+node_id_t next_id ();
+uint32_t next_var_id ();
+const char *to_ast_string (ast_tag_t tag);
+
+int is_assignment_operator (ast_tag_t tag);
+int is_binary_operator (ast_tag_t tag);
+
+#define Int(i) new_literal_int (i)
+#define Float(f) new_literal_float (f)
+#define Bool(b) new_literal_bool (b)
+#define UInt(i) new_literal_int (i)
+#define Var(name) new_var (next_var_id (), name)
+#define Fun(arg, body) new_fun (arg, body)
+#define App(fun, arg) new_app (fun, arg)
+#define ArrAccess(array, index) new_arr_access (array, index)
+#define MemAccess(aggregate, member) new_member_access (aggregate, member)
+#define Id(i) new_node_id (i)
+#define Unary(ast) new_unary_expr (ast)
+#define Binary(lhs, rhs) new_binary_expr (lhs, rhs)
+#define Ternary(lhs, mhs, rhs) new_ternary_expr (lhs, mhs, rhs)
+#define Cast(ty, ast) new_cast_expr (ty, ast)
+#define List(prev, value) new_expr_list (prev, value, NULL)
+#define AST_NAME(ast_tag) to_ast_string (ast_tag)
+
 #endif

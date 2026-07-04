@@ -1,1588 +1,591 @@
-#include <stdio.h>
+#include "ast.h"
+#include "ast_sem.h"
+#include "common.h"
 #include <stdlib.h>
 #include <string.h>
-#include "symrec.h"
-#include "stringlib.h"
-#include "ast_sem.h"
-#include "ast_sqz.h"
-#include "diagnostics.h"
-#include "ast_typing.h"
-#include "builtin_func.h"
 
-#define init_size_type(name, type, sz) \
-    do                                 \
-    {                                  \
-        (name) = IALLOC(type);         \
-        (name)->size = sz;             \
-    } while (0);
+/* ---- IR allocation helpers ---- */
 
-struct env *env_list = NULL;
-struct env *push_env();
-symbol_t *push_symbol(struct env *env, const char *name, type_t *type);
-symbol_t *find_symbol(struct env *env, const char *name, BOOL lookup_outer);
-void pop_env(struct env *);
-identifier *new_identifier(char *name);
-
-void convert_variable_declaration(const sqz_var_decl *var, statement_list **out);
-void convert_function_declaration(const sqz_func_decl *func, statement **out);
-void convert_assign_expression(const sqz_assign_expr *expr, expression **expr_out);
-void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_list **out);
-void convert_arguments(const sqz_args *args, cls_or_quantum_args_list **out);
-void convert_binary_expression(const sqz_binary_expr *binary, expression **out);
-void convert_cast_expression(const sqz_cast_expr *cast, expression **out);
-void convert_unary_expression(const sqz_unary *unary, expression **out);
-void convert_postfix_expression(const sqz_expr_src *src, expression **out);
-void convert_expression_arguments(const sqz_args *args, expression_list **out);
-void convert_statement(const sqz_stmt *stmt, statement **out);
-void convert_expression(const sqz_expr *expr, expression_list **out);
-void convert_case_statement(const sqz_stmt *case_stmt, case_stmt_list **out, statement **deflt);
-
-type *convert_scalar_type(const type_t *t);
-type *convert_type(const type_t *t);
-type *convert_declarator(const sqz_declarator *declarator);
-
-static inline type_t *find_first_type(sqz_declarator *decl)
+identifier *
+new_identifier (char *name)
 {
-    while (decl)
-    {
-        if (decl->type)
-        {
-            return decl->type;
-        }
-        decl = decl->next;
-    }
-
-    return NULL;
+  identifier *id = IALLOC (identifier);
+  id->name = name ? strdup (name) : strdup ("");
+  return id;
 }
 
-static inline statement *wrap_expr_to_stmt(expression *expr)
+static expression *
+mk_int_lit (int n)
 {
-    statement *s = IALLOC(statement);
-    s->kind = STMT_EXPRESSION;
-    s->classical.expression.expr = expr;
-
-    return s;
+  expression *e = IALLOC (expression);
+  e->kind = EXPR_LITERAL;
+  e->as.literal.literal_kind = LIT_DEC_INT;
+  e->as.literal.data.i = n;
+  return e;
 }
 
-static inline statement_list *wrap_expr_list_to_stmt_list(expression_list *expr_list)
+static statement_list *
+append_stmt (statement_list *head, statement *s)
 {
-    statement_list *list = NULL;
-
-    while (expr_list)
-    {
-        statement *s = wrap_expr_to_stmt(expr_list->value);
-        if (!list)
-        {
-            list = wrap_statement_list(s);
-        }
-        else
-        {
-            list_add(statement_list, wrap_statement_list(s), list);
-        }
-
-        expr_list = expr_list->next;
-    }
-
-    return list;
+  statement_list *node = IALLOC (statement_list);
+  node->value = s;
+  node->next = NULL;
+  node->prev = NULL;
+  if (!head)
+    return node;
+  statement_list *it = head;
+  while (it->next)
+    it = it->next;
+  it->next = node;
+  node->prev = it;
+  return head;
 }
 
-static inline operator to_operator(ast_node_type node_type)
+static expression_list *
+append_expr (expression_list *head, expression *e)
 {
-    switch (node_type)
+  expression_list *node = IALLOC (expression_list);
+  node->value = e;
+  node->next = NULL;
+  node->prev = NULL;
+  if (!head)
+    return node;
+  expression_list *it = head;
+  while (it->next)
+    it = it->next;
+  it->next = node;
+  node->prev = it;
+  return head;
+}
+
+static qubit_list *
+append_qubit (qubit_list *head, qubit *q)
+{
+  qubit_list *node = IALLOC (qubit_list);
+  node->value = q;
+  node->next = NULL;
+  node->prev = NULL;
+  if (!head)
+    return node;
+  qubit_list *it = head;
+  while (it->next)
+    it = it->next;
+  it->next = node;
+  node->prev = it;
+  return head;
+}
+
+/* ---- type conversion ---- */
+
+static classical_type *
+mk_cls (type_kind kind, const char *name, int bits)
+{
+  classical_type *ct = IALLOC (classical_type);
+  ct->kind = kind;
+  ct->type_name = strdup (name);
+  switch (kind)
     {
-    case AST_UNARY_PLUS:
-    case AST_EXPR_ADD:
-        return OP_PLUS;
-    case AST_UNARY_MINUS:
-    case AST_EXPR_SUB:
-        return OP_MINUS;
-    case AST_UNARY_STAR:
-    case AST_EXPR_MUL:
-        return OP_ASTERISK;
-    case AST_EXPR_DIV:
-        return OP_SLASH;
-    case AST_EXPR_MOD:
-        return OP_PERCENT;
-    case AST_UNARY_TILDE:
-        return OP_TILDE;
-    case AST_UNARY_EXCL:
-        return OP_EXCLAMATION_POINT;
-    case AST_EXPR_LSHIFT:
-        return OP_LSHIFT;
-    case AST_EXPR_RSHIFT:
-        return OP_RSHIFT;
-    case AST_EXPR_LT:
-        return OP_LT;
-    case AST_EXPR_GT:
-        return OP_GT;
-    case AST_EXPR_GEQ:
-        return OP_GEQ;
-    case AST_EXPR_LEQ:
-        return OP_LEQ;
-    case AST_EXPR_EQ:
-        return OP_EQ;
-    case AST_EXPR_NEQ:
-        return OP_NEQ;
-    case AST_EXPR_AND:
-        return OP_AMP;
-    case AST_EXPR_OR:
-        return OP_PIPE;
-    case AST_EXPR_XOR:
-        return OP_CARET;
-    case AST_EXPR_LAND:
-        return OP_DOUBLE_AMP;
-    case AST_EXPR_LOR:
-        return OP_DOUBLE_PIPE;
-    case AST_EXPR_ASSIGN:
-        return OP_ASSIGN;
-    case AST_EXPR_MUL_ASSIGN:
-        return OP_MUL_ASSIGN;
-    case AST_EXPR_DIV_ASSIGN:
-        return OP_DIV_ASSIGN;
-    case AST_EXPR_MOD_ASSIGN:
-        return OP_MOD_ASSIGN;
-    case AST_EXPR_ADD_ASSIGN:
-        return OP_PLUS_ASSIGN;
-    case AST_EXPR_SUB_ASSIGN:
-        return OP_MINUS_ASSIGN;
-    case AST_EXPR_LEFT_ASSIGN:
-        return OP_LSHIFT_ASSIGN;
-    case AST_EXPR_RIGHT_ASSIGN:
-        return OP_RSHIFT_ASSIGN;
-    case AST_EXPR_AND_ASSIGN:
-        return OP_AND_ASSIGN;
-    case AST_EXPR_XOR_ASSIGN:
-        return OP_XOR_ASSIGN;
-    case AST_EXPR_OR_ASSIGN:
-        return OP_OR_ASSIGN;
+    case TYPE_INT:
+      ct->int_type = IALLOC (int_type);
+      ct->int_type->size = mk_int_lit (bits);
+      break;
+    case TYPE_UINT:
+      ct->uint_type = IALLOC (uint_type);
+      ct->uint_type->size = mk_int_lit (bits);
+      break;
+    case TYPE_FLOAT:
+      ct->float_type = IALLOC (float_type);
+      ct->float_type->size = mk_int_lit (bits);
+      break;
+    case TYPE_BOOL:
+      ct->bool_type = IALLOC (bool_type);
+      ct->bool_type->size = mk_int_lit (1);
+      break;
     default:
-        P_ERROR("Unknown operator %d", node_type);
+      break;
+    }
+  return ct;
+}
+
+static classical_type *
+type_to_cls (type_t *ty)
+{
+  if (!ty)
+    return mk_cls (TYPE_INT, "int", 32);
+  switch (ty->tag)
+    {
+    case TY_INT:    return mk_cls (TYPE_INT,   "int",   ty->size * 8);
+    case TY_UINT:   return mk_cls (TYPE_UINT,  "uint",  ty->size * 8);
+    case TY_FLOAT:
+    case TY_DOUBLE: return mk_cls (TYPE_FLOAT, "float", ty->size * 8);
+    case TY_BOOL:   return mk_cls (TYPE_BOOL,  "bool",  1);
+    case TY_CHAR:   return mk_cls (TYPE_INT,   "int",   8);
+    case TY_SHORT:  return mk_cls (TYPE_INT,   "int",   16);
+    case TY_LONG:   return mk_cls (TYPE_INT,   "int",   64);
+    default:        return mk_cls (TYPE_INT,   "int",   32);
     }
 }
 
-static inline BOOL is_unsigned(const type_t *t)
+/* ---- operator mapping ---- */
+
+static operator
+ast_to_op (ast_tag_t tag)
 {
-    while (t)
+  switch (tag)
     {
-        if (IS_UNSIGNED(t))
-        {
-            return TRUE;
-        }
-        t = t->next;
-    }
-
-    return FALSE;
-}
-
-static inline expression *new_int_literal(int value)
-{
-    expression *expr = IALLOC(expression);
-    expr->as.literal.data.i = value;
-    expr->as.literal.literal_kind = LIT_DEC_INT;
-    expr->kind = EXPR_LITERAL;
-    return expr;
-}
-
-void convert_program(const struct _sqz_program *p, program **out)
-{
-    program *prog = IALLOC(program);
-    statement *decl_stmt;
-    statement_list *var_decl_stmt;
-    statement_list *stmts = NULL;
-    sqz_decl *list = p->decl;
-
-    while (list)
-    {
-        switch (list->decl_type)
-        {
-        case AST_VARIABLE_DECLARATION:
-            sqz_var_decl *var_decl = list->decl.var;
-            if (!IS_FUNC(var_decl->type))
-            {
-                convert_variable_declaration(var_decl, &var_decl_stmt);
-                if (!stmts)
-                {
-                    stmts = var_decl_stmt;
-                }
-                else
-                {
-                    list_add_all(statement_list, var_decl_stmt, stmts);
-                }
-            }
-
-            break;
-        case AST_FUNCTION_DECLARATION:
-            sqz_func_decl *func_decl = list->decl.func;
-            convert_function_declaration(func_decl, &decl_stmt);
-            if (!stmts)
-            {
-                stmts = wrap_statement_list(decl_stmt);
-            }
-            else
-            {
-                list_add(statement_list, wrap_statement_list(decl_stmt), stmts);
-            }
-            break;
-        default:
-            P_ERROR("Unexpected ast");
-        }
-        list = list->next;
-    }
-    list_goto_first(statement_list, stmts);
-    prog->stmts = stmts;
-    *out = prog;
-}
-
-void convert_variable_declaration(const sqz_var_decl *var, statement_list **out)
-{
-    sqz_init_decl *decl_list = var->decl_list;
-    type *t;
-    type_t *var_type = var->type;
-    sqz_declarator *declarator;
-    sqz_initializer *initializer;
-    statement_list *list = NULL;
-    statement *stmt;
-    expression *init_expr = NULL;
-    while (decl_list)
-    {
-        declarator = decl_list->decl;
-        initializer = decl_list->init;
-
-        stmt = IALLOC(statement);
-        stmt->classical.declaration.init_expression_kind = EXPR_NONE;
-        if (initializer)
-        {
-            convert_assign_expression(initializer->expr, &init_expr);
-            stmt->classical.declaration.init_expression_kind = EXPR_EXPRESSION;
-        }
-        identifier *id = new_identifier(declarator->id->name->name);
-        // qubit declaration
-        if (IS_QUBIT(var_type))
-        {
-            stmt->classical.qubit_declaration.qubit = id;
-            stmt->classical.qubit_declaration.size = new_int_literal(var_type->meta->size);
-            stmt->kind = STMT_QUANTUM_DECLARATION;
-        }
-        // classical declaration
-        else
-        {
-            var_type = clone_type(var_type);
-            var_type->next = find_first_type(declarator);
-            t = convert_type(var_type);
-            if (var->spec->qualifier & QAL_CONST)
-            {
-                stmt->classical.constant_declaration.identifier = id;
-                stmt->kind = STMT_CONST_DECLARATION;
-                if (init_expr)
-                {
-                    stmt->classical.constant_declaration.expression = init_expr;
-
-                    if (t->kind != CLASSICAL_TYPE)
-                    {
-                        P_ERROR("Only classical type applicable for constant declaration");
-                    }
-                }
-
-                stmt->classical.constant_declaration.type = t->classical_type;
-            }
-            else
-            {
-                stmt->classical.declaration.identifier = id;
-                stmt->kind = STMT_CLASSICAL_DECLARATION;
-                if (init_expr)
-                {
-                    stmt->classical.declaration.init_expression.expr = init_expr;
-                    stmt->classical.declaration.init_expression_kind = EXPR_EXPRESSION;
-                    // FIXME: How to handle measure?
-                }
-
-                stmt->classical.declaration.type = t->classical_type;
-            }
-        }
-        statement_list *l = wrap_statement_list(stmt);
-        if (!list)
-        {
-            list = l;
-        }
-        else
-        {
-            list_add(statement_list, l, list);
-        }
-
-        decl_list = decl_list->next;
-    }
-
-    list_goto_first(statement_list, list);
-    *out = list;
-}
-
-void convert_function_declaration(const sqz_func_decl *func, statement **out)
-{
-    // func to subroutine definition
-    statement *subroutine_def = IALLOC(statement);
-    statement_list *body;
-    cls_or_quantum_args_list *args;
-    type *return_type;
-    subroutine_def->kind = STMT_DEF;
-    subroutine_def->classical.subroutine_definition.name = new_identifier(func->name->name->name);
-
-    convert_compound_statement(func->body, &body);
-    list_goto_first(statement_list, body);
-    subroutine_def->classical.subroutine_definition.body = body;
-
-    convert_arguments(func->params, &args);
-    subroutine_def->classical.subroutine_definition.arguments = args;
-
-    return_type = convert_type(func->return_type);
-    subroutine_def->classical.subroutine_definition.return_type = return_type->classical_type;
-    free(return_type);
-    *out = subroutine_def;
-}
-
-void convert_assign_expression(const sqz_assign_expr *expr, expression **expr_out)
-{
-    // conditonal expression
-    if (expr->ternary_expr)
-    {
-        if (!expr->ternary_expr->binary_expr)
-        {
-            P_ERROR("Ternary expression is not allowed for here for now!");
-        }
-
-        convert_binary_expression(expr->ternary_expr->binary_expr, expr_out);
-    }
-    else
-    {
-        expression *lhs = NULL, *rhs = NULL;
-        convert_unary_expression(expr->left, &lhs);
-        convert_assign_expression(expr->right, &rhs);
-        operator op = to_operator(expr->assign_type);
-        expression *assign = IALLOC(expression);
-        assign->kind = EXPR_BINARY;
-        assign->as.binary.lhs = lhs;
-        assign->as.binary.rhs = rhs;
-        assign->as.binary.op = op;
-
-        *expr_out = assign;
+    case AST_ADD: case AST_ASSIGN_ADD: return OP_PLUS;
+    case AST_SUB: case AST_ASSIGN_SUB: return OP_MINUS;
+    case AST_MUL: case AST_ASSIGN_MUL: return OP_ASTERISK;
+    case AST_DIV: case AST_ASSIGN_DIV: return OP_SLASH;
+    case AST_MOD: case AST_ASSIGN_MOD: return OP_PERCENT;
+    case AST_LSHIFT: case AST_ASSIGN_LSHIFT: return OP_LSHIFT;
+    case AST_RSHIFT: case AST_ASSIGN_RSHIFT: return OP_RSHIFT;
+    case AST_AND: case AST_ASSIGN_AND: return OP_AMP;
+    case AST_OR:  case AST_ASSIGN_OR:  return OP_PIPE;
+    case AST_XOR: case AST_ASSIGN_XOR: return OP_CARET;
+    case AST_LAND: return OP_DOUBLE_AMP;
+    case AST_LOR:  return OP_DOUBLE_PIPE;
+    case AST_EQ:   return OP_EQ;
+    case AST_NEQ:  return OP_NEQ;
+    case AST_LT:   return OP_LT;
+    case AST_GT:   return OP_GT;
+    case AST_LEQ:  return OP_LEQ;
+    case AST_GEQ:  return OP_GEQ;
+    case AST_ASSIGN: return OP_ASSIGN;
+    case AST_UNARY_MINUS: return OP_MINUS;
+    case AST_UNARY_NOT:   return OP_TILDE;
+    case AST_UNARY_LNOT:  return OP_EXCLAMATION_POINT;
+    default: return OP_PLUS;
     }
 }
 
-void convert_binary_expression(const sqz_binary_expr *binary, expression **out)
-{
-    if (binary->cast_expr)
-    {
-        convert_cast_expression(binary->cast_expr, out);
-    }
-    else
-    {
-        expression *result = IALLOC(expression);
-        result->kind = EXPR_BINARY;
-        expression *lhs, *rhs, *cast;
-        operator op = to_operator(binary->expr_type);
-        result->as.binary.op = op;
-        switch (binary->expr_type)
-        {
-        case AST_EXPR_LOR:
-        case AST_EXPR_LAND:
-        case AST_EXPR_OR:
-        case AST_EXPR_XOR:
-        case AST_EXPR_AND:
-        case AST_EXPR_EQ:
-        case AST_EXPR_NEQ:
-        case AST_EXPR_LT:
-        case AST_EXPR_GT:
-        case AST_EXPR_LEQ:
-        case AST_EXPR_GEQ:
-        case AST_EXPR_LSHIFT:
-        case AST_EXPR_RSHIFT:
-        case AST_EXPR_ADD:
-        case AST_EXPR_SUB:
-            convert_binary_expression(binary->left, &lhs);
-            convert_binary_expression(binary->right.binary, &rhs);
-            result->as.binary.lhs = lhs;
-            result->as.binary.rhs = rhs;
-            break;
-        case AST_EXPR_MUL:
-        case AST_EXPR_DIV:
-        case AST_EXPR_MOD:
-            convert_binary_expression(binary->left, &lhs);
-            convert_cast_expression(binary->right.cast, &rhs);
-            result->as.binary.lhs = lhs;
-            result->as.binary.rhs = rhs;
-            break;
-        default:
-            convert_cast_expression(binary->cast_expr, &cast);
-            result->kind = EXPR_CAST;
-            result->as.cast.argument = cast->as.cast.argument;
-            result->as.cast.type = cast->as.cast.type;
-            free(cast);
-            break;
-        }
+/* ---- forward declarations ---- */
 
-        *out = result;
+static expression *conv_expr (ast_t *a);
+static statement *conv_stmt (ast_t *a);
+static statement_list *conv_compound (ast_t *a);
+
+/* ---- qubit arg extraction ---- */
+
+static qubit *
+ast_to_qubit (ast_t *a)
+{
+  if (!a)
+    return NULL;
+  qubit *q = IALLOC (qubit);
+  if (a->tag == AST_ARRAY_ACCESS && a->arr_access.array
+      && a->arr_access.array->tag == AST_VAR)
+    {
+      identifier *arr_id = new_identifier (a->arr_access.array->var.name);
+      expr_or_range *eor = IALLOC (expr_or_range);
+      eor->expr = conv_expr (a->arr_access.index);
+      index_element *elem = IALLOC (index_element);
+      elem->kind = EXPR_EXPRESSION;
+      elem->index.expr_or_range = eor;
+      indexed_identifier *iid = IALLOC (indexed_identifier);
+      iid->name = arr_id;
+      iid->index = elem;
+      q->kind = ID_INDEXED_IDENTIFIER;
+      q->value.indexed_identifier = iid;
     }
+  else
+    {
+      q->kind = ID_IDENTIFIER;
+      q->value.identifier
+          = new_identifier (a->tag == AST_VAR ? a->var.name : "q");
+    }
+  return q;
 }
 
-void convert_cast_expression(const sqz_cast_expr *cast, expression **out)
+static qubit_list *
+flatten_qubit_args (ast_t *a)
 {
-    type *type_name;
-    expression *sub_cast;
-    expression *result = IALLOC(expression);
-    switch (cast->cast_type)
+  if (!a)
+    return NULL;
+  if (a->tag == AST_LIST)
     {
-    case AST_EXPR_TYPE_CAST:
-        type_name = convert_declarator(cast->type);
-        convert_cast_expression(cast->expr.cast, &sub_cast);
-        result->kind = EXPR_CAST;
-        result->as.cast.argument = sub_cast;
-        result->as.cast.type = type_name->classical_type;
+      qubit_list *prev = flatten_qubit_args (a->expr_list.prev);
+      qubit *q = ast_to_qubit (a->expr_list.value);
+      return append_qubit (prev, q);
+    }
+  return append_qubit (NULL, ast_to_qubit (a));
+}
 
-        free(type_name);
-        break;
+/* ---- expression conversion ---- */
+
+static expression_list *
+flatten_arg_list (ast_t *a)
+{
+  if (!a)
+    return NULL;
+  if (a->tag == AST_LIST)
+    {
+      expression_list *prev = flatten_arg_list (a->expr_list.prev);
+      expression *val = conv_expr (a->expr_list.value);
+      return append_expr (prev, val);
+    }
+  return append_expr (NULL, conv_expr (a));
+}
+
+static expression *
+conv_expr (ast_t *a)
+{
+  if (!a)
+    return mk_int_lit (0);
+  expression *e;
+  switch (a->tag)
+    {
+    case AST_VAR:
+      e = IALLOC (expression);
+      e->kind = EXPR_IDENTIFIER;
+      e->as.identifier = new_identifier (a->var.name);
+      return e;
+
+    case AST_INT:
+      return mk_int_lit (a->literal.i);
+
+    case AST_FLOAT:
+      e = IALLOC (expression);
+      e->kind = EXPR_LITERAL;
+      e->as.literal.literal_kind = LIT_FLOAT;
+      e->as.literal.data.f = a->literal.f;
+      return e;
+
+    case AST_ARRAY_ACCESS:
+      {
+        expr_or_range *eor = IALLOC (expr_or_range);
+        eor->expr = conv_expr (a->arr_access.index);
+        expr_or_range_list *il = IALLOC (expr_or_range_list);
+        il->value = eor;
+        il->next = NULL;
+        il->prev = NULL;
+        e = IALLOC (expression);
+        e->kind = EXPR_INDEX;
+        e->as.index.collection = conv_expr (a->arr_access.array);
+        e->as.index.index_kind = SINGLE_EXPRESSION;
+        e->as.index.list = il;
+        return e;
+      }
+
+    case AST_POST_INC: case AST_PRE_INC:
+      e = IALLOC (expression);
+      e->kind = EXPR_BINARY;
+      e->as.binary.op = OP_PLUS_ASSIGN;
+      e->as.binary.lhs = conv_expr (a->expr_unary.value);
+      e->as.binary.rhs = mk_int_lit (1);
+      return e;
+
+    case AST_POST_DEC: case AST_PRE_DEC:
+      e = IALLOC (expression);
+      e->kind = EXPR_BINARY;
+      e->as.binary.op = OP_MINUS_ASSIGN;
+      e->as.binary.lhs = conv_expr (a->expr_unary.value);
+      e->as.binary.rhs = mk_int_lit (1);
+      return e;
+
+    case AST_APP:
+      {
+        ast_t *fun = a->app.fun;
+        ast_t *arg = cvector_size (a->app.args) > 0 ? a->app.args[0] : NULL;
+        if (fun && fun->tag == AST_VAR)
+          {
+            const char *fname = fun->var.name;
+            if (strncmp (fname, "apply_", 6) == 0)
+              {
+                e = IALLOC (expression);
+                e->kind = EXPR_QUANTUM_GATE;
+                e->as.quantum.quantum_gate.name = new_identifier ((char *)(fname + 6));
+                e->as.quantum.quantum_gate.modifiers = NULL;
+                e->as.quantum.quantum_gate.arguments = NULL;
+                e->as.quantum.quantum_gate.designator = NULL;
+                e->as.quantum.quantum_gate.qubits = flatten_qubit_args (arg);
+                return e;
+              }
+            if (strcmp (fname, "measure") == 0)
+              {
+                e = IALLOC (expression);
+                e->kind = EXPR_QUANTUM_MEASUREMENT;
+                e->as.quantum_measurement.measure.qubit = ast_to_qubit (arg);
+                return e;
+              }
+          }
+        e = IALLOC (expression);
+        e->kind = EXPR_FUNC_CALL;
+        e->as.function_call.name
+            = new_identifier (fun && fun->tag == AST_VAR ? fun->var.name : "");
+        e->as.function_call.arguments = arg ? flatten_arg_list (arg) : NULL;
+        return e;
+      }
+
+    case AST_CAST:
+      e = IALLOC (expression);
+      e->kind = EXPR_CAST;
+      e->as.cast.argument = conv_expr (a->expr_cast.value);
+      e->as.cast.type
+          = type_to_cls (a->expr_cast.ty_caster ? a->expr_cast.ty_caster->ty : NULL);
+      return e;
 
     default:
-        free(result);
-        convert_unary_expression(cast->expr.unary, &result);
-        break;
-    }
-
-    *out = result;
-}
-
-void convert_unary_expression(const sqz_unary *unary, expression **out)
-{
-    expression *expr = IALLOC(expression);
-    switch (unary->expr_type)
-    {
-    case AST_EXPR_PRE_INC:
-    case AST_EXPR_PRE_DEC:
-        P_ERROR("pre inc/dec are currently not supported");
-        break;
-    case AST_EXPR_SIZEOF:
-        // FIXME: return integer literal?
-        P_ERROR("FIXME: return integer literal?");
-        break;
-    case AST_UNARY_AMP:
-    case AST_UNARY_STAR:
-    case AST_UNARY_PLUS:
-    case AST_UNARY_MINUS:
-    case AST_UNARY_TILDE:
-    case AST_UNARY_EXCL:
-        expression *cast_expr;
-        convert_cast_expression(unary->expr.cast, &cast_expr);
-        expr->as.unary.expr = cast_expr;
-        expr->as.unary.op = to_operator(unary->expr_type);
-        break;
-    default:
-        free(expr);
-        convert_postfix_expression(unary->expr.postfix, &expr);
-        break;
-    }
-
-    *out = expr;
-}
-
-void convert_postfix_expression(const sqz_expr_src *src, expression **out)
-{
-    expression *expr = IALLOC(expression);
-    expression *id_expr = NULL;
-    expression_list *arg_list = NULL;
-    expression *lhs, *rhs;
-    switch (src->expr_type)
-    {
-    case AST_EXPR_FUNCTION_CALL:
-        expression *builtin;
-        convert_postfix_expression(src->expr.func_call->func, &id_expr);
-        if (convert_builtin_function(id_expr->as.identifier->name, src->expr.func_call, &builtin))
+      if (is_binary_operator (a->tag) || is_assignment_operator (a->tag))
         {
-            free(expr);
-            free(id_expr->as.identifier);
-            free(id_expr);
-            expr = builtin;
-            break;
+          e = IALLOC (expression);
+          e->kind = EXPR_BINARY;
+          e->as.binary.op = ast_to_op (a->tag);
+          e->as.binary.lhs = conv_expr (a->expr_binary.lhs);
+          e->as.binary.rhs = conv_expr (a->expr_binary.rhs);
+          return e;
         }
-        convert_expression_arguments(src->expr.func_call->args, &arg_list);
-
-        if (id_expr->kind != EXPR_IDENTIFIER)
+      switch (a->tag)
         {
-            P_ERROR("Only identifier can be a function name");
-        }
-
-        expr->as.function_call.name = id_expr->as.identifier;
-        expr->as.function_call.arguments = arg_list;
-        expr->kind = EXPR_FUNC_CALL;
-        free(id_expr);
-        break;
-    case AST_EXPR_ARRAY_ACCESS:
-        expression *base;
-        expr_or_range_list *index_list = NULL;
-        expression *collection;
-        expression_list *index_expr;
-        convert_postfix_expression(src->expr.arr_access->array, &base);
-        if (base->kind == EXPR_INDEX)
-        {
-            index_list = base->as.index.list;
-            collection = base->as.index.collection;
-        }
-        else
-        {
-            collection = base;
-        }
-
-        expression_list *expr_list;
-        convert_expression(src->expr.arr_access->index, &expr_list);
-
-        list_for_each_entry(index_expr, expr_list)
-        {
-            expr_or_range *idx = IALLOC(expr_or_range);
-            idx->expr = index_expr->value;
-            if (!index_list)
-            {
-                index_list = wrap_expr_or_range_list(idx);
-            }
-            else
-            {
-                list_add(expr_or_range_list, wrap_expr_or_range_list(idx), index_list);
-            }
-        }
-
-        expr->kind = EXPR_INDEX;
-        expr->as.index.index_kind = EXPR_EXPRESSION;
-        expr->as.index.list = index_list;
-        expr->as.index.collection = collection;
-        break;
-    default:
-        switch (src->expr.primary_expr->primary_type)
-        {
-        case AST_IDENTIFIER:
-            expr->kind = EXPR_IDENTIFIER;
-            expr->as.identifier = new_identifier(src->expr.primary_expr->value.identifier->name->name);
-            break;
-        case AST_LITERAL_INTEGER:
-            expr->kind = EXPR_LITERAL;
-            expr->as.literal.literal_kind = LIT_DEC_INT;
-            expr->as.literal.data.i = src->expr.primary_expr->value.i;
-            break;
-        case AST_LITERAL_FLOAT:
-            expr->kind = EXPR_LITERAL;
-            expr->as.literal.literal_kind = LIT_FLOAT;
-            expr->as.literal.data.f = src->expr.primary_expr->value.f;
-            break;
-        case AST_LITERAL_STRING:
-            P_ERROR("String is not available in OpenQASM");
-            break;
-        case AST_EXPR_POST_DEC:
-            convert_postfix_expression(src->expr.post_inc_dec->operand, &lhs);
-            rhs = new_int_literal(1);
-            expr->kind = EXPR_BINARY;
-            expr->as.binary.lhs = lhs;
-            expr->as.binary.rhs = rhs;
-            expr->as.binary.op = OP_MINUS_ASSIGN;
-            break;
-        case AST_EXPR_POST_INC:
-            convert_postfix_expression(src->expr.post_inc_dec->operand, &lhs);
-            rhs = new_int_literal(1);
-            expr->kind = EXPR_BINARY;
-            expr->as.binary.lhs = lhs;
-            expr->as.binary.rhs = rhs;
-            expr->as.binary.op = OP_PLUS_ASSIGN;
-            break;
-        case AST_EXPR_MEMBER_ACCESS:
-        case AST_EXPR_POINTER_MEMBER_ACCESS:
-            P_ERROR("Pointer or member access are not implemented");
-            break;
+        case AST_UNARY_MINUS: case AST_UNARY_NOT: case AST_UNARY_LNOT:
+        case AST_UNARY_PLUS:  case AST_UNARY_REF: case AST_UNARY_DEREF:
+          e = IALLOC (expression);
+          e->kind = EXPR_UNARY;
+          e->as.unary.op = ast_to_op (a->tag);
+          e->as.unary.expr = conv_expr (a->expr_unary.value);
+          return e;
         default:
-            free(expr);
-            expression_list *sub = NULL;
-            convert_expression(src->expr.primary_expr->value.expr, &sub);
-            *out = sub->value;
-            return;
+          return mk_int_lit (0);
         }
-        break;
     }
-
-    *out = expr;
 }
 
-void convert_arguments(const sqz_args *args, cls_or_quantum_args_list **out)
+/* ---- declaration list → statement_list ---- */
+
+static statement_list *
+conv_decl_list (decl_list_t list)
 {
-    // FIXME
-    cls_or_quantum_args_list *list = NULL;
-    cls_or_quantum_args *arg;
-    type *type;
-    while (args)
+  statement_list *head = NULL;
+  decl_t *it;
+  for (it = cvector_begin (list); it != cvector_end (list); it++)
     {
-        arg = IALLOC(cls_or_quantum_args);
-        if (IS_QUBIT(args->arg->type))
+      if (!it->has_name)
+        continue;
+      if (it->type && (it->type->constr & CONSTR_TYPEDEF))
+        continue;
+      type_t *ty = it->type ? it->type->ty : NULL;
+      int is_qubit = 0;
+      int qubit_size = 1;
+      if (ty)
         {
-            arg->kind = QUANTUM_ARGUMENT;
-            arg->quantum_argument = IALLOC(quantum_argument);
-            arg->quantum_argument->name = new_identifier(args->arg->decl->id->name->name);
-        }
-        else
-        {
-            arg->kind = CLASSICAL_ARGUMENT;
-            arg->classical_argument = IALLOC(classical_argument);
-            arg->classical_argument->name = new_identifier(args->arg->decl->id->name->name);
-            type = convert_type(args->arg->type);
-            arg->classical_argument->type = type->classical_type;
-            arg->classical_argument->access = MUTABLE;
-        }
-
-        if (!list)
-        {
-            list = wrap_cls_or_quantum_args_list(arg);
-        }
-        else
-        {
-            list_add(cls_or_quantum_args_list, wrap_cls_or_quantum_args_list(arg), list);
-        }
-
-        args = args->next;
-    }
-
-    *out = list;
-}
-
-void convert_expression_arguments(const sqz_args *args, expression_list **out)
-{
-    expression_list *list = NULL;
-    expression *expr;
-    while (args)
-    {
-        convert_assign_expression(args->expr, &expr);
-        expression_list *cur = wrap_expression_list(expr);
-        if (list)
-        {
-            list_add(expression_list, cur, list);
-        }
-        else
-        {
-            list = cur;
-        }
-        args = args->next;
-    }
-    list_goto_first(expression_list, list);
-    *out = list;
-}
-
-void convert_compound_statement(const struct sqz_compound_stmt *comp, statement_list **out)
-{
-    struct _sqz_block_item *block = comp->block_list;
-    statement_list *list = NULL;
-    while (block)
-    {
-        switch (block->decl_or_stmt)
-        {
-        case AST_VARIABLE_DECLARATION:
-            statement_list *var_decl;
-            if (!IS_FUNC(block->item.decl->type))
+          if (ty->tag == TY_QUBIT)
             {
-                convert_variable_declaration(block->item.decl, &var_decl);
-                if (!list)
-                {
-                    list = var_decl;
-                }
-                else
-                {
-                    list_add_all(statement_list, var_decl, list);
-                }
+              is_qubit = 1;
             }
-
-            break;
-        default:
-            statement *general_stmt;
-            convert_statement(block->item.stmt, &general_stmt);
-            if (!list)
+          else if (ty->tag == TY_ARRAY && ty->ty.ty_array.ref
+                   && ty->ty.ty_array.ref->ty
+                   && ty->ty.ty_array.ref->ty->tag == TY_QUBIT)
             {
-                list = wrap_statement_list(general_stmt);
+              is_qubit = 1;
+              qubit_size = ty->ty.ty_array.size > 0 ? ty->ty.ty_array.size : 1;
             }
+        }
+      statement *s = IALLOC (statement);
+      if (is_qubit)
+        {
+          s->kind = STMT_QUANTUM_DECLARATION;
+          s->classical.qubit_declaration.qubit = new_identifier (it->name);
+          s->classical.qubit_declaration.size = mk_int_lit (qubit_size);
+        }
+      else
+        {
+          s->kind = STMT_CLASSICAL_DECLARATION;
+          s->classical.declaration.type = type_to_cls (ty);
+          s->classical.declaration.identifier = new_identifier (it->name);
+          if (it->init)
+            {
+              s->classical.declaration.init_expression_kind = EXPR_EXPRESSION;
+              s->classical.declaration.init_expression.expr
+                  = conv_expr (it->init);
+            }
+          else
+            {
+              s->classical.declaration.init_expression_kind = EXPR_NONE;
+            }
+        }
+      head = append_stmt (head, s);
+    }
+  return head;
+}
+
+/* ---- compound body → statement_list ---- */
+
+static statement_list *
+conv_compound (ast_t *a)
+{
+  if (!a)
+    return NULL;
+  if (a->tag == AST_COMPOUND)
+    {
+      statement_list *head = NULL;
+      ast_t **it;
+      for (it = cvector_begin (a->stmt_compound.ast);
+           it != cvector_end (a->stmt_compound.ast); it++)
+        {
+          statement *s = conv_stmt (*it);
+          if (s)
+            head = append_stmt (head, s);
+        }
+      return head;
+    }
+  /* single statement */
+  statement *s = conv_stmt (a);
+  return s ? append_stmt (NULL, s) : NULL;
+}
+
+/* ---- statement conversion ---- */
+
+static statement *
+conv_stmt (ast_t *a)
+{
+  if (!a)
+    return NULL;
+  statement *s = IALLOC (statement);
+  switch (a->tag)
+    {
+    case AST_COMPOUND:
+      s->kind = STMT_COMPOUND;
+      s->classical.compound.statements = conv_compound (a);
+      break;
+
+    case AST_IF:
+      s->kind = STMT_IF;
+      s->classical.branching.condition = conv_expr (a->stmt_if.condition);
+      s->classical.branching.if_block = conv_compound (a->stmt_if.body);
+      s->classical.branching.else_block = NULL;
+      break;
+
+    case AST_IF_ELSE:
+      s->kind = STMT_IF;
+      s->classical.branching.condition = conv_expr (a->stmt_if_else.condition);
+      s->classical.branching.if_block = conv_compound (a->stmt_if_else.body);
+      s->classical.branching.else_block = conv_compound (a->stmt_if_else.else_body);
+      break;
+
+    case AST_WHILE:
+    case AST_DO_WHILE:
+      s->kind = STMT_WHILE;
+      s->classical.while_loop.condition = conv_expr (a->stmt_while.condition);
+      s->classical.while_loop.block = conv_compound (a->stmt_while.body);
+      break;
+
+    case AST_FOR:
+      {
+        /* lower C for-loop to { init; while (cond) { body; inc; } } */
+        statement_list *stmts = NULL;
+        if (a->stmt_for.lhs)
+          {
+            if (a->stmt_for.lhs->tag == AST_DECL)
+              {
+                statement_list *decls = conv_decl_list (a->stmt_for.lhs->decl_list);
+                statement_list *d;
+                for (d = decls; d; d = d->next)
+                  stmts = append_stmt (stmts, d->value);
+              }
             else
-            {
-                list_add(statement_list, wrap_statement_list(general_stmt), list);
-            }
-            break;
-        }
-        block = block->next;
-    }
-
-    list_goto_first(statement_list, list);
-    *out = list;
-}
-
-void convert_statement(const sqz_stmt *stmt, statement **out)
-{
-    statement *result = IALLOC(statement);
-    expression_list *target_expr;
-    case_stmt_list *case_list;
-    expression_list *condition;
-    statement *body;
-    switch (stmt->stmt_type)
-    {
-    case AST_STMT_SWITCH:
-        convert_expression(stmt->stmt.selection->selection.switch_selection->expr, &target_expr);
-        result->classical.swtch.target = target_expr->value;
-        stmt->stmt.selection->selection.switch_selection->body;
-        convert_case_statement(stmt->stmt.selection->selection.switch_selection->body, &case_list, &result->classical.swtch.deflt);
-        result->classical.swtch.cases = case_list;
-        result->kind = STMT_SWITCH;
+              {
+                statement *init = IALLOC (statement);
+                init->kind = STMT_EXPRESSION;
+                init->classical.expression.expr = conv_expr (a->stmt_for.lhs);
+                stmts = append_stmt (stmts, init);
+              }
+          }
+        statement *whl = IALLOC (statement);
+        whl->kind = STMT_WHILE;
+        whl->classical.while_loop.condition
+            = a->stmt_for.mhs ? conv_expr (a->stmt_for.mhs) : mk_int_lit (1);
+        statement_list *body = conv_compound (a->stmt_for.body);
+        if (a->stmt_for.rhs)
+          {
+            statement *inc = IALLOC (statement);
+            inc->kind = STMT_EXPRESSION;
+            inc->classical.expression.expr = conv_expr (a->stmt_for.rhs);
+            body = append_stmt (body, inc);
+          }
+        whl->classical.while_loop.block = body;
+        stmts = append_stmt (stmts, whl);
+        s->kind = STMT_COMPOUND;
+        s->classical.compound.statements = stmts;
         break;
-    case AST_STMT_WHILE:
-        convert_expression(stmt->stmt.iter->iter.while_iter->expr, &condition);
-        convert_statement(stmt->stmt.iter->iter.while_iter->body, &body);
-        result->classical.while_loop.condition = condition->value;
-        result->classical.while_loop.block = body->classical.compound.statements;
-        result->kind = STMT_WHILE;
+      }
+
+    case AST_RETURN:
+      s->kind = STMT_RETURN;
+      s->classical.retrn.kind = EXPR_EXPRESSION;
+      s->classical.retrn.expr.expr
+          = a->expr_unary.value ? conv_expr (a->expr_unary.value) : NULL;
+      break;
+
+    case AST_BREAK:
+      s->kind = STMT_BREAK;
+      break;
+
+    case AST_CONTINUE:
+      s->kind = STMT_CONTINUE;
+      break;
+
+    case AST_DECL:
+      {
+        statement_list *decls = conv_decl_list (a->decl_list);
+        if (!decls)
+          {
+            free (s);
+            return NULL;
+          }
+        if (!decls->next)
+          {
+            /* single decl — unwrap the list node */
+            statement *single = decls->value;
+            free (decls);
+            free (s);
+            return single;
+          }
+        s->kind = STMT_COMPOUND;
+        s->classical.compound.statements = decls;
         break;
-    case AST_STMT_FOR:
-        statement_list *declaration;
-        statement_list *while_body = NULL;
-        statement *for_body = NULL;
-        statement_list *eval_stmt;
-        expression_list *eval_expr = NULL;
-        convert_variable_declaration(stmt->stmt.iter->iter.for_iter->decl, &declaration);
-        convert_expression(stmt->stmt.iter->iter.for_iter->cond->expr, &condition);
-        convert_expression(stmt->stmt.iter->iter.for_iter->eval, &eval_expr);
-        convert_statement(stmt->stmt.iter->iter.for_iter->body, &for_body);
-        eval_stmt = wrap_expr_list_to_stmt_list(eval_expr);
-        statement *while_loop = IALLOC(statement);
-        while_loop->classical.while_loop.condition = condition->value;
-        while_body = wrap_statement_list(for_body);
-        list_add(statement_list, eval_stmt, while_body);
-        list_goto_first(statement_list, while_body);
-        while_loop->classical.while_loop.block = while_body;
-        while_loop->kind = STMT_WHILE;
+      }
 
-        list_add(statement_list, wrap_statement_list(while_loop), declaration);
-        list_goto_first(statement_list, declaration);
+    case AST_FUN:
+      s->kind = STMT_DEF;
+      s->classical.subroutine_definition.name
+          = new_identifier (a->fun.name[0] ? a->fun.name : "unnamed");
+      s->classical.subroutine_definition.arguments = NULL;
+      s->classical.subroutine_definition.body = conv_compound (a->fun.body);
+      s->classical.subroutine_definition.return_type
+          = type_to_cls (a->fun.ty_fun);
+      break;
 
-        result->kind = STMT_COMPOUND;
-        result->classical.compound.statements = declaration;
-        break;
-    case AST_STMT_COMPOUND:
-        statement_list *compound = NULL;
-        struct _sqz_block_item *block_item = stmt->stmt.compound->block_list;
-        while (block_item)
-        {
-            switch (block_item->decl_or_stmt)
-            {
-            case AST_VARIABLE_DECLARATION:
-                statement_list *var_stmt;
-                if (!IS_FUNC(block_item->item.decl->type))
-                {
-                    convert_variable_declaration(block_item->item.decl, &var_stmt);
-
-                    if (!compound)
-                    {
-                        compound = var_stmt;
-                    }
-                    else
-                    {
-                        list_add_all(statement_list, var_stmt, compound);
-                    }
-                }
-                break;
-            default:
-                statement *inner_stmt;
-                convert_statement(block_item->item.stmt, &inner_stmt);
-
-                if (!compound)
-                {
-                    compound = wrap_statement_list(inner_stmt);
-                }
-                else
-                {
-                    list_add(statement_list, wrap_statement_list(inner_stmt), compound);
-                }
-                break;
-            }
-            block_item = block_item->next;
-        }
-        result->kind = STMT_COMPOUND;
-        list_goto_first(statement_list, compound);
-        result->classical.compound.statements = compound;
-        break;
-    case AST_STMT_EXPRESSION:
-    {
-        expression_list *expr_list;
-        expression_list *pos;
-        statement_list *comp = NULL;
-        convert_expression(stmt->stmt.expr->expr, &expr_list);
-        list_for_each_entry(pos, expr_list)
-        {
-            statement *expr_stmt = wrap_expr_to_stmt(pos->value);
-            if (!comp)
-            {
-                comp = wrap_statement_list(expr_stmt);
-            }
-            else
-            {
-                list_add(statement_list, wrap_statement_list(expr_stmt), comp);
-            }
-        }
-
-        result->kind = STMT_COMPOUND;
-        result->classical.compound.statements = comp;
-    }
-    break;
-    case AST_STMT_CONTINUE:
-        result->kind = STMT_CONTINUE;
-        break;
-    case AST_STMT_BREAK:
-        result->kind = STMT_BREAK;
-        break;
-    case AST_STMT_RETURN:
-    {
-        expression_list *expr_list;
-        statement_list *comp = NULL;
-        convert_expression(stmt->stmt.jump->jump.return_stmt->expr, &expr_list);
-
-        // if has multiple expression
-        // then we must return compound statements
-        // which contains several single expression statements
-        // and last return statement
-        if (expr_list->prev)
-        {
-            expression_list *pos;
-            list_for_each_entry(pos, expr_list)
-            {
-                statement *expr_stmt;
-                // last
-                if (pos->next)
-                {
-                    expr_stmt = IALLOC(statement);
-                    expr_stmt->classical.retrn.expr.expr = pos->value;
-                    expr_stmt->kind = STMT_RETURN;
-                }
-                else
-                {
-                    expr_stmt = wrap_expr_to_stmt(pos->value);
-                }
-
-                if (!comp)
-                {
-                    comp = wrap_statement_list(expr_stmt);
-                }
-                else
-                {
-                    list_add(statement_list, wrap_statement_list(expr_stmt), comp);
-                }
-            }
-
-            result->kind = STMT_COMPOUND;
-            result->classical.compound.statements = comp;
-        }
-        else
-        {
-            // single expression
-            result->kind = STMT_RETURN;
-            result->classical.retrn.expr.expr = expr_list->value;
-            result->classical.retrn.kind = EXPR_EXPRESSION;
-        }
-    }
-    break;
-    case AST_STMT_IF:
-    {
-        result->kind = STMT_IF;
-        statement *if_block;
-        convert_expression(stmt->stmt.selection->selection.if_selection->expr, &condition);
-        convert_statement(stmt->stmt.selection->selection.if_selection->true_stmt, &if_block);
-        result->classical.branching.condition = condition->value;
-        result->classical.branching.if_block = wrap_statement_list(if_block);
-    }
-    break;
-    case AST_STMT_IF_ELSE:
-    {
-        result->kind = STMT_IF;
-        statement *if_block;
-        statement *else_block;
-        convert_expression(stmt->stmt.selection->selection.if_else_selection->expr, &condition);
-        convert_statement(stmt->stmt.selection->selection.if_else_selection->true_stmt, &if_block);
-        convert_statement(stmt->stmt.selection->selection.if_else_selection->false_stmt, &else_block);
-        result->classical.branching.condition = condition->value;
-        result->classical.branching.if_block = wrap_statement_list(if_block);
-        result->classical.branching.else_block = wrap_statement_list(else_block);
-    }
-    break;
     default:
-        P_ERROR("Unsupported statement");
-        break;
+      /* expression statement */
+      s->kind = STMT_EXPRESSION;
+      s->classical.expression.expr = conv_expr (a);
+      break;
     }
-
-    *out = result;
+  return s;
 }
 
-void convert_expression(const sqz_expr *_expr, expression_list **out)
+/* ---- top-level walk (AST_LIST chain from translation_unit) ---- */
+
+static statement_list *
+conv_top_level (ast_t *root)
 {
-    expression_list *expr_list = NULL;
-    expression *expr;
-    while (_expr)
-    {
-        convert_assign_expression(_expr->expr, &expr);
-        if (!expr_list)
-        {
-            expr_list = wrap_expression_list(expr);
-        }
-        else
-        {
-            list_add(expression_list, wrap_expression_list(expr), expr_list);
-        }
-        _expr = _expr->next;
-    }
-
-    list_goto_first(expression_list, expr_list);
-    *out = expr_list;
-}
-
-void convert_case_statement(const sqz_stmt *_case_stmt, case_stmt_list **out, statement **deflt)
-{
-    if (_case_stmt->stmt_type != AST_STMT_COMPOUND)
-    {
-        P_ERROR("Switch statement must have body");
-    }
-
-    struct sqz_compound_stmt *compound = _case_stmt->stmt.compound;
-    struct _sqz_block_item *item = compound->block_list;
-    case_stmt_list *list = NULL;
-    case_stmt *stmt;
-    statement *case_body;
-    statement *deflt_stmt = NULL;
-    while (item)
-    {
-        if (item->decl_or_stmt == AST_VARIABLE_DECLARATION)
-        {
-            P_ERROR("Variable declaration inside switch body is not allowed");
-        }
-
-        switch (item->item.stmt->stmt_type)
-        {
-        case AST_STMT_CASE:
-            expression *case_expr;
-            if (!item->item.stmt->stmt.labeled->stmt.case_stmt->case_expr->binary_expr)
-            {
-                P_ERROR("Ternary expression is not allowed for here for now!");
-            }
-            convert_binary_expression(item->item.stmt->stmt.labeled->stmt.case_stmt->case_expr->binary_expr, &case_expr);
-            convert_statement(item->item.stmt->stmt.labeled->stmt.case_stmt->stmt, &case_body);
-
-            stmt = IALLOC(case_stmt);
-            stmt->expr = wrap_expression_list(case_expr);
-            stmt->statement = case_body;
-
-            if (!list)
-            {
-                list = wrap_case_stmt_list(stmt);
-            }
-            else
-            {
-                list_add(case_stmt_list, wrap_case_stmt_list(stmt), list);
-            }
-            break;
-        case AST_STMT_DEFAULT:
-            if (deflt_stmt)
-            {
-                P_ERROR("Duplicate default statement in switch body");
-            }
-
-            convert_statement(item->item.stmt->stmt.labeled->stmt.default_stmt->stmt, &deflt_stmt);
-            *deflt = deflt_stmt;
-            break;
-        default:
-            P_ERROR("No statements except case and default are not allowed in switch body");
-        }
-
-        item = item->next;
-    }
-
-    list_goto_first(case_stmt_list, list);
-    *out = list;
-}
-
-struct env *push_env()
-{
+  if (!root)
     return NULL;
+  if (root->tag == AST_LIST)
+    {
+      statement_list *prev = conv_top_level (root->expr_list.prev);
+      statement *s = conv_stmt (root->expr_list.value);
+      return s ? append_stmt (prev, s) : prev;
+    }
+  statement *s = conv_stmt (root);
+  return s ? append_stmt (NULL, s) : NULL;
 }
-symbol_t *push_symbol(struct env *env, const char *name, type_t *type)
+
+/* ---- public API ---- */
+
+void
+convert_program (ast_t *root, program **out)
 {
-    return NULL;
+  *out = IALLOC (program);
+  (*out)->stmts = conv_top_level (root);
 }
-symbol_t *find_symbol(struct env *env, const char *name, BOOL lookup_outer)
-{
-    return NULL;
-}
-void pop_env(struct env *) {}
-
-identifier *new_identifier(char *name)
-{
-    identifier *id = IALLOC(identifier);
-    id->name = strdup(name);
-    return id;
-}
-
-static BOOL is_array_type(const type_t *t, array_type **out)
-{
-    typemeta_t *meta;
-    array_type *result = NULL;
-
-    type *base_type;
-    type_t *root_type = (type_t *)t;
-    expression *index_expr = NULL;
-    expression_list *indices = NULL, *indices_head;
-    BOOL is_array = FALSE;
-    while (t)
-    {
-        meta = t->meta;
-
-        if (meta->node_type == AST_TYPE_ARRAY)
-        {
-            if (!result)
-            {
-                result = IALLOC(array_type);
-                base_type = convert_scalar_type(root_type);
-                result->kind = base_type->classical_type->kind;
-                result->base_type = base_type;
-
-                convert_assign_expression(meta->index, &index_expr);
-            }
-            else
-            {
-                if (!indices)
-                {
-                    indices = IALLOC(expression_list);
-                    indices_head = indices;
-                }
-                convert_assign_expression(meta->index, &index_expr);
-                expression_list *head = wrap_expression_list(index_expr);
-                list_add(expression_list, head, indices_head);
-            }
-            is_array = TRUE;
-        }
-        t = t->next;
-    }
-
-    if (!indices && index_expr)
-    {
-        result->dimension_kind = SINGLE_EXPRESSION;
-        result->dimensions.expr = index_expr;
-    }
-    else if (indices)
-    {
-        result->dimension_kind = EXPRESSION_LIST;
-        result->dimensions.expr_list = indices;
-    }
-
-    *out = result;
-    return is_array;
-}
-
-type *convert_type(const type_t *t)
-{
-    array_type *type_array;
-    if (is_array_type(t, &type_array))
-    {
-        type *result = IALLOC(type);
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "array";
-        result->classical_type->kind = TYPE_ARRAY;
-        result->classical_type->array_type = type_array;
-        return result;
-    }
-
-    return convert_scalar_type(t);
-}
-
-type *convert_scalar_type(const type_t *t)
-{
-    typerec_t *user_type = NULL;
-    // check array type
-    type *result = IALLOC(type);
-    int_type *type_int;
-    uint_type *type_uint;
-    float_type *type_float;
-    angle_type *type_angle;
-    duration_type *type_duration;
-    bit_type *type_bit;
-    bool_type *type_bool;
-    complex_type *type_complex;
-    qubit_type *type_qubit;
-    expression *index_expr;
-
-    if (IS_INT(t) || (is_unsigned(t) && (t->next && IS_INT(t->next))))
-    {
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        index_expr = new_int_literal(t->meta->size);
-        if (is_unsigned(t))
-        {
-
-            result->classical_type->kind = TYPE_UINT;
-            result->classical_type->type_name = "uint";
-            init_size_type(type_uint, uint_type, index_expr);
-            result->classical_type->uint_type = type_uint;
-            return result;
-        }
-        else
-        {
-            result->classical_type->type_name = "int";
-            result->classical_type->kind = TYPE_INT;
-            init_size_type(type_int, int_type, index_expr);
-            result->classical_type->int_type = type_int;
-            return result;
-        }
-    }
-
-    if (IS_FLOAT(t))
-    {
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "float";
-
-        index_expr = new_int_literal(t->meta->size);
-        result->classical_type->kind = TYPE_FLOAT;
-        init_size_type(type_float, float_type, index_expr);
-        result->classical_type->float_type = type_float;
-        return result;
-    }
-
-    if (IS_ANGLE(t))
-    {
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "angle";
-        index_expr = new_int_literal(t->meta->size);
-        result->classical_type->kind = TYPE_ANGLE;
-        init_size_type(type_angle, angle_type, index_expr);
-        result->classical_type->angle_type = type_angle;
-        return result;
-    }
-
-    if (IS_DURATION(t))
-    {
-        type_duration = IALLOC(duration_type);
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "duration";
-        result->kind = CLASSICAL_TYPE;
-
-        result->classical_type->kind = TYPE_DURATION;
-        result->classical_type->duration_type = type_duration;
-        return result;
-    }
-
-    if (IS_BIT(t))
-    {
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "bit";
-        index_expr = new_int_literal(t->meta->size);
-        result->classical_type->kind = TYPE_BIT;
-        init_size_type(type_bit, bit_type, index_expr);
-        result->classical_type->bit_type = type_bit;
-        return result;
-    }
-
-    if (IS_BOOL(t))
-    {
-        result->kind = CLASSICAL_TYPE;
-        result->classical_type = IALLOC(classical_type);
-        result->classical_type->type_name = "bool";
-        index_expr = new_int_literal(t->meta->size);
-        result->classical_type->kind = TYPE_BOOL;
-        init_size_type(type_bool, bool_type, index_expr);
-        result->classical_type->bool_type = type_bool;
-        return result;
-    }
-
-    if (IS_QUBIT(t))
-    {
-        result->kind = QUANTUM_TYPE;
-        result->quantum_type = IALLOC(quantum_type);
-        result->quantum_type->type_name = "qubit";
-        index_expr = new_int_literal(t->meta->size);
-        result->quantum_type->kind = TYPE_QUBIT;
-        init_size_type(type_qubit, qubit_type, index_expr);
-        result->quantum_type->qubit_type = type_qubit;
-        return result;
-    }
-
-    if ((user_type = gettype(t->name)))
-    {
-        return convert_type(user_type->handle);
-    }
-
-    P_ERROR("Unknown type : %s", t->name);
-    return NULL;
-}
-
-type *convert_declarator(const sqz_declarator *declarator)
-{
-    return convert_type(declarator->type);
-}
-
-// type_t *infer_cast_expr(sqz_cast_expr *cast_expr)
-// {
-
-//     switch (cast_expr->cast_type)
-//     {
-//     case AST_EXPR_TYPE_CAST:
-//     {
-//         type_t *caster_type = cast_expr->type->type;
-//         type_t *castee_type = infer_cast_expr(cast_expr->expr.cast);
-
-//         if (!is_casting_compatible(caster_type, castee_type))
-//         {
-//             LOG_ERROR("Casting type error; Cannot cast from %s to %s", castee_type->name, caster_type->name);
-//             return NULL;
-//         }
-
-//         return caster_type;
-//     }
-//     break;
-//     default:
-//         struct sem_unary *unary = cast_expr->expr.unary;
-//         return infer_unary(unary);
-//     }
-
-//     return NULL;
-// }
-
-// type_t *infer_expr(sqz_expr *expr)
-// {
-//     return infer_assign_expr(expr->expr);
-// }
-
-// type_t *infer_unary(sqz_unary *unary_expr)
-// {
-//     switch (unary_expr->expr_type)
-//     {
-//     case AST_EXPR_PRE_INC:
-//     {
-//         struct _sqz_pre *pre = unary_expr->expr.pre_inc_dec;
-//         type_t *t = infer_unary(pre->operand);
-//         if (!t || !IS_NUMERIC(t))
-//         {
-//             LOG_ERROR("Operand type mismatch: pre inc must be numeric", 0);
-//             return NULL;
-//         }
-//         return t;
-//     }
-//     case AST_EXPR_PRE_DEC:
-//     {
-//         struct _sqz_pre *pre = unary_expr->expr.pre_inc_dec;
-//         type_t *t = infer_unary(pre->operand);
-//         if (!t || !IS_NUMERIC(t))
-//         {
-//             LOG_ERROR("Operand type mismatch: pre dec must be numeric", 0);
-//             return NULL;
-//         }
-//         return t;
-//     }
-//     case AST_EXPR_UNARY:
-//     {
-//         sqz_cast_expr *cast = unary_expr->expr.cast;
-//         type_t *t = infer_cast_expr(cast);
-//         if (!t || !IS_INTEGRAL(t))
-//         {
-//             LOG_ERROR("Unary operator must be applied to integral types", 0);
-//             return NULL;
-//         }
-//         return t;
-//     }
-//     case AST_EXPR_SIZEOF:
-//         return PRIM_INT->handle;
-//     default:
-//         return infer_expr_src(unary_expr->expr.postfix);
-//     }
-// }
-
-// type_t *infer_binary(sqz_binary_expr *binary_expr)
-// {
-//     if (!binary_expr)
-//     {
-//         return NULL;
-//     }
-
-//     if (binary_expr->cast_expr)
-//     {
-//         return infer_cast_expr(binary_expr->cast_expr);
-//     }
-
-//     type_t *left = infer_binary(binary_expr->left);
-//     type_t *right = NULL;
-
-//     switch (binary_expr->expr_type)
-//     {
-//     case AST_EXPR_MUL:
-//     case AST_EXPR_DIV:
-//     case AST_EXPR_MOD:
-//         right = infer_cast_expr(binary_expr->right.cast);
-//         if (!left || !right || !IS_NUMERIC(left) || !IS_NUMERIC(right))
-//         {
-//             LOG_ERROR("Arithmetic operator requires numeric operands", 0);
-//             return NULL;
-//         }
-//         return left;
-//     default:
-//         right = infer_binary(binary_expr->right.binary);
-//         if (!left || !right)
-//         {
-//             return NULL;
-//         }
-//         if (!is_type_compatible(left, right))
-//         {
-//             LOG_ERROR("Incompatible operand types: %s vs %s", left->name, right->name);
-//             return NULL;
-//         }
-//         return left;
-//     }
-// }
-
-// type_t *infer_ternary(sqz_ternary_expr *ternary_expr)
-// {
-//     if (!ternary_expr)
-//     {
-//         return NULL;
-//     }
-
-//     if (ternary_expr->condition)
-//     {
-//         type_t *cond = infer_binary(ternary_expr->condition);
-//         if (!cond || !IS_SCALAR(cond))
-//         {
-//             LOG_ERROR("Ternary condition must be scalar", 0);
-//             return NULL;
-//         }
-
-//         type_t *t_true = infer_expr(ternary_expr->true_expr);
-//         type_t *t_false = infer_ternary(ternary_expr->false_expr);
-//         if (!t_true || !t_false || !is_type_compatible(t_true, t_false))
-//         {
-//             LOG_ERROR("Type mismatch in ternary branches", 0);
-//             return NULL;
-//         }
-//         return t_true;
-//     }
-
-//     return infer_binary(ternary_expr->binary_expr);
-// }
-
-// type_t *infer_assign_expr(sqz_assign_expr *assign_expr)
-// {
-//     if (!assign_expr)
-//     {
-//         return NULL;
-//     }
-
-//     if (assign_expr->left)
-//     {
-//         type_t *lhs = infer_unary(assign_expr->left);
-//         type_t *rhs = infer_assign_expr(assign_expr->right);
-//         if (!lhs || !rhs || !is_casting_compatible(lhs, rhs))
-//         {
-//             LOG_ERROR("Assignment type mismatch", 0);
-//             return NULL;
-//         }
-//         return lhs;
-//     }
-
-//     return infer_ternary(assign_expr->ternary_expr);
-// }
-
-// int infer_type_size(const type_t *type)
-// {
-//     if (!type || !type->meta)
-//     {
-//         return -1;
-//     }
-
-//     if (type->meta->size != -1)
-//     {
-//         return type->meta->size;
-//     }
-
-//     typemeta_t *meta = type->meta;
-//     int computed = -1;
-
-//     switch (meta->node_type)
-//     {
-//     case AST_TYPE_STRUCT:
-//     {
-//         int total = 0;
-//         for (struct _sqz_struct_decl *struct_decl = meta->fields; struct_decl; struct_decl = struct_decl->next)
-//         {
-//             for (struct _sqz_struct_field_decl *field_decl = struct_decl->field; field_decl; field_decl = field_decl->next)
-//             {
-//                 for (struct _sqz_struct_field *f = field_decl->decl_list; f; f = f->next)
-//                 {
-//                     type_t *decl_type = (f->decl && f->decl->type) ? f->decl->type : field_decl->type;
-//                     int field_size = infer_type_size(decl_type);
-//                     if (field_size == -1)
-//                     {
-//                         LOG_ERROR("Cannot infer type of field: %s", decl_type ? decl_type->name : "<unknown>");
-//                         return -1;
-//                     }
-//                     total += field_size;
-//                 }
-//             }
-//         }
-//         computed = total;
-//     }
-//     break;
-//     case AST_TYPE_UNION:
-//     {
-//         int max_size = 0;
-//         for (struct _sqz_struct_decl *struct_decl = meta->fields; struct_decl; struct_decl = struct_decl->next)
-//         {
-//             for (struct _sqz_struct_field_decl *field_decl = struct_decl->field; field_decl; field_decl = field_decl->next)
-//             {
-//                 for (struct _sqz_struct_field *f = field_decl->decl_list; f; f = f->next)
-//                 {
-//                     type_t *decl_type = (f->decl && f->decl->type) ? f->decl->type : field_decl->type;
-//                     int field_size = infer_type_size(decl_type);
-//                     if (field_size == -1)
-//                     {
-//                         LOG_ERROR("Cannot infer type of field: %s", decl_type ? decl_type->name : "<unknown>");
-//                         return -1;
-//                     }
-//                     if (field_size > max_size)
-//                     {
-//                         max_size = field_size;
-//                     }
-//                 }
-//             }
-//         }
-//         computed = max_size;
-//     }
-//     break;
-//     case AST_TYPE_FUNCTION:
-//         computed = 4;
-//         break;
-//     case AST_TYPE_POINTER:
-//         computed = 4;
-//         break;
-//     default:
-//         LOG_ERROR("Unknown type size for: %s", type->name);
-//         return -1;
-//     }
-
-//     meta->size = computed;
-//     return computed;
-// }
-
-// static type_t *lookup_member_type(type_t *owner, const char *member_name)
-// {
-//     if (!owner || !IS_STRUCT(owner) || !owner->next || !owner->next->meta)
-//     {
-//         return NULL;
-//     }
-
-//     typemeta_t *meta = owner->next->meta;
-//     for (struct _sqz_struct_decl *sd = meta->fields; sd; sd = sd->next)
-//     {
-//         for (struct _sqz_struct_field_decl *fd = sd->field; fd; fd = fd->next)
-//         {
-//             for (struct _sqz_struct_field *f = fd->decl_list; f; f = f->next)
-//             {
-//                 if (f->decl && f->decl->id && f->decl->id->name && f->decl->id->name->name &&
-//                     strcmp(f->decl->id->name->name, member_name) == 0)
-//                 {
-//                     return f->decl->type ? f->decl->type : fd->type;
-//                 }
-//             }
-//         }
-//     }
-//     return NULL;
-// }
-
-// type_t *infer_expr_src(sqz_expr_src *expr_src)
-// {
-//     if (!expr_src)
-//     {
-//         return NULL;
-//     }
-
-//     switch (expr_src->expr_type)
-//     {
-//     case AST_EXPR_ARRAY_ACCESS:
-//     {
-//         sqz_expr_src_arr_access *arr = expr_src->expr.arr_access;
-//         type_t *arr_type = infer_expr_src(arr->array);
-//         type_t *idx_type = infer_expr(arr->index);
-//         if (!arr_type || !ARRAY_ACCESSIBLE(arr_type) || !idx_type || !IS_INTEGRAL(idx_type))
-//         {
-//             LOG_ERROR("Invalid array access", 0);
-//             return NULL;
-//         }
-//         return arr_type->next;
-//     }
-//     case AST_EXPR_FUNCTION_CALL:
-//     {
-//         sqz_expr_src_func_call *func = expr_src->expr.func_call;
-//         type_t *func_type = infer_expr_src(func->func);
-//         if (!func_type || !IS_FUNC(func_type) || !func_type->meta || !func_type->meta->func)
-//         {
-//             LOG_ERROR("Called object is not a function", 0);
-//             return NULL;
-//         }
-//         return func_type->meta->func->return_type;
-//     }
-//     case AST_EXPR_MEMBER_ACCESS:
-//     case AST_EXPR_POINTER_MEMBER_ACCESS:
-//     {
-//         sqz_expr_src_member_access *mem = expr_src->expr.member_access;
-//         type_t *owner = infer_expr_src(mem->owner);
-//         if (!owner)
-//         {
-//             return NULL;
-//         }
-//         if (mem->access_type == AST_EXPR_POINTER_MEMBER_ACCESS)
-//         {
-//             if (!IS_PTR(owner) || !owner->next)
-//             {
-//                 LOG_ERROR("Arrow operator on non-pointer type", 0);
-//                 return NULL;
-//             }
-//             owner = owner->next;
-//         }
-//         type_t *m = lookup_member_type(owner, mem->member_name->name->name);
-//         if (!m)
-//         {
-//             LOG_ERROR("Unknown struct member: %s", mem->member_name->name->name);
-//         }
-//         return m;
-//     }
-//     case AST_EXPR_POST_INC:
-//     case AST_EXPR_POST_DEC:
-//     {
-//         struct _sqz_post *post = expr_src->expr.post_inc_dec;
-//         type_t *t = infer_expr_src(post->operand);
-//         if (!t || !IS_NUMERIC(t))
-//         {
-//             LOG_ERROR("Postfix inc/dec requires numeric type", 0);
-//             return NULL;
-//         }
-//         return t;
-//     }
-//     default:
-//     {
-//         sqz_primary_expr *p = expr_src->expr.primary_expr;
-//         if (!p)
-//         {
-//             return NULL;
-//         }
-//         switch (p->primary_type)
-//         {
-//         case AST_IDENTIFIER:
-//             return p->value.identifier ? p->value.identifier->type : NULL;
-//         case AST_LITERAL_INTEGER:
-//             return PRIM_INT->handle;
-//         case AST_LITERAL_FLOAT:
-//             return PRIM_FLOAT->handle;
-//         case AST_LITERAL_STRING:
-//             return PRIM_STRING->handle; // assume char*
-//         default:
-//             return infer_expr(p->value.expr);
-//         }
-//     }
-//     }
-// }

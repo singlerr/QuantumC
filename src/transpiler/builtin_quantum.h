@@ -4,11 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast_sem.h"
-#include "ast_sqz.h"
 #include "common.h"
 #include "diagnostics.h"
-
-extern void convert_expression_arguments(const sqz_args *args, expression_list **out);
 extern identifier *new_identifier(char *name);
 static inline indexed_identifier *new_indexed_identifier(identifier *identifier, expr_or_range_list *index)
 {
