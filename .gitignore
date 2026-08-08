@@ -126,3 +126,10 @@ qasm3Parser.g4
 .gitignore
 
 config.json
+
+# LaTeX Builds
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.gz
