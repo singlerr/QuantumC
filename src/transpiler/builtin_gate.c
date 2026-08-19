@@ -1,12 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "builtin_quantum.h"
 #include "ast_sem.h"
 #include "builtin_func.h"
-#include "diagnostics.h"
+#include "builtin_quantum.h"
 #include "common.h"
+#include "diagnostics.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-/* ponytail: stub gate builtins — full IR construction in Layer 4 */
 #define BUILTIN_GATE(GATE)                                                    \
   BUILTIN_FUNC (apply_##GATE)                                                 \
   {                                                                           \

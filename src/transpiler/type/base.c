@@ -1,7 +1,7 @@
 #include "base.h"
+#include "../data/vec/cvector.h"
 #include "deco.h"
 #include "intern.h"
-#include "../data/vec/cvector.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -37,7 +37,6 @@ new_ty_pointer (ty_pointer_t ptr, int constr)
   t->size = 8;
   t->tag = TY_POINTER;
   t->ty.ty_pointer = ptr;
-  /* ponytail: only intern when ref is complete (non-NULL) */
   if (ptr.ref)
     t = intern_type (t);
   return new_deco (t, constr);

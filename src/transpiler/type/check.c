@@ -1,8 +1,8 @@
 #include "check.h"
-#include "tytab.h"
-#include "deco.h"
 #include "../ast.h"
 #include "../symtab.h"
+#include "deco.h"
+#include "tytab.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,8 +76,10 @@ is_scalar_qubit (type_t *ty)
 static type_t *
 usual_arith (type_t *a, type_t *b)
 {
-  if (!a) return b;
-  if (!b) return a;
+  if (!a)
+    return b;
+  if (!b)
+    return a;
   return (a->size >= b->size) ? a : b;
 }
 
@@ -87,9 +89,11 @@ usual_arith (type_t *a, type_t *b)
 static const char *
 scalar_qubit_name (ast_t *a)
 {
-  if (!a || a->tag != AST_VAR) return NULL;
+  if (!a || a->tag != AST_VAR)
+    return NULL;
   type_t *ty = a->ty ? a->ty->ty : NULL;
-  if (!is_scalar_qubit (ty)) return NULL;
+  if (!is_scalar_qubit (ty))
+    return NULL;
   return a->var.name;
 }
 
@@ -98,7 +102,8 @@ scalar_qubit_name (ast_t *a)
 static void
 check_gate_args (check_ctx_t *ctx, ast_t *e)
 {
-  /* pairwise distinct check for scalar qubit args; mark consumed for measure */
+  /* pairwise distinct check for scalar qubit args; mark consumed for measure
+   */
   ast_t **arg;
   int is_measure = (e->app.fun && e->app.fun->tag == AST_VAR
                     && strcmp (e->app.fun->var.name, "measure") == 0);
@@ -106,10 +111,12 @@ check_gate_args (check_ctx_t *ctx, ast_t *e)
   const char *seen[32];
   int nseen = 0;
 
-  for (arg = cvector_begin (e->app.args); arg != cvector_end (e->app.args); arg++)
+  for (arg = cvector_begin (e->app.args); arg != cvector_end (e->app.args);
+       arg++)
     {
       const char *name = scalar_qubit_name (*arg);
-      if (!name) continue;
+      if (!name)
+        continue;
 
       /* aliasing check (gates only — measure takes one qubit anyway) */
       if (!is_measure)
@@ -118,10 +125,12 @@ check_gate_args (check_ctx_t *ctx, ast_t *e)
           for (i = 0; i < nseen; i++)
             if (!strcmp (seen[i], name))
               {
-                fprintf (stderr, "error: qubit '%s' aliased in gate call\n", name);
+                fprintf (stderr, "error: qubit '%s' aliased in gate call\n",
+                         name);
                 exit (1);
               }
-          if (nseen < 32) seen[nseen++] = name;
+          if (nseen < 32)
+            seen[nseen++] = name;
         }
 
       binding_t *b = delta_ensure (ctx, name);
@@ -144,11 +153,13 @@ check_no_new_consumption (binding_t *pre, binding_t *post, const char *ctx_msg)
   binding_t *b;
   for (b = post; b; b = b->next)
     {
-      if (!b->consumed) continue;
+      if (!b->consumed)
+        continue;
       binding_t *bpre = delta_find (pre, b->name);
       if (!bpre || !bpre->consumed)
         {
-          fprintf (stderr, "error: qubit '%s' consumed in %s\n", b->name, ctx_msg);
+          fprintf (stderr, "error: qubit '%s' consumed in %s\n", b->name,
+                   ctx_msg);
           exit (1);
         }
     }
@@ -161,21 +172,25 @@ check_branch_join (binding_t *post_then, binding_t *post_else)
   binding_t *b;
   for (b = post_then; b; b = b->next)
     {
-      if (!b->consumed) continue;
+      if (!b->consumed)
+        continue;
       binding_t *be = delta_find (post_else, b->name);
       if (!be || !be->consumed)
         {
-          fprintf (stderr, "error: qubit '%s' consumed in then but not else\n", b->name);
+          fprintf (stderr, "error: qubit '%s' consumed in then but not else\n",
+                   b->name);
           exit (1);
         }
     }
   for (b = post_else; b; b = b->next)
     {
-      if (!b->consumed) continue;
+      if (!b->consumed)
+        continue;
       binding_t *bt = delta_find (post_then, b->name);
       if (!bt || !bt->consumed)
         {
-          fprintf (stderr, "error: qubit '%s' consumed in else but not then\n", b->name);
+          fprintf (stderr, "error: qubit '%s' consumed in else but not then\n",
+                   b->name);
           exit (1);
         }
     }
@@ -186,8 +201,10 @@ check_branch_join (binding_t *post_then, binding_t *post_else)
 type_t *
 synth_expr (check_ctx_t *ctx, ast_t *e)
 {
-  if (!e) return NULL;
-  if (e->ty && !e->ty->is_cast) return e->ty->ty;
+  if (!e)
+    return NULL;
+  if (e->ty && !e->ty->is_cast)
+    return e->ty->ty;
 
   switch (e->tag)
     {
@@ -200,46 +217,75 @@ synth_expr (check_ctx_t *ctx, ast_t *e)
     case AST_VAR:
       {
         ty_deco_t *d = search_symbol_type (e->var.name, 0);
-        if (d) e->ty = d;
+        if (d)
+          e->ty = d;
         break;
       }
     case AST_CAST:
-      if (e->expr_cast.ty_caster) e->ty = e->expr_cast.ty_caster;
+      if (e->expr_cast.ty_caster)
+        e->ty = e->expr_cast.ty_caster;
       break;
 
-    case AST_ADD: case AST_SUB: case AST_MUL: case AST_DIV:
-    case AST_MOD: case AST_AND: case AST_OR:  case AST_XOR:
-    case AST_LSHIFT: case AST_RSHIFT:
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD:
+    case AST_AND:
+    case AST_OR:
+    case AST_XOR:
+    case AST_LSHIFT:
+    case AST_RSHIFT:
       {
         type_t *lt = synth_expr (ctx, e->expr_binary.lhs);
         type_t *rt = synth_expr (ctx, e->expr_binary.rhs);
         type_t *res = usual_arith (lt, rt);
-        if (res) e->ty = Deco (res, CONSTR_EMPTY);
+        if (res)
+          e->ty = Deco (res, CONSTR_EMPTY);
         break;
       }
-    case AST_LT: case AST_GT: case AST_LEQ: case AST_GEQ:
-    case AST_EQ: case AST_NEQ: case AST_LAND: case AST_LOR:
+    case AST_LT:
+    case AST_GT:
+    case AST_LEQ:
+    case AST_GEQ:
+    case AST_EQ:
+    case AST_NEQ:
+    case AST_LAND:
+    case AST_LOR:
       e->ty = Deco (Type (SIZE_INT, TY_INT), CONSTR_EMPTY);
       synth_expr (ctx, e->expr_binary.lhs);
       synth_expr (ctx, e->expr_binary.rhs);
       break;
 
-    case AST_ASSIGN: case AST_ASSIGN_ADD: case AST_ASSIGN_SUB:
-    case AST_ASSIGN_MUL: case AST_ASSIGN_DIV: case AST_ASSIGN_MOD:
-    case AST_ASSIGN_AND: case AST_ASSIGN_OR:  case AST_ASSIGN_XOR:
-    case AST_ASSIGN_LSHIFT: case AST_ASSIGN_RSHIFT:
+    case AST_ASSIGN:
+    case AST_ASSIGN_ADD:
+    case AST_ASSIGN_SUB:
+    case AST_ASSIGN_MUL:
+    case AST_ASSIGN_DIV:
+    case AST_ASSIGN_MOD:
+    case AST_ASSIGN_AND:
+    case AST_ASSIGN_OR:
+    case AST_ASSIGN_XOR:
+    case AST_ASSIGN_LSHIFT:
+    case AST_ASSIGN_RSHIFT:
       {
         type_t *lt = synth_expr (ctx, e->expr_binary.lhs);
         synth_expr (ctx, e->expr_binary.rhs); /* also recurse into rhs */
-        if (lt) e->ty = Deco (lt, CONSTR_EMPTY);
+        if (lt)
+          e->ty = Deco (lt, CONSTR_EMPTY);
         break;
       }
 
-    case AST_UNARY_PLUS: case AST_UNARY_MINUS:
-    case AST_UNARY_NOT:  case AST_UNARY_LNOT:
-    case AST_UNARY_REF:  case AST_UNARY_DEREF:
-    case AST_POST_INC:   case AST_POST_DEC:
-    case AST_PRE_INC:    case AST_PRE_DEC:
+    case AST_UNARY_PLUS:
+    case AST_UNARY_MINUS:
+    case AST_UNARY_NOT:
+    case AST_UNARY_LNOT:
+    case AST_UNARY_REF:
+    case AST_UNARY_DEREF:
+    case AST_POST_INC:
+    case AST_POST_DEC:
+    case AST_PRE_INC:
+    case AST_PRE_DEC:
     case AST_RETURN:
       synth_expr (ctx, e->expr_unary.value);
       break;
@@ -250,12 +296,14 @@ synth_expr (check_ctx_t *ctx, ast_t *e)
         if (e->app.fun && e->app.fun->tag == AST_VAR)
           {
             const char *fname = e->app.fun->var.name;
-            if (strncmp (fname, "apply_", 6) == 0 || strcmp (fname, "measure") == 0)
+            if (strncmp (fname, "apply_", 6) == 0
+                || strcmp (fname, "measure") == 0)
               check_gate_args (ctx, e);
           }
         /* recurse into args */
         ast_t **arg;
-        for (arg = cvector_begin (e->app.args); arg != cvector_end (e->app.args); arg++)
+        for (arg = cvector_begin (e->app.args);
+             arg != cvector_end (e->app.args); arg++)
           synth_expr (ctx, *arg);
         break;
       }
@@ -371,13 +419,14 @@ synth_expr (check_ctx_t *ctx, ast_t *e)
   return e->ty ? e->ty->ty : NULL;
 }
 
-/* checking (⇐): verify e against expected, inserting a cast node if needed. */
 int
 check_expr (check_ctx_t *ctx, ast_t *e, type_t *expected)
 {
   type_t *got = synth_expr (ctx, e);
-  if (!got || !expected) return 1; /* ponytail: missing type → optimistic */
-  if (type_equals (got, expected)) return 1;
+  if (!got || !expected)
+    return 1; /* ponytail: missing type → optimistic */
+  if (type_equals (got, expected))
+    return 1;
   if (got->size != expected->size)
     {
       ast_t *inner = malloc (sizeof (ast_t));

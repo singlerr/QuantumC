@@ -27,7 +27,7 @@ type_struct_equal (const type_t *a, const type_t *b)
                          SYM_MAXLEN)
                     == 0;
     case TY_FUN:
-      return 0; /* ponytail: always distinct; interned by identity */
+      return 0;
     default:
       return 1; /* primitive: tag + size is enough */
     }

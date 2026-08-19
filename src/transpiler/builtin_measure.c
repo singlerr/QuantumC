@@ -1,12 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "ast_sem.h"
-#include "common.h"
 #include "builtin_func.h"
 #include "builtin_quantum.h"
+#include "common.h"
 #include "diagnostics.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-/* ponytail: stub — full measure conversion in Layer 4 */
 BUILTIN_FUNC (measure)
 {
   (void)func_call;
