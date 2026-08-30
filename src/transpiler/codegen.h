@@ -3,9 +3,9 @@
 
 #include <stdio.h>
 
-struct program;
+#include "hir/hir.h"
 
-void set_codegen_output(FILE *);
-void gen_program(struct program *);
+void set_codegen_output (FILE *out);
+void gen_program (hir_program *prog);
 
 #endif

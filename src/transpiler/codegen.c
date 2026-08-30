@@ -1,678 +1,287 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <stdarg.h>
-#include "diagnostics.h"
-#include "codegen.h"
-#include "ast_sem.h"
 
-#define GEN_SIZE(type)        \
-    do                        \
-    {                         \
-        begin_bracket();      \
-        gen_expr(type->size); \
-        end_bracket();        \
-    } while (0)
+#include "codegen.h"
+#include "diagnostics.h"
+#include "type/base.h"
 
 FILE *fout = NULL;
-
 int indent = 0;
-void gen(const char *msg, ...);
-void error(const char *msg, ...);
 
-void gen_array_type(const array_type *);
-void gen_scalar_type(const classical_type *);
-void gen_type(const ir_type *);
-void gen_classical_type(const classical_type *);
-void gen_quantum_type(const quantum_type *);
-void gen_operator(const operator op_type);
-void gen_statement(const statement *stmt, BOOL do_indent);
-void gen_identifier(const identifier *id);
-void gen_expr(const expression *expr);
-void gen_expr_list(const expression_list *expr_list);
-void gen_indent();
-void begin_brace();
-void end_brace();
-void begin_bracket();
-void end_bracket();
-void begin_paren();
-void end_paren();
-void comma();
-void newline();
-void space();
-void end_stmt();
-void assign();
+void gen (const char *msg, ...);
+void gen_indent (void);
+void newline (void);
+void space (void);
+void begin_bracket (void);
+void end_bracket (void);
 
-static inline void gen_indexed_identifier(indexed_identifier *id)
+static void gen_operand (const hir_operand *o);
+static void gen_instr (const hir *ins);
+static void gen_sub (const hir_sub *s);
+static void gen_var_decl (const hir_var *v);
+
+void
+set_codegen_output (FILE *out)
 {
-    gen_identifier(id->name);
-    begin_bracket();
-    gen_expr(id->index->index.expr_or_range->expr);
-    end_bracket();
+  fout = out;
 }
 
-static inline void gen_qubit(qubit *qubit)
+void
+gen_program (hir_program *prog)
 {
-    switch (qubit->kind)
+  hir_var *g;
+  for (g = cvector_begin (prog->globals); g != cvector_end (prog->globals); g++)
     {
-    case ID_INDEXED_IDENTIFIER:
-        gen_indexed_identifier(qubit->value.indexed_identifier);
-        break;
-    case ID_IDENTIFIER:
-        gen_identifier(qubit->value.identifier);
-        break;
+      gen_var_decl (g);
+      newline ();
+    }
+
+  size_t i;
+  for (i = 0; i < cvector_size (prog->subs); i++)
+    {
+      if (!cvector_empty (prog->globals) || i > 0)
+        newline ();
+      gen_sub (&prog->subs[i]);
     }
 }
 
-static inline void gen_statement_list(statement_list *list, BOOL do_indent)
+static void
+gen_var_decl (const hir_var *v)
 {
-    statement_list *s;
-    list_for_each_entry(s, list)
+  gen ("global %s %s;", v->ty ? type_to_str (v->ty->tag) : "int", v->name);
+}
+
+static void
+gen_sub (const hir_sub *s)
+{
+  gen ("sub %s:", s->name);
+  newline ();
+
+  indent++;
+  const hir *ins;
+  for (ins = s->entry; ins; ins = ins->next)
     {
-        gen_statement(s->value, do_indent);
-        if (s->next)
-        {
-            newline();
-        }
+      gen_instr (ins);
+      newline ();
+    }
+  indent--;
+}
+
+static void
+gen_operand (const hir_operand *o)
+{
+  switch (o->kind)
+    {
+    case HO_VAR:
+      gen ("%s", o->var.name);
+      break;
+    case HO_TEMP:
+      gen ("t%u", o->tmp.id);
+      break;
+    case HO_LIT:
+      if (o->lit.type == H_INT)
+        gen ("%d", o->lit.val.i);
+      else
+        gen ("%f", o->lit.val.f);
+      break;
+    case HO_LABEL:
+      gen ("%s", o->label.name);
+      break;
+    case HO_NONE:
+      break;
     }
 }
 
-static inline void gen_qubit_list(qubit_list *list)
+static const char *
+h_binop_symbol (h_opcode op)
 {
-    qubit_list *q;
-
-    list_for_each_entry(q, list)
+  switch (op)
     {
-        gen_qubit(q->value);
-        if (q->next)
-        {
-            comma();
-            space();
-        }
-    }
-}
-
-void set_codegen_output(FILE *out)
-{
-    fout = out;
-}
-
-void gen_program(struct program *prog)
-{
-    statement_list *list = prog->stmts;
-
-    statement_list *cur;
-    list_for_each_entry(cur, list)
-    {
-        gen_statement(cur->value, TRUE);
-    }
-}
-
-void gen_statement(const statement *stmt, BOOL do_indent)
-{
-    if (do_indent && stmt->kind != STMT_COMPOUND)
-    {
-        gen_indent();
-    }
-
-    switch (stmt->kind)
-    {
-    case STMT_CLASSICAL_DECLARATION:
-        gen_classical_type(stmt->classical.declaration.type);
-        space();
-        gen_identifier(stmt->classical.declaration.identifier);
-        if (stmt->classical.declaration.init_expression_kind == EXPR_EXPRESSION)
-        {
-            space();
-            assign();
-            space();
-            gen_expr(stmt->classical.declaration.init_expression.expr);
-        }
-        end_stmt();
-        break;
-    case STMT_QUANTUM_DECLARATION:
-        gen("qubit");
-        begin_bracket();
-        gen_expr(stmt->classical.qubit_declaration.size);
-        end_bracket();
-        space();
-        gen_identifier(stmt->classical.qubit_declaration.qubit);
-        end_stmt();
-        break;
-    case STMT_DEF:
-        cls_or_quantum_args_list *arg_list;
-        gen("def");
-        space();
-        gen_identifier(stmt->classical.subroutine_definition.name);
-        begin_paren();
-
-        list_for_each_entry(arg_list, stmt->classical.subroutine_definition.arguments)
-        {
-            switch (arg_list->value->kind)
-            {
-            case CLASSICAL_ARGUMENT:
-                gen_classical_type(arg_list->value->classical_argument->type);
-                space();
-                gen_identifier(arg_list->value->classical_argument->name);
-                break;
-            case QUANTUM_ARGUMENT:
-                P_ERROR("Quantum argument is implemented");
-            }
-
-            if (arg_list->next)
-            {
-                comma();
-            }
-        }
-        end_paren();
-        space();
-        gen("->");
-        space();
-        gen_classical_type(stmt->classical.subroutine_definition.return_type);
-        space();
-        begin_brace();
-        newline();
-        gen_statement_list(stmt->classical.subroutine_definition.body, TRUE);
-        newline();
-        end_brace();
-        break;
-    case STMT_SWITCH:
-        gen("switch");
-        space();
-        begin_paren();
-        gen_expr(stmt->classical.swtch.target);
-        end_paren();
-        space();
-        begin_brace();
-        newline();
-        case_stmt_list *case_stmt;
-        list_for_each_entry(case_stmt, stmt->classical.swtch.cases)
-        {
-            gen("case");
-            space();
-            gen_expr_list(case_stmt->value->expr);
-            space();
-            begin_brace();
-            newline();
-            gen_statement(case_stmt->value->statement, TRUE);
-            end_brace();
-            newline();
-        }
-        end_brace();
-        break;
-    case STMT_WHILE:
-        gen("while");
-        space();
-        begin_paren();
-        gen_expr(stmt->classical.while_loop.condition);
-        end_paren();
-        begin_brace();
-        newline();
-        gen_statement_list(stmt->classical.while_loop.block, TRUE);
-        newline();
-        end_brace();
-        break;
-    case STMT_COMPOUND:
-        gen_statement_list(stmt->classical.compound.statements, TRUE);
-        break;
-    case STMT_EXPRESSION:
-        gen_expr(stmt->classical.expression.expr);
-        end_stmt();
-        break;
-    case STMT_CONTINUE:
-        gen("continue");
-        end_stmt();
-        break;
-    case STMT_BREAK:
-        gen("break");
-        end_stmt();
-        break;
-    case STMT_RETURN:
-        gen("return");
-        space();
-        switch (stmt->classical.retrn.kind)
-        {
-        case EXPR_EXPRESSION:
-            if (stmt->classical.retrn.expr.expr)
-            {
-                gen_expr(stmt->classical.retrn.expr.expr);
-            }
-            break;
-        default:
-            P_ERROR("Measure expression in return is not implemented");
-        }
-
-        end_stmt();
-        break;
-    case STMT_IF:
-        gen("if");
-        space();
-        begin_paren();
-        gen_expr(stmt->classical.branching.condition);
-        end_paren();
-        begin_brace();
-        newline();
-        gen_statement_list(stmt->classical.branching.if_block, TRUE);
-        newline();
-        end_brace();
-        if (stmt->classical.branching.else_block)
-        {
-            space();
-            gen("else");
-            space();
-            begin_brace();
-            newline();
-            gen_statement_list(stmt->classical.branching.else_block, TRUE);
-            newline();
-            end_brace();
-        }
-        break;
+    case H_ADD: return "+";
+    case H_SUB: return "-";
+    case H_MUL: return "*";
+    case H_DIV: return "/";
+    case H_MOD: return "%";
+    case H_REM: return "rem";
+    case H_POW: return "**";
+    case H_SHL: return "<<";
+    case H_SHR: return ">>";
+    case H_AND: return "&";
+    case H_OR: return "|";
+    case H_XOR: return "^";
+    case H_LT: return "<";
+    case H_LE: return "<=";
+    case H_EQ: return "==";
+    case H_NE: return "!=";
+    case H_GE: return ">=";
+    case H_GT: return ">";
     default:
-        P_ERROR("Statement %d is not implemented", stmt->kind);
-        break;
+      P_ERROR ("Unknown binary opcode %d", op);
+      return "?";
     }
 }
 
-void gen_type(const ir_type *type)
+static const char *
+h_unop_symbol (h_opcode op)
 {
-    if (type->kind == CLASSICAL_TYPE)
+  switch (op)
     {
-        gen_classical_type(type->classical_type);
-    }
-    else if (type->kind == QUANTUM_TYPE)
-    {
-        gen_quantum_type(type->quantum_type);
-    }
-}
-
-void gen_classical_type(const classical_type *cls_type)
-{
-    if (cls_type->kind == TYPE_ARRAY)
-    {
-        gen_array_type(cls_type->array_type);
-    }
-    else
-    {
-        gen_scalar_type(cls_type);
-    }
-}
-
-void gen_quantum_type(const quantum_type *q_type)
-{
-    gen(q_type->type_name);
-    switch (q_type->kind)
-    {
-    case TYPE_QUBIT:
-        GEN_SIZE(q_type->qubit_type);
-        break;
+    case H_NOT: return "!";
+    case H_NEG: return "-";
+    case H_COMP: return "~";
     default:
-        P_ERROR("Unknown type: %s", q_type->type_name);
-        break;
+      P_ERROR ("Unknown unary opcode %d", op);
+      return "?";
     }
 }
 
-void gen_array_type(const array_type *type)
+static void
+gen_instr (const hir *ins)
 {
-    gen("array");
-    begin_bracket();
-    gen_type(type->base_type);
-    comma();
-    switch (type->dimension_kind)
-    {
-    case SINGLE_EXPRESSION:
-        gen_expr(type->dimensions.expr);
-        break;
-    case EXPRESSION_LIST:
-        gen_expr_list(type->dimensions.expr_list);
-        break;
-    }
-    end_bracket();
-}
+  gen_indent ();
 
-void gen_scalar_type(const classical_type *type)
-{
-    gen(type->type_name);
-    switch (type->kind)
+  switch (ins->op)
     {
-    case TYPE_INT:
-        GEN_SIZE(type->int_type);
-        break;
-    case TYPE_UINT:
-        GEN_SIZE(type->uint_type);
-        break;
-    case TYPE_FLOAT:
-        GEN_SIZE(type->float_type);
-        break;
-    case TYPE_ANGLE:
-        GEN_SIZE(type->angle_type);
-        break;
-    case TYPE_BIT:
-        GEN_SIZE(type->bit_type);
-        break;
-    case TYPE_BOOL:
-        GEN_SIZE(type->bool_type);
-        break;
-    case TYPE_DURATION:
-        break;
-    case TYPE_COMPLEX:
-        gen("float");
-        GEN_SIZE(type->complex_type->base_type);
-        break;
-    default:
-        P_ERROR("Unknown type: %s", type->type_name);
-        break;
-    }
-}
+    case H_LABEL:
+      gen_operand (&ins->dst);
+      gen (":");
+      break;
 
-void gen_identifier(const identifier *id)
-{
-    gen(id->name);
-}
+    case H_JUMP:
+      gen ("goto ");
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
 
-void gen_expr(const expression *expr)
-{
-    switch (expr->kind)
-    {
-    case EXPR_UNARY:
-        gen_expr(expr->as.unary.expr);
-        gen_operator(expr->as.unary.op);
-        break;
-    case EXPR_BINARY:
-        gen_expr(expr->as.binary.lhs);
-        space();
-        gen_operator(expr->as.binary.op);
-        space();
-        gen_expr(expr->as.binary.rhs);
-        break;
-    case EXPR_LITERAL:
-    {
-        switch (expr->as.literal.literal_kind)
+    case H_CJUMP:
+      gen ("ifFalse ");
+      gen_operand (&ins->src1);
+      gen (" goto ");
+      gen_operand (&ins->src2);
+      gen (";");
+      break;
+
+    case H_PARAM:
+      gen ("param ");
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
+
+    case H_CALL:
+      gen_operand (&ins->dst);
+      gen (" = call ");
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
+
+    case H_RETURN:
+      gen ("return");
+      if (ins->src1.kind != HO_NONE)
         {
-        case LIT_BIN_INT:
-            gen("0b%b", expr->as.literal.data.i);
-            break;
-        case LIT_OCT_INT:
-            gen("0o%o", expr->as.literal.data.i);
-            break;
-        case LIT_DEC_INT:
-            gen("%d", expr->as.literal.data.i);
-            break;
-        case LIT_HEX_INT:
-            gen("0x%x", expr->as.literal.data.i);
-            break;
-        case LIT_FLOAT:
-            gen("%f", expr->as.literal.data.f);
-            break;
-        case LIT_IMAGINARY:
-            P_ERROR("Imaginary expression is not implemented");
-            break;
-        case LIT_BOOL:
-            gen("%d", expr->as.literal.data.b);
-            break;
-        case LIT_BIT_STR:
-            gen("\"%s\"", expr->as.literal.data.bit_str);
-            break;
-        case LIT_TIMING:
-            P_ERROR("Timing expression is implemented");
-            break;
-        case LIT_IDENTIFIER:
-            gen("%s", expr->as.literal.data.identifier);
-            break;
-        default:
-            P_ERROR("Unknown literal type");
-            break;
+          space ();
+          gen_operand (&ins->src1);
         }
-    }
-    break;
-    case EXPR_FUNC_CALL:
-        gen_identifier(expr->as.function_call.name);
-        begin_paren();
-        gen_expr_list(expr->as.function_call.arguments);
-        end_paren();
-        break;
-    case EXPR_CAST:
-        begin_paren();
-        gen_classical_type(expr->as.cast.type);
-        end_paren();
-        gen_expr(expr->as.cast.argument);
-        break;
-    case EXPR_IDENTIFIER:
-        gen_identifier(expr->as.identifier);
-        break;
-    case EXPR_INDEX:
-        expr_or_range_list *idx;
-        expr_or_range_list *index = expr->as.index.list;
-        list_goto_first(expr_or_range_list, index);
-        gen_expr(expr->as.index.collection);
-        begin_bracket();
-        list_for_each_entry(idx, index)
-        {
-            gen_expr(idx->value->expr);
+      gen (";");
+      break;
 
-            if (idx->next)
-            {
-                comma();
-                space();
-            }
-        }
-        end_bracket();
-        break;
-    case EXPR_QUANTUM_MEASUREMENT:
-        gen("measure");
-        space();
-        gen_qubit(expr->as.quantum_measurement.measure.qubit);
-        break;
-    case EXPR_QUANTUM_GATE:
-        gen_identifier(expr->as.quantum.quantum_gate.name);
-        space();
-        gen_qubit_list(expr->as.quantum.quantum_gate.qubits);
-        break;
+    case H_COPY:
+      gen_operand (&ins->dst);
+      gen (" = ");
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
+
+    case H_GET:
+      gen_operand (&ins->dst);
+      gen (" = ");
+      gen_operand (&ins->src1);
+      begin_bracket ();
+      gen_operand (&ins->src2);
+      end_bracket ();
+      gen (";");
+      break;
+
+    case H_SET:
+      gen_operand (&ins->dst);
+      begin_bracket ();
+      gen_operand (&ins->src1);
+      end_bracket ();
+      gen (" = ");
+      gen_operand (&ins->src2);
+      gen (";");
+      break;
+
+    case H_ADDR:
+      gen_operand (&ins->dst);
+      gen (" = &");
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
+
+    case H_NOT: case H_NEG: case H_COMP:
+      gen_operand (&ins->dst);
+      gen (" = %s", h_unop_symbol (ins->op));
+      gen_operand (&ins->src1);
+      gen (";");
+      break;
+
+    case H_INC: case H_DEC:
+      gen_operand (&ins->dst);
+      gen (" = ");
+      gen_operand (&ins->src1);
+      gen ("%s", ins->op == H_INC ? "++" : "--");
+      gen (";");
+      break;
+
     default:
-        P_ERROR("Expression %d is not implemented", expr->kind);
-        break;
+      gen_operand (&ins->dst);
+      gen (" = ");
+      gen_operand (&ins->src1);
+      gen (" %s ", h_binop_symbol (ins->op));
+      gen_operand (&ins->src2);
+      gen (";");
+      break;
     }
 }
 
-void gen_expr_list(const expression_list *expr_list)
+void
+gen_indent (void)
 {
-    expression_list *expr;
-
-    list_for_each_entry(expr, (expression_list *)expr_list)
-    {
-        gen_expr(expr->value);
-
-        if (expr->next)
-        {
-            comma();
-            space();
-        }
-    }
+  int i;
+  for (i = 0; i < indent; i++)
+    fprintf (fout, "\t");
 }
 
-void gen_operator(const operator op_type)
+void
+newline (void)
 {
-    const char *op = NULL;
-
-    switch (op_type)
-    {
-    case OP_DOUBLE_ASTERISK:
-        op = "**";
-        break;
-    case OP_TILDE:
-        op = "~";
-        break;
-    case OP_EXCLAMATION_POINT:
-        op = "!";
-        break;
-    case OP_MINUS:
-        op = "-";
-        break;
-    case OP_ASTERISK:
-        op = "*";
-        break;
-    case OP_SLASH:
-        op = "/";
-        break;
-    case OP_PERCENT:
-        op = "%";
-        break;
-    case OP_PLUS:
-        op = "+";
-        break;
-    case OP_LSHIFT:
-        op = "<<";
-        break;
-    case OP_RSHIFT:
-        op = ">>";
-        break;
-    case OP_LT:
-        op = "<";
-        break;
-    case OP_GT:
-        op = ">";
-        break;
-    case OP_GEQ:
-        op = ">=";
-        break;
-    case OP_LEQ:
-        op = "<=";
-        break;
-    case OP_EQ:
-        op = "==";
-        break;
-    case OP_NEQ:
-        op = "!=";
-        break;
-    case OP_AMP:
-        op = "&";
-        break;
-    case OP_PIPE:
-        op = "|";
-        break;
-    case OP_CARET:
-        op = "^";
-        break;
-    case OP_DOUBLE_AMP:
-        op = "&&";
-        break;
-    case OP_DOUBLE_PIPE:
-        op = "||";
-        break;
-    case OP_ASSIGN:
-        op = "=";
-        break;
-    case OP_MUL_ASSIGN:
-        op = "*=";
-        break;
-    case OP_DIV_ASSIGN:
-        op = "/=";
-        break;
-    case OP_MOD_ASSIGN:
-        op = "%=";
-        break;
-    case OP_PLUS_ASSIGN:
-        op = "+=";
-        break;
-    case OP_MINUS_ASSIGN:
-        op = "-=";
-        break;
-    case OP_LSHIFT_ASSIGN:
-        op = "<<=";
-        break;
-    case OP_RSHIFT_ASSIGN:
-        op = ">>=";
-        break;
-    case OP_AND_ASSIGN:
-        op = "&=";
-        break;
-    case OP_XOR_ASSIGN:
-        op = "^=";
-        break;
-    case OP_OR_ASSIGN:
-        op = "|=";
-        break;
-    default:
-        P_ERROR("Unknown operator %d", op_type);
-        return;
-    }
-
-    gen("%s", op);
+  fprintf (fout, "\n");
 }
 
-void newline()
+void
+space (void)
 {
-    fprintf(fout, "\n");
-}
-void space()
-{
-    fprintf(fout, " ");
+  fprintf (fout, " ");
 }
 
-void begin_paren()
+void
+begin_bracket (void)
 {
-    gen("(");
-}
-void end_paren()
-{
-    gen(")");
+  gen ("[");
 }
 
-void begin_brace()
+void
+end_bracket (void)
 {
-    gen("{");
-    indent++;
-}
-void end_brace()
-{
-    indent--;
-    gen_indent();
-    gen("}");
+  gen ("]");
 }
 
-void begin_bracket()
+void
+gen (const char *msg, ...)
 {
-    gen("[");
-}
-void end_bracket()
-{
-    gen("]");
-}
-
-void comma()
-{
-    gen(",");
-}
-
-void end_stmt()
-{
-    gen(";");
-}
-
-void assign()
-{
-    gen("=");
-}
-
-void gen_indent()
-{
-    for (int i = 0; i < indent; i++)
-    {
-        fprintf(fout, "\t");
-    }
-}
-
-void gen(const char *msg, ...)
-{
-    va_list args;
-    va_start(args, msg);
-    vfprintf(fout, msg, args);
-    va_end(args);
-}
-
-void error(const char *msg, ...)
-{
-    va_list args;
-    va_start(args, msg);
-    vfprintf(stderr, msg, args);
-    va_end(args);
+  va_list args;
+  va_start (args, msg);
+  vfprintf (fout, msg, args);
+  va_end (args);
 }

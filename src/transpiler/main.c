@@ -3,7 +3,10 @@
 #include <stdlib.h>
 
 #include "ast.h"
+#include "ast_sem.h"
 #include "builtin_func.h"
+#include "codegen.h"
+#include "hir/hir.h"
 #include "type/check.h"
 #include "type/tytab.h"
 
@@ -11,11 +14,6 @@
 #define NEWLINE "\n"
 #define FLAG_COMPILE (1)
 #define FLAG_OUTPUT (1 << 1)
-
-struct program;
-extern void convert_program (ast_t *root, struct program **out);
-extern void set_codegen_output (FILE *);
-extern void gen_program (struct program *);
 
 extern ast_t *compile (FILE *);
 
@@ -38,7 +36,8 @@ int
 main (int argc, char *argv[])
 {
   ast_t *root;
-  struct program *sem_analysis;
+  program *sem_analysis;
+  hir_program hir;
   FILE *f, *o;
   int opt;
   optind = 1;
@@ -109,6 +108,7 @@ main (int argc, char *argv[])
   }
 
   convert_program (root, &sem_analysis);
+  hir_from_program (sem_analysis, &hir);
 
   if (flags & FLAG_OUTPUT)
     {
@@ -119,7 +119,7 @@ main (int argc, char *argv[])
       set_codegen_output (stdout);
     }
 
-  gen_program (sem_analysis);
+  gen_program (&hir);
 
   return 0;
 }
